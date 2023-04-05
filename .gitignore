@@ -1,0 +1,5 @@
+*.eep
+*.elf
+*.hex
+*.bin
+*.3mf
