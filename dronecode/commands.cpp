@@ -69,7 +69,7 @@ void halt(int error)
 
 void halt_command(uint8_t ignored0, uint8_t ignored1, uint8_t ignored2)
 {
-
+    halt(0);
 }
 
 void start_command(uint8_t fancy, uint8_t ignored1, uint8_t ignored2)
@@ -86,4 +86,6 @@ void setup_commands()
 {
     size_t index=0;
     ADD_COMMAND(halt_command);
+    ADD_COMMAND(start_command);
+    ADD_COMMAND(stop_command);
 }
