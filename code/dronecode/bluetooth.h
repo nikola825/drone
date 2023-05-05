@@ -1,7 +1,7 @@
 #pragma once
 #include "common.h"
 
-extern HardwareSerial &bluetooth_port;
+#define bluetooth_port Serial3
 
 void bt_init();
 

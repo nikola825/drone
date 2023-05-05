@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include "commandimpl.h"
 
 constexpr int HALT_BUFFER_OVERFLOW = 1;
 constexpr int HALT_BUFFER_UNDERFLOW = 2;

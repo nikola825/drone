@@ -4,8 +4,6 @@ constexpr uint32_t BT_COMM_BAUD_RATE = 115200;
 constexpr uint32_t BT_AT_BAUD_RATE = 38400;
 constexpr uint32_t SERIAL_AT_BAUD_RATE = 9600;
 
-HardwareSerial &bluetooth_port;
-
 void bt_init()
 {
     bluetooth_port.begin(BT_COMM_BAUD_RATE);

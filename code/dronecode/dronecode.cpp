@@ -10,11 +10,12 @@ void setup()
 {
     init_motors();
     setup_commands();
+    bt_init();
     pinMode(LED_BUILTIN, OUTPUT);
     Serial.begin(9600);
 }
 
 void loop()
 {
-    process_commands(bluetooth_port);    
+    process_commands(bluetooth_port);
 }

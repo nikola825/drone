@@ -3,3 +3,4 @@
 *.hex
 *.bin
 *.3mf
+cmake-build-*
