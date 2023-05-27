@@ -1,6 +1,7 @@
 import socket
 import time
 from commands_gen import *
+from storage_gen import *
 
 COMMAND_INPUT_MAX = 200
 THRUST_MAX = 500
@@ -38,9 +39,24 @@ def main():
                       socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
     s.connect(('00:18:E4:35:53:8C', 1))
 
-    halt_command(s)
+    while True:
+        sq=input("Thrust: ")
+        if sq.strip().lower()=="s":
+            print("Stopping")
+            stop_command(s)
+        elif sq.strip().lower().startswith("r"):
+            roll = int(sq[1:])
+            print("writing roll", roll)
+            storage_write_roll_input(s, roll)
+        else:
+            v = int(sq)
+            print("writing", v)
+            storage_write_thrust_input(s, v)
+
+    """halt_command(s)
     start_command(s)
     stop_command(s)
     read_storage_command(s, 37)
-    write_storage_command(s, 42, 3, 327)
+    write_storage_command(s, 42, 3, 327)"""
 
+main()

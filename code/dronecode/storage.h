@@ -1,11 +1,25 @@
 #pragma once
 #include "common.h"
 
-uint8_t storage[1024];
+extern uint8_t storage[1024];
+
+#ifndef STOREDVAR
 
 #define STOREDVAR(TYPE,NAME,PREVIOUS) \
-    TYPE &NAME=(TYPE&)(*(&PREVIOUS+1)); \
-    
+    extern TYPE &NAME;
 
-uint32_t storage_start=(float&)(storage[0]);
-STOREDVAR(uint8_t, somevar, storage_start);
+#endif
+
+extern uint32_t& storage_start;
+
+// navigation inputs
+STOREDVAR(uint16_t, thrust_input, storage_start);
+STOREDVAR(int16_t, yaw_input, thrust_input);
+STOREDVAR(int16_t, pitch_input, yaw_input);
+STOREDVAR(int16_t, roll_input, pitch_input);
+
+// motor inputs
+STOREDVAR(uint16_t, motor_thrust, roll_input);
+STOREDVAR(int16_t, motor_yaw, motor_thrust);
+STOREDVAR(int16_t, motor_pitch, motor_yaw);
+STOREDVAR(int16_t, motor_roll, motor_pitch);

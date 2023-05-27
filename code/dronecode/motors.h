@@ -2,8 +2,16 @@
 
 #include "common.h"
 
+constexpr int SERVO_MIN = 1000;
+constexpr int SERVO_MAX = 2000;
+constexpr int SERVO_RANGE = SERVO_MAX - SERVO_MIN;
+
+constexpr int MOTOR_INPUT_RANGE = 200;
+constexpr int FAST_STOP_DELAY_TIME_MS = 100;
+constexpr uint16_t THRUST_INPUT_RANGE = 2000;
+
 void init_motors();
 
-void set_thrust(uint16_t thrust);
+void stop_motors();
 
-void motor_start_fancy();
+void drive();

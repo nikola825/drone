@@ -1,4 +1,5 @@
 #include "commands.h"
+#include "motors.h"
 
 #define COMMAND_SETUP_START
 #define COMMAND_SETUP_END
@@ -31,7 +32,7 @@ uint8_t buffer_peek()
     if(buffer_start==buffer_end)
     {
         halt(HALT_BUFFER_UNDERFLOW);
-        return;
+        return 0;
     }
     return buffer[buffer_start];
 }
@@ -135,11 +136,6 @@ void process_commands(HardwareSerial &serial)
     DBG_PRINTLN(2, "Done processing commands");
 }
 
-void halt(int error)
-{
-    halted=true;
-}
-
-void setup_commands()
+void init_commands()
 {
 }
