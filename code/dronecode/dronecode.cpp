@@ -4,13 +4,15 @@
 #include "motors.h"
 #include "commands.h"
 #include "navigation.h"
+#include "motion.h"
+#include "mpucalib.h"
+
 
 bool halted=false;
 uint8_t global_error;
 
 constexpr int ERROR_FLASH_PERIOD = 300;
 constexpr int ERROR_FLASH_DELAY = 1000;
-
 void flash_error()
 {
     for(int i=0; i<global_error; i++)
@@ -25,12 +27,16 @@ void flash_error()
 
 void setup()
 {
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LOW);
+
+    //calibrate_mpu();
+    Serial.begin(9600);
     bt_init();
     init_commands();
     init_navigation();
     init_motors();
-    pinMode(LED_BUILTIN, OUTPUT);
-    Serial.begin(9600);
+    init_motion();
 
     digitalWrite(LED_BUILTIN, HIGH);
 
@@ -40,10 +46,15 @@ void setup()
 
 void loop()
 {
+    unsigned long x= millis();
     DBG_PRINTLN(2, "Loop");
+    digitalWrite(LED_BUILTIN, LOW);
     process_commands(bluetooth_port);
     navigate();
     drive();
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(5);
+    //Serial.println(millis()-x);
 }
 
 void halt(uint8_t error)

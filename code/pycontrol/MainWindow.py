@@ -1,29 +1,99 @@
+from functools import partial
+from PySide6 import QtCore
+from PySide6 import Qt
+from PySide6.QtGui import QIntValidator, QKeyEvent
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QSizePolicy, \
-    QLabel, QSpinBox, QCheckBox, QDial, QSlider, QLCDNumber, QProgressBar
-from PySide6.QtCore import Qt, QTimer, Slot
+    QLabel, QSpinBox, QCheckBox, QDial, QSlider, QLCDNumber, QProgressBar, QLineEdit
+from PySide6.QtCore import Qt, QTimer, Slot, Signal, QObject, QEvent
 
-from dronecontrol import COMMAND_INPUT_MAX, THRUST_MAX
+from dronecontrol import COMMAND_INPUT_MAX, THRUST_MAX, Drone, DroneVariable, THRUST_VARIABLE_NAME, ROLL_VARIABLE_NAME, \
+    PITCH_VARIABLE_NAME, YAW_VARIABLE_NAME
+
+EXPAND_EVERYWHERE_POLICY = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
 
 class MainWindow(QWidget):
+    line_edits: dict[str, QLineEdit]
+    pressed_trims: dict[str, int]
+    pressed_commands: dict[str, int]
+    command_inputs: dict[int, (str, int)]
+    trim_inputs: dict[int, (str, int)]
+
     def __init__(self):
         super().__init__()
-        self.expand_policy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.setup_layout()
-        self.down_keys = set()
+        self.drone = Drone()
         self.setup_timer()
+        self.pressed_trims = {}
+        self.line_edits = {}
+        self.command_inputs = {}
+        self.pressed_commands = {}
 
-    def keyPressEvent(self, event):
-        self.down_keys.add(event.key())
+        self.yaw_variable = self.drone.variables[YAW_VARIABLE_NAME]
+        self.pitch_variable = self.drone.variables[PITCH_VARIABLE_NAME]
+        self.roll_variable = self.drone.variables[ROLL_VARIABLE_NAME]
+        self.thrust_variable = self.drone.variables[THRUST_VARIABLE_NAME]
 
-    def keyReleaseEvent(self, event):
-        self.down_keys.remove(event.key())
+        self.setup_layout()
+        self.setup_keymap()
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if not event.isAutoRepeat():
+            self.handle_command_press(event.key())
+            self.handle_trim_press(event.key())
+            if event.key() == Qt.Key.Key_X:
+                self.drone_stop()
+        super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event: QKeyEvent):
+        if not event.isAutoRepeat():
+            self.handle_command_release(event.key())
+            self.handle_trim_release(event.key())
+
+        super().keyPressEvent(event)
+
+    def setup_keymap(self):
+        self.command_inputs = {
+            Qt.Key.Key_Q: (YAW_VARIABLE_NAME, 1),
+            Qt.Key.Key_E: (YAW_VARIABLE_NAME, -1),
+            Qt.Key.Key_A: (ROLL_VARIABLE_NAME, -1),
+            Qt.Key.Key_D: (ROLL_VARIABLE_NAME, 1),
+            Qt.Key.Key_W: (PITCH_VARIABLE_NAME, -1),
+            Qt.Key.Key_S: (PITCH_VARIABLE_NAME, 1)
+        }
+
+        self.trim_inputs = {
+            Qt.Key.Key_P: (THRUST_VARIABLE_NAME, 1),
+            Qt.Key.Key_L: (THRUST_VARIABLE_NAME, -1),
+        }
+
+    def handle_command_press(self, key: int):
+        if key in self.command_inputs:
+            variable_name, sign = self.command_inputs[key]
+            self.drone.variables[variable_name].set_input(sign)
+            self.draw_status()
+
+    def handle_command_release(self, key: int):
+        if key in self.command_inputs:
+            variable_name, sign = self.command_inputs[key]
+            self.drone.variables[variable_name].set_input(0)
+            self.draw_status()
+
+    def handle_trim_press(self, key: int):
+        if key in self.trim_inputs:
+            variable_name, sign = self.trim_inputs[key]
+            self.pressed_trims[variable_name] = sign
+
+    def handle_trim_release(self, key: int):
+        if key in self.trim_inputs:
+            variable_name, sign = self.trim_inputs[key]
+            if variable_name in self.pressed_trims:
+                del self.pressed_trims[variable_name]
 
     def setup_layout(self):
         self.setup_base_layout()
         self.setup_top_menu()
         self.setup_status_grid()
-        self.setup_property_list()
+        self.setup_variable_list()
 
     def setup_base_layout(self):
         self.base_layout = QGridLayout(self)
@@ -32,8 +102,8 @@ class MainWindow(QWidget):
         self.status_grid = QGridLayout()
         self.property_list = QGridLayout()
 
-        self.fill(self.base_layout, 1, 0, self.expand_policy)
-        self.fill(self.base_layout, 1, 1, self.expand_policy)
+        self.fill(self.base_layout, 1, 0, EXPAND_EVERYWHERE_POLICY)
+        self.fill(self.base_layout, 1, 1, EXPAND_EVERYWHERE_POLICY)
 
         self.base_layout.addLayout(self.top_menu, 0, 0, 1, -1)
         self.base_layout.addLayout(self.status_grid, 1, 0)
@@ -41,11 +111,14 @@ class MainWindow(QWidget):
 
     def setup_top_menu(self):
         top_menu_buttons = [
-            (QPushButton(text="Connect"), None),
-            (QPushButton(text="Start"), None),
-            (QPushButton(text="Stop"), None)
+            ("Connect", self.bt_connect),
+            ("Start", None),
+            ("Stop", self.drone_stop)
         ]
-        for button, callback in top_menu_buttons:
+        for text, callback in top_menu_buttons:
+            button = QPushButton(text=text)
+            if callback is not None:
+                button.clicked.connect(callback)
             self.top_menu.addWidget(button)
 
     def setup_status_grid(self):
@@ -55,7 +128,7 @@ class MainWindow(QWidget):
 
         for row in range(status_grid_rows):
             for column in range(status_grid_columns):
-                self.fill(self.status_grid, row, column, self.expand_policy)
+                self.fill(self.status_grid, row, column, EXPAND_EVERYWHERE_POLICY)
 
         self.status_grid.setHorizontalSpacing(20)
         self.status_grid.setVerticalSpacing(20)
@@ -96,23 +169,51 @@ class MainWindow(QWidget):
         self.thrust_lcd = QLCDNumber(4)
         self.status_grid.addWidget(self.thrust_lcd, 6, 0)
 
-    def setup_property_list(self):
-        properties = ["Yaw", "Pitch", "Rol"]
+    def setup_variable_list(self):
+        variables_to_skip = [
+            THRUST_VARIABLE_NAME
+        ]
         row_count = 0
-        for prop in properties:
-            label = QLabel(text=prop)
-            box = QSpinBox()
-            periodic_refresh = QCheckBox(text="Auto refresh")
-            apply_button = QPushButton(text="Apply")
-            refresh_button = QPushButton(text="Refresh")
+        for variable_name in self.drone.variables:
+            if variable_name in variables_to_skip:
+                continue
+
+            variable = self.drone.variables[variable_name]
+            label = QLabel(text=variable_name)
+            editor = QLineEdit(str(variable.trim_value))
+            editor.setValidator(QIntValidator(variable.min_value, variable.max_value, self))
+            increment_button = QPushButton(text="+")
+            decrement_button = QPushButton(text="-")
+
+            increment_button.pressed.connect(partial(self.trim_press, variable_name, 1))
+            decrement_button.pressed.connect(partial(self.trim_press, variable_name, -1))
+
+            increment_button.released.connect(partial(self.trim_release, variable_name))
+            decrement_button.released.connect(partial(self.trim_release, variable_name))
+
+            editor.editingFinished.connect(partial(self.variable_edit, editor, variable))
 
             self.property_list.addWidget(label, row_count, 0)
-            self.property_list.addWidget(box, row_count, 1)
-            self.property_list.addWidget(periodic_refresh, row_count, 2)
-            self.property_list.addWidget(apply_button, row_count, 3)
-            self.property_list.addWidget(refresh_button, row_count, 4)
+            self.property_list.addWidget(editor, row_count, 1)
+            self.property_list.addWidget(increment_button, row_count, 2)
+            self.property_list.addWidget(decrement_button, row_count, 3)
+
+            self.line_edits[variable_name] = editor
 
             row_count += 1
+
+    def trim_press(self, variable_name: str, sign: int):
+        self.pressed_trims[variable_name] = sign
+
+    def trim_release(self, variable_name):
+        if variable_name in self.pressed_trims:
+            del self.pressed_trims[variable_name]
+
+    def variable_edit(self, editor: QLineEdit, variable: DroneVariable):
+        old_trim, new_trim = variable.trim_set(int(editor.text()))
+        if old_trim != new_trim:
+            editor.setText(str(new_trim))
+        self.draw_status()
 
     def setup_timer(self):
         self.periodic_timer = QTimer()
@@ -120,9 +221,20 @@ class MainWindow(QWidget):
         self.periodic_timer.timeout.connect(self.timer_tick)
         self.periodic_timer.start()
 
+    def update_variables(self):
+        for variable_name in self.pressed_trims:
+            self.update_trim(variable_name, self.pressed_trims[variable_name])
+
+    def update_trim(self, variable_name, sign):
+        old_trim, new_trim = self.drone.variables[variable_name].trim_increment(sign)
+
+        if (old_trim != new_trim) and (variable_name in self.line_edits):
+            self.line_edits[variable_name].setText(str(new_trim))
+
     @Slot()
     def timer_tick(self):
-        pass
+        self.update_variables()
+        self.draw_status()
 
     def get_filler(self, size_policy):
         dummy_label = QLabel()
@@ -133,12 +245,33 @@ class MainWindow(QWidget):
         filler = self.get_filler(size_policy)
         grid.addWidget(filler, row, column)
 
+    @QtCore.Slot()
+    def bt_connect(self):
+        self.drone.reconnect()
+
+    @QtCore.Slot()
+    def drone_stop(self):
+        self.drone.stop()
+
+    def draw_status(self):
+        self.roll_bar.setValue(self.roll_variable.get_cumulative_value())
+        self.roll_lcd.display(self.roll_variable.get_cumulative_value())
+
+        self.yaw_dial.setValue(self.yaw_variable.get_cumulative_value())
+        self.yaw_lcd.display(self.yaw_variable.get_cumulative_value())
+
+        self.pitch_bar.setValue(self.pitch_variable.get_cumulative_value())
+        self.pitch_lcd.display(self.pitch_variable.get_cumulative_value())
+
+        self.thrust_bar.setValue(self.thrust_variable.get_cumulative_value())
+        self.thrust_lcd.display(self.thrust_variable.get_cumulative_value())
+
 
 def start_app():
     app = QApplication([])
 
-    mainWindow = MainWindow()
-    mainWindow.resize(1000, 600)
-    mainWindow.show()
+    main_window = MainWindow()
+    main_window.resize(1000, 600)
+    main_window.show()
 
     app.exec()

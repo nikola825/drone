@@ -9,6 +9,8 @@ constexpr uint8_t HALT_MOTOR_INPUT_OUT_OF_RANGE = 3;
 constexpr uint8_t HALT_THRUST_INPUT_OUT_OF_RANGE = 4;
 constexpr uint8_t HALT_SERVO_INPUT_OUT_OF_RANGE = 5;
 constexpr uint8_t HALT_BY_USER_INPUT = 7;
+constexpr uint8_t HALT_MPU_FAILED = 8;
+constexpr uint8_t HALT_DMP_FAILED = 9;
 
 extern bool halted;
 

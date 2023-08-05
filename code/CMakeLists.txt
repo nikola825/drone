@@ -19,7 +19,9 @@ FILE(GLOB ARDUINO_HEADERS ${ARDUINO_CODE_FOLDER}/*.h)
 set(ARDUINO_INCLUDES
         ~/.arduino15/packages/arduino/hardware/avr/1.8.5/cores/arduino
         ~/.arduino15/packages/arduino/hardware/avr/1.8.5/variants/mega
-        ~/Arduino/libraries/Servo/src)
+        ~/Arduino/libraries/Servo/src
+        ~/.arduino15/packages/arduino/hardware/avr/1.8.5/libraries/Wire/src
+        ~/Arduino/libraries/MPU6050/src/)
 add_executable(arduino_dummy_target ${ARDUINO_CODE} ${ARDUINO_HEADERS})
 target_compile_definitions(arduino_dummy_target PUBLIC UBRRH)
 target_compile_definitions(arduino_dummy_target PUBLIC UBRR1H)

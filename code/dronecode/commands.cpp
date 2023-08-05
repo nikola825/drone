@@ -103,6 +103,7 @@ void process_command()
 
         generated_checksum ^= end_byte;
 
+        DBG_PRINTVAR(2, checksum);
         DBG_PRINTVAR(2, generated_checksum);
 
         if(generated_checksum !=0)

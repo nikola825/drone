@@ -81,6 +81,12 @@ void stop_motors()
             delay(delay_time);
         }
     }
+
+    for (auto &motor: all_motors)
+    {
+        motor->writeMicroseconds(SERVO_MIN);
+    }
+
     thrust_input = 0;
     motor_thrust = 0;
 }
@@ -116,7 +122,7 @@ void drive()
     uint16_t rear_left = (motor_thrust + motor_roll - motor_pitch - motor_yaw) / 4;
     uint16_t rear_right = (motor_thrust - motor_roll - motor_pitch + motor_yaw) / 4;
 
-    DBG_PRINTVAR(1, front_left);
+    DBG_PRINTVAR(2, front_left);
     DBG_PRINTVAR(2, front_right);
     DBG_PRINTVAR(2, rear_left);
     DBG_PRINTVAR(2, rear_right);
