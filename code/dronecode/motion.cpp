@@ -5,6 +5,7 @@
 #include <MPU6050_6Axis_MotionApps20.h>
 #include <Wire.h>
 #include "common.h"
+#include <math.h>
 
 MPU6050 mpu;
 uint8_t fifoBuffer[64];
@@ -17,6 +18,8 @@ VectorFloat gravity;    // [x, y, z]            gravity vector
 float euler[3];         // [psi, theta, phi]    Euler angle container
 float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
+constexpr float RADIANS_TO_DEGREES_FACTOR = 180.0f * 0.31830988618379067154f;
+
 void init_motion()
 {
     Wire.begin();
@@ -26,26 +29,26 @@ void init_motion()
     mpu.initialize();
 
     DBG_PRINTLN(0, "Testing MPU connection");
-    if(mpu.testConnection())
+    if (mpu.testConnection())
     {
         DBG_PRINTLN(0, "MPU connection OK");
 
         DBG_PRINTVAR(0, "Flashing DMP");
-        uint8_t  dmpInitStatus = mpu.dmpInitialize();
-        if(dmpInitStatus != 0)
+        uint8_t dmpInitStatus = mpu.dmpInitialize();
+        if (dmpInitStatus != 0)
         {
             halt(HALT_DMP_FAILED);
         }
         else
         {
             DBG_PRINTVAR(0, "DMP flash OK");
-            mpu.setXAccelOffset(-4757);
-            mpu.setYAccelOffset(-106);
-            mpu.setZAccelOffset(4648);
+            mpu.setXAccelOffset(-4779);
+            mpu.setYAccelOffset(-98);
+            mpu.setZAccelOffset(4637);
 
-            mpu.setXGyroOffset(139);
-            mpu.setYGyroOffset(-7);
-            mpu.setZGyroOffset(-2);
+            mpu.setXGyroOffset(130);
+            mpu.setYGyroOffset(-13);
+            mpu.setZGyroOffset(-3);
 
             mpu.setRate(1);
 
@@ -74,8 +77,8 @@ void get_ypr(float &y, float &p, float &r)
         mpu.dmpGetGravity(&gravity, &q);
         mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-        y = ypr[0];
-        p = ypr[1];
-        r = ypr[2];
+        y = ypr[0] * RADIANS_TO_DEGREES_FACTOR;
+        p = ypr[1] * RADIANS_TO_DEGREES_FACTOR;
+        r = ypr[2] * RADIANS_TO_DEGREES_FACTOR;
     }
 }

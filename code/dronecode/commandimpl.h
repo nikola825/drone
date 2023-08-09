@@ -1,8 +1,8 @@
 #pragma once
 #include "common.h"
 
-#define CALL_DBGLEVEL 1
-#define ARG_DBGLEVEL 1
+#define CALL_DBGLEVEL 2
+#define ARG_DBGLEVEL 2
 
 #define ARG_DECLARE(TYPE, NAME)\
     TYPE &NAME = *((TYPE*)(&(args[arg_index])));\

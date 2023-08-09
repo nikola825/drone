@@ -33,6 +33,7 @@ void setup()
     //calibrate_mpu();
     Serial.begin(9600);
     bt_init();
+    init_storage();
     init_commands();
     init_navigation();
     init_motors();
@@ -53,7 +54,7 @@ void loop()
     navigate();
     drive();
     digitalWrite(LED_BUILTIN, HIGH);
-    delay(5);
+    delay(10);
     //Serial.println(millis()-x);
 }
 

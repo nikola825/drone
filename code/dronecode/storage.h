@@ -18,8 +18,15 @@ STOREDVAR(int16_t, yaw_input, thrust_input);
 STOREDVAR(int16_t, pitch_input, yaw_input);
 STOREDVAR(int16_t, roll_input, pitch_input);
 
+// PID parameters
+STOREDVAR(int16_t, yaw_kp, roll_input);
+STOREDVAR(int16_t, yaw_ki, yaw_kp);
+STOREDVAR(int16_t, yaw_kd, yaw_ki);
+
 // motor inputs
-STOREDVAR(uint16_t, motor_thrust, roll_input);
+STOREDVAR(uint16_t, motor_thrust, yaw_kd);
 STOREDVAR(int16_t, motor_yaw, motor_thrust);
 STOREDVAR(int16_t, motor_pitch, motor_yaw);
 STOREDVAR(int16_t, motor_roll, motor_pitch);
+
+void init_storage();

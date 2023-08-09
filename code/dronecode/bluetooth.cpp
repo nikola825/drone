@@ -9,6 +9,44 @@ void bt_init()
     bluetooth_port.begin(BT_COMM_BAUD_RATE);
 }
 
+#ifdef BT_DEBUG
+
+void bt_send_int(uint8_t id, uint32_t value)
+{
+    uint8_t *cursor = (uint8_t*)(&value);
+    bluetooth_port.write((uint8_t) 0x42);
+    bluetooth_port.write((uint8_t)0x00);
+    bluetooth_port.write((uint8_t)id);
+    for(int i=0;i<sizeof(value);++i)
+    {
+        bluetooth_port.write(*cursor);
+        ++cursor;
+    }
+    bluetooth_port.write((uint8_t)0x24);
+}
+
+void bt_send_float(uint8_t id, float value)
+{
+    uint8_t *cursor = (uint8_t*)(&value);
+    bluetooth_port.write((uint8_t)0x42);
+    bluetooth_port.write((uint8_t)0x1);
+    bluetooth_port.write((uint8_t)id);
+    int i=0;
+    for(;i<sizeof(value);++i)
+    {
+        bluetooth_port.write(*cursor);
+        ++cursor;
+    }
+    bluetooth_port.write((uint8_t)0x24);
+}
+
+#else
+
+#define bt_send_int(uint8_t, uint16_t)
+#define bt_send_float(uint8_t, uint16_t)
+
+#endif
+
 /*
 AT
 AT+NAME:DrnTest

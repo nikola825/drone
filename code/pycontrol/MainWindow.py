@@ -3,13 +3,14 @@ from PySide6 import QtCore
 from PySide6 import Qt
 from PySide6.QtGui import QIntValidator, QKeyEvent
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QSizePolicy, \
-    QLabel, QSpinBox, QCheckBox, QDial, QSlider, QLCDNumber, QProgressBar, QLineEdit
+    QLabel, QSpinBox, QCheckBox, QDial, QSlider, QLCDNumber, QProgressBar, QLineEdit, QPlainTextEdit
 from PySide6.QtCore import Qt, QTimer, Slot, Signal, QObject, QEvent
 
 from dronecontrol import COMMAND_INPUT_MAX, THRUST_MAX, Drone, DroneVariable, THRUST_VARIABLE_NAME, ROLL_VARIABLE_NAME, \
     PITCH_VARIABLE_NAME, YAW_VARIABLE_NAME
 
 EXPAND_EVERYWHERE_POLICY = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+EXPAND_MIN_HORIZONTAL = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
 
 class MainWindow(QWidget):
@@ -18,6 +19,10 @@ class MainWindow(QWidget):
     pressed_commands: dict[str, int]
     command_inputs: dict[int, (str, int)]
     trim_inputs: dict[int, (str, int)]
+    setter_inputs: dict[int, (str, int)]
+
+    status_box: QPlainTextEdit
+    rewrite_status_checkbox: QCheckBox
 
     def __init__(self):
         super().__init__()
@@ -27,6 +32,7 @@ class MainWindow(QWidget):
         self.line_edits = {}
         self.command_inputs = {}
         self.pressed_commands = {}
+        self.setter_inputs = {}
 
         self.yaw_variable = self.drone.variables[YAW_VARIABLE_NAME]
         self.pitch_variable = self.drone.variables[PITCH_VARIABLE_NAME]
@@ -48,13 +54,12 @@ class MainWindow(QWidget):
         if not event.isAutoRepeat():
             self.handle_command_release(event.key())
             self.handle_trim_release(event.key())
+            self.handle_setter_key(event.key())
 
         super().keyPressEvent(event)
 
     def setup_keymap(self):
         self.command_inputs = {
-            Qt.Key.Key_Q: (YAW_VARIABLE_NAME, 1),
-            Qt.Key.Key_E: (YAW_VARIABLE_NAME, -1),
             Qt.Key.Key_A: (ROLL_VARIABLE_NAME, -1),
             Qt.Key.Key_D: (ROLL_VARIABLE_NAME, 1),
             Qt.Key.Key_W: (PITCH_VARIABLE_NAME, -1),
@@ -64,6 +69,12 @@ class MainWindow(QWidget):
         self.trim_inputs = {
             Qt.Key.Key_P: (THRUST_VARIABLE_NAME, 1),
             Qt.Key.Key_L: (THRUST_VARIABLE_NAME, -1),
+            Qt.Key.Key_Q: (YAW_VARIABLE_NAME, 1),
+            Qt.Key.Key_E: (YAW_VARIABLE_NAME, -1),
+        }
+
+        self.setter_inputs = {
+            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 800)
         }
 
     def handle_command_press(self, key: int):
@@ -89,11 +100,17 @@ class MainWindow(QWidget):
             if variable_name in self.pressed_trims:
                 del self.pressed_trims[variable_name]
 
+    def handle_setter_key(self, key):
+        if key in self.setter_inputs:
+            variable_name, new_value = self.setter_inputs[key]
+            self.drone.variables[variable_name].trim_set(new_value)
+
     def setup_layout(self):
         self.setup_base_layout()
         self.setup_top_menu()
         self.setup_status_grid()
         self.setup_variable_list()
+        self.setup_status_box()
 
     def setup_base_layout(self):
         self.base_layout = QGridLayout(self)
@@ -103,11 +120,22 @@ class MainWindow(QWidget):
         self.property_list = QGridLayout()
 
         self.fill(self.base_layout, 1, 0, EXPAND_EVERYWHERE_POLICY)
-        self.fill(self.base_layout, 1, 1, EXPAND_EVERYWHERE_POLICY)
+        self.fill(self.base_layout, 1, 1, EXPAND_MIN_HORIZONTAL)
+        self.fill(self.base_layout, 1, 2, EXPAND_EVERYWHERE_POLICY)
 
-        self.base_layout.addLayout(self.top_menu, 0, 0, 1, -1)
+        self.base_layout.addLayout(self.top_menu, 0, 0, 1, 2)
         self.base_layout.addLayout(self.status_grid, 1, 0)
         self.base_layout.addLayout(self.property_list, 1, 1)
+
+    def setup_status_box(self):
+        self.rewrite_status_checkbox = QCheckBox("Rewrite status")
+        self.rewrite_status_checkbox.setChecked(True)
+
+        self.status_box = QPlainTextEdit()
+        self.status_box.setEnabled(False)
+
+        self.base_layout.addWidget(self.rewrite_status_checkbox, 0, 2)
+        self.base_layout.addWidget(self.status_box, 1, 2)
 
     def setup_top_menu(self):
         top_menu_buttons = [
@@ -128,7 +156,7 @@ class MainWindow(QWidget):
 
         for row in range(status_grid_rows):
             for column in range(status_grid_columns):
-                self.fill(self.status_grid, row, column, EXPAND_EVERYWHERE_POLICY)
+                self.fill(self.status_grid, row, column, EXPAND_MIN_HORIZONTAL)
 
         self.status_grid.setHorizontalSpacing(20)
         self.status_grid.setVerticalSpacing(20)
@@ -235,13 +263,28 @@ class MainWindow(QWidget):
     def timer_tick(self):
         self.update_variables()
         self.draw_status()
+        self.update_telemetry(self.drone.get_telemetry_snapshot())
+
+    def update_telemetry(self, snapshot: dict):
+        values_list = [(val_id, snapshot[val_id]) for val_id in snapshot]
+        values_list.sort(key=lambda x: x[0])
+
+        text_line = []
+        for value in values_list:
+            val_id, val_val = value
+            text_line.append("{:10.2f}".format(val_val))
+        text_line = " ".join(text_line)
+        if not self.rewrite_status_checkbox.isChecked():
+            text_line = self.status_box.toPlainText() + "\n"+text_line
+        self.status_box.setPlainText(text_line)
+        self.status_box.verticalScrollBar().setValue(self.status_box.verticalScrollBar().maximum())
 
     def get_filler(self, size_policy):
         dummy_label = QLabel()
         dummy_label.setSizePolicy(size_policy)
         return dummy_label
 
-    def fill(self, grid, row, column, size_policy):
+    def fill(self, grid: QGridLayout, row: int, column: int, size_policy):
         filler = self.get_filler(size_policy)
         grid.addWidget(filler, row, column)
 

@@ -103,9 +103,11 @@ void drive()
         return;
     }
 
-    if (motor_roll > MOTOR_INPUT_RANGE || motor_roll < -MOTOR_INPUT_RANGE ||
-        motor_pitch > MOTOR_INPUT_RANGE || motor_pitch < -MOTOR_INPUT_RANGE ||
-        motor_yaw > MOTOR_INPUT_RANGE || motor_yaw < -MOTOR_INPUT_RANGE)
+    const int16_t motor_input_range = motor_thrust >> 2;
+
+    if (motor_roll > motor_input_range || motor_roll < -motor_input_range ||
+        motor_pitch > motor_input_range || motor_pitch < -motor_input_range ||
+        motor_yaw > motor_input_range || motor_yaw < -motor_input_range)
     {
         halt(HALT_MOTOR_INPUT_OUT_OF_RANGE);
         return;

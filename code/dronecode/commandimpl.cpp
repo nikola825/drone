@@ -20,10 +20,6 @@ void (*(commands[256]))(uint8_t[8])={
     COMMAND_FUNCTION_DEF3(write_storage_command, uint16_t, address, uint8_t, length, uint32_t, value)
 
         uint8_t *cursor = &(storage[address]);
-        uint16_t *ti = &thrust_input;
-
-        DBG_PRINTLN(2, (uint32_t)cursor);
-        DBG_PRINTLN(2, (uint32_t)ti);
 
         for(uint8_t i=0;i<length;i++)
         {
