@@ -16,5 +16,7 @@ extern bool halted;
 
 extern uint8_t global_error;
 
+extern bool watchdog_enabled;
+
 void halt(uint8_t error);
 

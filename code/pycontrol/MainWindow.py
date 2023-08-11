@@ -74,7 +74,7 @@ class MainWindow(QWidget):
         }
 
         self.setter_inputs = {
-            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 800)
+            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 1010)
         }
 
     def handle_command_press(self, key: int):
@@ -266,6 +266,8 @@ class MainWindow(QWidget):
         self.update_telemetry(self.drone.get_telemetry_snapshot())
 
     def update_telemetry(self, snapshot: dict):
+        if not self.rewrite_status_checkbox.isChecked() and self.thrust_variable.trim_value < 1000:
+            return
         values_list = [(val_id, snapshot[val_id]) for val_id in snapshot]
         values_list.sort(key=lambda x: x[0])
 

@@ -8,7 +8,7 @@
 #define IABS(X) ((X)>=0?(X):(-(X)))
 #define IMIN(X, Y) ((X)>(Y)?(Y):(X))
 #define RANGE_LIMIT(INP, LIM) IMIN((LIM), IABS(INP))* ISGN(INP)
-#define THRUST_NAVIGATION_THRESHOLD 600
+#define THRUST_NAVIGATION_THRESHOLD 1000
 
 struct PidState
 {
@@ -120,18 +120,32 @@ void navigate()
 
     uint16_t command_limit = thrust_input >> 2;
 
-    float yaw_error = angle_error(fit_angle(yaw_pid.target + yaw_input), yaw_measured);
+    float yaw_error = -angle_error(fit_angle(yaw_pid.target + yaw_input), yaw_measured);
     float yaw_pid_result;
     pid(yaw_pid.lasterror, yaw_error, dt, yaw_kp, 0.001f * yaw_ki, 0.01f * yaw_kd, command_limit,
         yaw_pid.i, yaw_pid_result);
     yaw_pid.lasterror = yaw_error;
 
-    bt_send_float(1, yaw_measured);
-    bt_send_float(2, yaw_error);
-    bt_send_float(3, yaw_pid.i);
-    bt_send_float(4, yaw_pid_result);
+    float roll_error = -angle_error(roll_pid.target, roll_measured);
+    float roll_pid_result;
+    pid(roll_pid.lasterror, roll_error, dt, roll_kp, 0.001*roll_ki, 0.01f*roll_kd, 100, roll_pid.i, roll_pid_result);
+    roll_pid.lasterror = roll_error;
+
+    float pitch_error = -angle_error(pitch_pid.target, pitch_measured);
+    float pitch_pid_result;
+    pid(pitch_pid.lasterror, pitch_error, dt, pitch_kp, 0.001*pitch_ki, 0.01f*pitch_kd, 100, pitch_pid.i, pitch_pid_result);
+    pitch_pid.lasterror = pitch_error;
+
+    bt_send_float(1, yaw_error);
+    bt_send_float(2, yaw_pid_result);
+
+    bt_send_float(3, pitch_error);
+    bt_send_float(4, pitch_pid_result);
+
+    bt_send_float(5, roll_error);
+    bt_send_float(6, roll_pid_result);
 
     motor_yaw = RANGE_LIMIT(yaw_pid_result, command_limit);
-    motor_pitch = RANGE_LIMIT(pitch_input, command_limit);
-    motor_roll = RANGE_LIMIT(roll_input, command_limit);
+    motor_pitch = RANGE_LIMIT(pitch_pid_result, command_limit);
+    motor_roll = RANGE_LIMIT(roll_pid_result, command_limit);
 }

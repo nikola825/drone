@@ -1,5 +1,6 @@
 #include "commands.h"
 #include "motors.h"
+#include <avr/wdt.h>
 
 #define COMMAND_SETUP_START
 #define COMMAND_SETUP_END
@@ -112,6 +113,16 @@ void process_command()
             return;
         }
 
+        if(!watchdog_enabled)
+        {
+            Serial.println("WATCHDOG ON");
+            wdt_enable(WDTO_120MS);
+        }
+
+        watchdog_enabled = true;
+        wdt_reset();
+        Serial.println("WATCHDOG RESET");
+        Serial.println(command_id);
         commands[command_id](&(params[2]));
     }
     else

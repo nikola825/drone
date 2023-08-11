@@ -10,6 +10,7 @@
 
 bool halted=false;
 uint8_t global_error;
+bool watchdog_enabled = false;
 
 constexpr int ERROR_FLASH_PERIOD = 300;
 constexpr int ERROR_FLASH_DELAY = 1000;

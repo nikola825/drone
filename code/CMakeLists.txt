@@ -17,6 +17,7 @@ FILE(GLOB ARDUINO_CODE ${ARDUINO_CODE_FOLDER}/*.cpp)
 FILE(GLOB ARDUINO_CODE_INO ${ARDUINO_CODE_FOLDER}/*.ino)
 FILE(GLOB ARDUINO_HEADERS ${ARDUINO_CODE_FOLDER}/*.h)
 set(ARDUINO_INCLUDES
+        ~/.arduino15/packages/arduino/tools/avr-gcc/7.3.0-atmel3.6.1-arduino7/avr/include/
         ~/.arduino15/packages/arduino/hardware/avr/1.8.5/cores/arduino
         ~/.arduino15/packages/arduino/hardware/avr/1.8.5/variants/mega
         ~/Arduino/libraries/Servo/src

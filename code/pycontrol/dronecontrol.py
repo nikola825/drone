@@ -8,7 +8,7 @@ from typing import Callable
 from threading import Thread, Lock
 
 COMMAND_INPUT_MAX = 300
-COMMAND_INPUT = 100
+COMMAND_INPUT = 60
 THRUST_MAX = 1500
 
 ANGLE_INPUT_MAX = 180
@@ -21,6 +21,14 @@ ROLL_VARIABLE_NAME = "roll"
 YAW_KP = 50
 YAW_KI = 15
 YAW_KD = 100
+
+PITCH_KP = 5
+PITCH_KI = 1
+PITCH_KD = 10
+
+ROLL_KP = 5
+ROLL_KI = 1
+ROLL_KD = 10
 
 
 def dummy_setter(*args, **kwargs):
@@ -107,6 +115,7 @@ class Drone:
     variables: dict[str, DroneVariable]
 
     telemetry_thread: Thread
+    heartbeat_thread: Thread
     telemetry_buffer: bytes
     telemetry_values: dict
     telemetry_lock: Lock
@@ -116,7 +125,9 @@ class Drone:
         self.variables = {}
         self.reset_variables()
         self.telemetry_thread = Thread(target=self.receiver_thread_body, daemon=True)
+        self.heartbeat_thread = Thread(target=self.heartbeat_thread_body, daemon=True)
         self.telemetry_thread.start()
+        self.heartbeat_thread.start()
         self.telemetry_buffer = b""
         self.telemetry_values = {}
         self.telemetry_lock = Lock()
@@ -126,9 +137,10 @@ class Drone:
             self.disconnect()
             self.telemetry_values = {}
             print("Connecting")
-            self.connection = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-            self.connection.connect(('00:18:E4:35:53:8C', 1))
+            connection = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+            connection.connect(('00:18:E4:35:53:8C', 1))
             print("Connection successful, resetting drone")
+            self.connection = connection
             self.stop()
             self.reset_variables()
             self.apply_all_variables()
@@ -140,9 +152,11 @@ class Drone:
     def disconnect(self):
         if self.connection is not None:
             print("Disconnecting")
+            connection = self.connection
+            self.connection = None
             try:
-                self.connection.shutdown(socket.SHUT_RDWR)
-                self.connection.close()
+                connection.shutdown(socket.SHUT_RDWR)
+                connection.close()
                 print("Socket closed")
                 time.sleep(1)
                 self.telemetry_buffer = b""
@@ -166,7 +180,13 @@ class Drone:
 
             "yaw_kp": DroneVariable(self, "Yaw Kp", YAW_KP, None, 0, 1, 0, 1000, storage_write_yaw_kp),
             "yaw_ki": DroneVariable(self, "Yaw Ki", YAW_KI, None, 0, 1, 0, 1000, storage_write_yaw_ki),
-            "yaw_kd": DroneVariable(self, "Yaw Kd", YAW_KD, None, 0, 1, 0, 1000, storage_write_yaw_kd)
+            "yaw_kd": DroneVariable(self, "Yaw Kd", YAW_KD, None, 0, 1, 0, 1000, storage_write_yaw_kd),
+            "pitch_kp": DroneVariable(self, "pitch Kp", PITCH_KP, None, 0, 1, 0, 1000, storage_write_pitch_kp),
+            "pitch_ki": DroneVariable(self, "pitch Ki", PITCH_KI, None, 0, 1, 0, 1000, storage_write_pitch_ki),
+            "pitch_kd": DroneVariable(self, "pitch Kd", PITCH_KD, None, 0, 1, 0, 1000, storage_write_pitch_kd),
+            "roll_kp": DroneVariable(self, "roll Kp", ROLL_KP, None, 0, 1, 0, 1000, storage_write_roll_kp),
+            "roll_ki": DroneVariable(self, "roll Ki", ROLL_KI, None, 0, 1, 0, 1000, storage_write_roll_ki),
+            "roll_kd": DroneVariable(self, "roll Kd", ROLL_KD, None, 0, 1, 0, 1000, storage_write_roll_kd)
         }
 
     def reset_variables(self):
@@ -245,6 +265,20 @@ class Drone:
             else:
                 var_val = struct.unpack("<f", var_val)[0]
             self.telemetry_values[var_id] = var_val
+
+    def heartbeat(self):
+        if self.is_connected():
+            heartbeat_command(self.connection)
+
+    def heartbeat_thread_body(self):
+        print("Heartbeat thread start")
+        while True:
+            try:
+                self.heartbeat()
+                time.sleep(0.05)
+            except Exception as e:
+                print("Heartbeat thread ERROR:", e)
+                time.sleep(2)
 
 
 def dcmain():
