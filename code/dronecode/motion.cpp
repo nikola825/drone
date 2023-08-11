@@ -44,13 +44,16 @@ void init_motion()
         else
         {
             DBG_PRINTVAR(0, "DMP flash OK");
+
+            mpu.setDLPFMode(0);
+
             mpu.setXAccelOffset(-2630);
             mpu.setYAccelOffset(-1512);
             mpu.setZAccelOffset(1443);
 
             mpu.setXGyroOffset(5);
             mpu.setYGyroOffset(38);
-            mpu.setZGyroOffset(47);
+            mpu.setZGyroOffset(58);
 
             mpu.setRate(0);
 

@@ -126,12 +126,12 @@ void navigate()
         yaw_pid.i, yaw_pid_result);
     yaw_pid.lasterror = yaw_error;
 
-    float roll_error = -angle_error(roll_pid.target, roll_measured);
+    float roll_error = -angle_error(fit_angle(roll_pid.target-roll_input/100.f), roll_measured);
     float roll_pid_result;
     pid(roll_pid.lasterror, roll_error, dt, roll_kp, 0.001*roll_ki, 0.01f*roll_kd, 100, roll_pid.i, roll_pid_result);
     roll_pid.lasterror = roll_error;
 
-    float pitch_error = -angle_error(pitch_pid.target, pitch_measured);
+    float pitch_error = -angle_error(fit_angle(pitch_pid.target-pitch_input/100.f), pitch_measured);
     float pitch_pid_result;
     pid(pitch_pid.lasterror, pitch_error, dt, pitch_kp, 0.001*pitch_ki, 0.01f*pitch_kd, 100, pitch_pid.i, pitch_pid_result);
     pitch_pid.lasterror = pitch_error;

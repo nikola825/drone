@@ -69,8 +69,8 @@ class MainWindow(QWidget):
         self.trim_inputs = {
             Qt.Key.Key_P: (THRUST_VARIABLE_NAME, 1),
             Qt.Key.Key_L: (THRUST_VARIABLE_NAME, -1),
-            Qt.Key.Key_Q: (YAW_VARIABLE_NAME, 1),
-            Qt.Key.Key_E: (YAW_VARIABLE_NAME, -1),
+            Qt.Key.Key_Q: (YAW_VARIABLE_NAME, -1),
+            Qt.Key.Key_E: (YAW_VARIABLE_NAME, 1),
         }
 
         self.setter_inputs = {

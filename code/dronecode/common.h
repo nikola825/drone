@@ -14,7 +14,7 @@ constexpr uint8_t HALT_MPU_FAILED = 8;
 constexpr uint8_t HALT_DMP_FAILED = 9;
 constexpr uint8_t MPU_TIMEOUT = 10;
 
-constexpr uint8_t WATCHDOG_TIMEOUT = WDTO_250MS;
+constexpr uint8_t WATCHDOG_TIMEOUT = WDTO_500MS;
 
 extern bool halted;
 

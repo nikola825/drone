@@ -7,9 +7,9 @@ from storage_gen import *
 from typing import Callable
 from threading import Thread, Lock
 
-COMMAND_INPUT_MAX = 300
-COMMAND_INPUT = 60
-THRUST_MAX = 1500
+COMMAND_INPUT_MAX = 500
+COMMAND_INPUT = 100
+THRUST_MAX = 2000
 
 ANGLE_INPUT_MAX = 180
 
