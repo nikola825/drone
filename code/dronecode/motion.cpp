@@ -24,6 +24,8 @@ void init_motion()
 {
     Wire.begin();
     Wire.setClock(400000);
+    Wire.setWireTimeout(100000, false);
+    Wire.clearWireTimeoutFlag();
 
     DBG_PRINTLN(1, "Initializing MPU");
     mpu.initialize();
@@ -122,6 +124,10 @@ void get_ypr(float &y, float &p, float &r)
         mpu.dmpGetQuaternion(&q, fifoBuffer);
         mpu.dmpGetGravity(&gravity, &q);
         mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+    }
+    if(Wire.getWireTimeoutFlag())
+    {
+        halt(MPU_TIMEOUT);
     }
 
     y = ypr[0] * RADIANS_TO_DEGREES_FACTOR;

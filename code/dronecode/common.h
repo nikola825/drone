@@ -2,6 +2,7 @@
 #include<Arduino.h>
 #include<Servo.h>
 #include "debug.h"
+#include <avr/wdt.h>
 
 constexpr uint8_t HALT_BUFFER_OVERFLOW = 1;
 constexpr uint8_t HALT_BUFFER_UNDERFLOW = 2;
@@ -11,6 +12,9 @@ constexpr uint8_t HALT_SERVO_INPUT_OUT_OF_RANGE = 5;
 constexpr uint8_t HALT_BY_USER_INPUT = 7;
 constexpr uint8_t HALT_MPU_FAILED = 8;
 constexpr uint8_t HALT_DMP_FAILED = 9;
+constexpr uint8_t MPU_TIMEOUT = 10;
+
+constexpr uint8_t WATCHDOG_TIMEOUT = WDTO_250MS;
 
 extern bool halted;
 

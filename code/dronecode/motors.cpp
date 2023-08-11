@@ -65,6 +65,11 @@ void stop_motors()
     DBG_PRINTVAR(2, delay_time);
     uint32_t thrust_target = motor_thrust / 4;
 
+    if(watchdog_enabled)
+    {
+        wdt_disable();
+    }
+
     while (thrust_target > 0)
     {
         thrust_target = (thrust_target * STOP_DECAY_PERCENTAGE) / 100;
@@ -80,6 +85,11 @@ void stop_motors()
         {
             delay(delay_time);
         }
+    }
+
+    if(watchdog_enabled)
+    {
+        wdt_enable(WATCHDOG_TIMEOUT);
     }
 
     for (auto &motor: all_motors)

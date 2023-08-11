@@ -1,6 +1,6 @@
 #include "commands.h"
 #include "motors.h"
-#include <avr/wdt.h>
+#include "bluetooth.h"
 
 #define COMMAND_SETUP_START
 #define COMMAND_SETUP_END
@@ -112,17 +112,14 @@ void process_command()
             DBG_PRINTLN(1, "Invalid generated checksum");
             return;
         }
-
         if(!watchdog_enabled)
         {
-            Serial.println("WATCHDOG ON");
-            wdt_enable(WDTO_120MS);
+            wdt_enable(WATCHDOG_TIMEOUT);
         }
 
         watchdog_enabled = true;
         wdt_reset();
-        Serial.println("WATCHDOG RESET");
-        Serial.println(command_id);
+
         commands[command_id](&(params[2]));
     }
     else

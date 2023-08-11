@@ -48,7 +48,6 @@ void setup()
 
 void loop()
 {
-    unsigned long x= millis();
     DBG_PRINTLN(2, "Loop");
     digitalWrite(LED_BUILTIN, LOW);
     process_commands(bluetooth_port);
@@ -61,6 +60,7 @@ void loop()
 
 void halt(uint8_t error)
 {
+    wdt_disable();
     DBG_PRINTLN(1, "Halting");
     DBG_PRINTVAR(1, error);
     halted=true;
