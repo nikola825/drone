@@ -1,139 +1,194 @@
 //
 // Created by nidzo on 8/5/23.
 //
-#include <I2Cdev.h>
-#include <MPU6050_6Axis_MotionApps20.h>
 #include <Wire.h>
 #include "common.h"
-#include <math.h>
+#include "bluetooth.h"
+#include "motion.h"
 
-MPU6050 mpu;
-uint8_t fifoBuffer[64];
+int16_t ypr_binary[3];
+uint8_t calib_data_check[CALIB_BLOCK_LEN];
 
-Quaternion q;           // [w, x, y, z]         quaternion container
-VectorInt16 aa;         // [x, y, z]            accel sensor measurements
-VectorInt16 aaReal;     // [x, y, z]            gravity-free accel sensor measurements
-VectorInt16 aaWorld;    // [x, y, z]            world-frame accel sensor measurements
-VectorFloat gravity;    // [x, y, z]            gravity vector
-float euler[3];         // [psi, theta, phi]    Euler angle container
-float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+uint8_t read8(uint8_t address)
+{
+    uint8_t data;
+    Wire.beginTransmission(MPU_ADDRESS);
+    Wire.write(address);
 
-constexpr float RADIANS_TO_DEGREES_FACTOR = 180.0f * 0.31830988618379067154f;
+    if(Wire.endTransmission(true) != 0)
+    {
+        halt(WIRE_FAIL);
+    }
+
+    if(Wire.requestFrom(MPU_ADDRESS, 1, true) != 1)
+    {
+        halt(WIRE_FAIL);
+    }
+
+    if(Wire.available())
+    {
+        data = Wire.read();
+    }
+    else
+    {
+        halt(WIRE_FAIL);
+    }
+    return data;
+}
+
+uint16_t read16(uint8_t address)
+{
+    uint16_t data;
+    read_buffer(address, 2, &data);
+    return data;
+}
+
+void read_buffer(uint8_t address, int len, void* buffer)
+{
+    Wire.beginTransmission(MPU_ADDRESS);
+    Wire.write(address);
+
+    if(Wire.endTransmission(true) != 0)
+    {
+        halt(WIRE_FAIL);
+    }
+
+    if(Wire.requestFrom(MPU_ADDRESS, len, true) != len)
+    {
+        halt(WIRE_FAIL);
+    }
+
+    if(Wire.readBytes((uint8_t*)buffer, len) != len)
+    {
+        halt(WIRE_FAIL);
+    }
+}
+
+void write8(uint8_t address, uint8_t data)
+{
+    Wire.beginTransmission(MPU_ADDRESS);
+    Wire.write(address);
+
+    Wire.write(data);
+
+    if(Wire.endTransmission(true) != 0)
+    {
+        halt(WIRE_FAIL);
+    }
+}
+
+void get_ypr(float &yaw, float &pitch, float &roll)
+{
+    read_buffer(EUL_Heading_LSB, 6, ypr_binary);
+
+    yaw = ypr_binary[0]/16.0;
+    pitch = ypr_binary[1]/16.0;
+    roll = ypr_binary[2]/16.0;
+    /*int16_t yaw_int, pitch_int, roll_int;
+    yaw_int = read16(EUL_Heading_LSB);
+    pitch_int = read16(EUL_Roll_LSB);
+    roll_int = read16(EUL_Pitch_LSB);
+
+    yaw = yaw_int/16.0;
+    pitch = pitch_int/16.0;
+    roll = roll_int/16.0;*/
+}
+
+void init_mpu()
+{
+    DBG_PRINTLN(1,  "Motion init");
+    delay(700);
+    Wire.begin();
+
+    DBG_PRINTLN(2, "Wire init done");
+
+    if(read8(CHIP_ID) != 0xa0)
+    {
+        DBG_PRINTLN(1, "Invalid BNO chip id");
+        halt(MPU_FAIL);
+    }
+    DBG_PRINTLN(2, "BNO chip id OK");
+
+    if(read8(ACC_ID) != 0xfb)
+    {
+        DBG_PRINTLN(1, "Invalid BNO acc id");
+        halt(MPU_FAIL);
+    }
+    DBG_PRINTLN(2, "BNO acc id OK");
+
+    if(read8(MAG_ID) != 0x32)
+    {
+        DBG_PRINTLN(1, "Invalid BNO mag id");
+        halt(MPU_FAIL);
+    }
+    DBG_PRINTLN(2, "BNO mag id OK");
+
+    if(read8(GYR_ID) != 0x0f)
+    {
+        DBG_PRINTLN(1, "Invalid BNO gyro id");
+        halt(MPU_FAIL);
+    }
+    DBG_PRINTLN(2, "BNO gyro id OK");
+
+    DBG_PRINTLN(1, "BNO triggering reset");
+
+    uint8_t trigger_value = read8(SYS_TRIGGER);
+    trigger_value |= SYS_TRIGGER_RESET;
+
+    write8(SYS_TRIGGER, trigger_value);
+
+    delay(750);
+
+    if((read8(ST_RESULT) & 0x0f) != 0x0f)
+    {
+        DBG_PRINTLN(1, "BNO POST fail");
+        halt(MPU_FAIL);
+    }
+    DBG_PRINTLN(1, "BNO POST OK");
+}
+
+void mpu_setmode_config()
+{
+    write8(OPR_MODE, OPR_MODE_CONFIG);
+    delay(750);
+}
+
+void mpu_setmode_fusion()
+{
+    write8(OPR_MODE, OPR_MODE_NDOF);
+    delay(750);
+}
 
 void init_motion()
 {
-    Wire.begin();
-    Wire.setClock(400000);
-    Wire.setWireTimeout(100000, false);
-    Wire.clearWireTimeoutFlag();
+    init_mpu();
 
-    DBG_PRINTLN(1, "Initializing MPU");
-    mpu.initialize();
+    load_calib_data();
 
-    DBG_PRINTLN(0, "Testing MPU connection");
-    if (mpu.testConnection())
+    DBG_PRINTLN(1, "Writing calib data");
+    for(int i=0;i<CALIB_BLOCK_LEN; i++)
     {
-        DBG_PRINTLN(0, "MPU connection OK");
+        write8(CALIB_BLOCK_START+i, calib_data[i]);
+    }
 
-        DBG_PRINTVAR(0, "Flashing DMP");
-        uint8_t dmpInitStatus = mpu.dmpInitialize();
-        if (dmpInitStatus != 0)
+
+    DBG_PRINTLN(2, "Verifying calib data");
+    read_buffer(CALIB_BLOCK_START, CALIB_BLOCK_LEN, calib_data_check);
+    for(int i=0;i<CALIB_BLOCK_LEN; i++)
+    {
+        if(calib_data_check[i]!=calib_data[i])
         {
-            halt(HALT_DMP_FAILED);
-        }
-        else
-        {
-            DBG_PRINTVAR(0, "DMP flash OK");
-
-            mpu.setDLPFMode(0);
-
-            mpu.setXAccelOffset(-2630);
-            mpu.setYAccelOffset(-1512);
-            mpu.setZAccelOffset(1443);
-
-            mpu.setXGyroOffset(5);
-            mpu.setYGyroOffset(38);
-            mpu.setZGyroOffset(58);
-
-            mpu.setRate(0);
-
-            // Calibration Time: generate offsets and calibrate our MPU6050
-            mpu.CalibrateAccel(6);
-            mpu.CalibrateGyro(6);
-            mpu.PrintActiveOffsets();
-
-            // turn on the DMP, now that it's ready
-            DBG_PRINTLN(0, "Enabling DMP...");
-            mpu.setDMPEnabled(true);
-            mpu.getIntStatus();
+            DBG_PRINTLN(1, "Calib verify fail");
+            halt(MPU_FAIL);
         }
     }
-    else
+
+    DBG_PRINTLN(1, "Calib write ok");
+
+    mpu_setmode_fusion();
+
+    if(read8(SYS_STATUS) != 5 || read8(SYS_ERR) != 0)
     {
-        halt(HALT_MPU_FAILED);
+        halt(MPU_FAIL);
     }
-}
-
-void raw_ypr(float &yaw, float &pitch, float &roll)
-{
-    static float yaw_offset=0, pitch_offset=0, roll_offset=0;
-    static float yaw_prev=0, pitch_prev=0, roll_prev=0;
-    static unsigned long prev_t = millis();
-    unsigned long t = millis();
-    unsigned long dt=t-prev_t;
-    static unsigned long calib_count = 100;
-
-    int iroll_rotation, ipitch_rotation, iyaw_rotation;
-    mpu.getRotation(&iroll_rotation, &ipitch_rotation, &iyaw_rotation);
-
-    float roll_rotation = iroll_rotation;
-    float pitch_rotation = ipitch_rotation;
-    float yaw_rotation = iyaw_rotation;
-
-    if(calib_count)
-    {
-        yaw_offset += yaw_rotation/100.0f;
-        pitch_offset += pitch_rotation/100.0f;
-        roll_offset += roll_rotation/100.0f;
-
-        calib_count--;
-
-        yaw=pitch=roll=0;
-    }
-    else
-    {
-        yaw_rotation -= yaw_offset;
-        pitch_rotation -= pitch_offset;
-        roll_rotation -= roll_offset;
-        yaw = yaw_prev + yaw_rotation/16.4f*dt/1000;
-        pitch = pitch_prev + pitch_rotation/16.4f*dt/1000;
-        roll = roll_prev + roll_rotation/16.4f*dt/1000;
-
-        /*yaw=yaw_offset;
-        pitch=pitch_offset;
-        roll=roll_offset;*/
-    }
-
-    yaw_prev = yaw;
-    roll_prev = roll;
-    pitch_prev = pitch;
-}
-
-void get_ypr(float &y, float &p, float &r)
-{
-    //raw_ypr(y, p, r);
-    while (mpu.dmpGetCurrentFIFOPacket(fifoBuffer))
-    {
-        mpu.dmpGetQuaternion(&q, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-    }
-    if(Wire.getWireTimeoutFlag())
-    {
-        halt(MPU_TIMEOUT);
-    }
-
-    y = ypr[0] * RADIANS_TO_DEGREES_FACTOR;
-    p = ypr[1] * RADIANS_TO_DEGREES_FACTOR;
-    r = ypr[2] * RADIANS_TO_DEGREES_FACTOR;
 }

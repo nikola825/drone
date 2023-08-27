@@ -16,31 +16,31 @@ def storage_write_roll_input(sock, arg_val):
     write_storage(sock, 10, 2, arg_val, 'int16_t')
 
 def storage_write_yaw_kp(sock, arg_val):
-    write_storage(sock, 12, 2, arg_val, 'int16_t')
+    write_storage(sock, 12, 2, arg_val, 'uint16_t')
 
 def storage_write_yaw_ki(sock, arg_val):
-    write_storage(sock, 14, 2, arg_val, 'int16_t')
+    write_storage(sock, 14, 2, arg_val, 'uint16_t')
 
 def storage_write_yaw_kd(sock, arg_val):
-    write_storage(sock, 16, 2, arg_val, 'int16_t')
+    write_storage(sock, 16, 2, arg_val, 'uint16_t')
 
 def storage_write_pitch_kp(sock, arg_val):
-    write_storage(sock, 18, 2, arg_val, 'int16_t')
+    write_storage(sock, 18, 2, arg_val, 'uint16_t')
 
 def storage_write_pitch_ki(sock, arg_val):
-    write_storage(sock, 20, 2, arg_val, 'int16_t')
+    write_storage(sock, 20, 2, arg_val, 'uint16_t')
 
 def storage_write_pitch_kd(sock, arg_val):
-    write_storage(sock, 22, 2, arg_val, 'int16_t')
+    write_storage(sock, 22, 2, arg_val, 'uint16_t')
 
 def storage_write_roll_kp(sock, arg_val):
-    write_storage(sock, 24, 2, arg_val, 'int16_t')
+    write_storage(sock, 24, 2, arg_val, 'uint16_t')
 
 def storage_write_roll_ki(sock, arg_val):
-    write_storage(sock, 26, 2, arg_val, 'int16_t')
+    write_storage(sock, 26, 2, arg_val, 'uint16_t')
 
 def storage_write_roll_kd(sock, arg_val):
-    write_storage(sock, 28, 2, arg_val, 'int16_t')
+    write_storage(sock, 28, 2, arg_val, 'uint16_t')
 
 def storage_write_motor_thrust(sock, arg_val):
     write_storage(sock, 30, 2, arg_val, 'uint16_t')

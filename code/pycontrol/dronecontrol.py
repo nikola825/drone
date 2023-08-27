@@ -1,6 +1,7 @@
 import socket
 import time
 import struct
+import math
 
 from commands_gen import *
 from storage_gen import *
@@ -8,7 +9,7 @@ from typing import Callable
 from threading import Thread, Lock
 
 COMMAND_INPUT_MAX = 500
-COMMAND_INPUT = 100
+COMMAND_INPUT = 40
 THRUST_MAX = 2000
 
 ANGLE_INPUT_MAX = 180
@@ -18,17 +19,26 @@ PITCH_VARIABLE_NAME = "pitch"
 YAW_VARIABLE_NAME = "yaw"
 ROLL_VARIABLE_NAME = "roll"
 
-YAW_KP = 50
-YAW_KI = 15
-YAW_KD = 100
+Ziegler_Kpf = 0.2
+Ziegler_Kif = 0.4
+Ziegler_Kdf = 2/30.0
+def ziegler_calc(ku, tu):
+    return int(round(Ziegler_Kpf*ku)), int(round(Ziegler_Kif*ku/tu)), int(round(Ziegler_Kdf*ku*tu))
 
-PITCH_KP = 5
-PITCH_KI = 1
-PITCH_KD = 10
 
-ROLL_KP = 5
-ROLL_KI = 1
-ROLL_KD = 10
+YAW_KU = 12000
+YAW_TU = 0.8
+YAW_KP, YAW_KI, YAW_KD = ziegler_calc(YAW_KU, YAW_TU)
+
+PITCH_KU = 1200
+PITCH_TU = 1.2
+
+PITCH_KP, PITCH_KI, PITCH_KD = ziegler_calc(PITCH_KU, PITCH_TU)
+
+ROLL_KU = 1200
+ROLL_TU = 1.2
+
+ROLL_KP, ROLL_KI, ROLL_KD = ziegler_calc(ROLL_KU, ROLL_TU)
 
 
 def dummy_setter(*args, **kwargs):
@@ -178,15 +188,15 @@ class Drone:
                                               storage_write_roll_input),
             THRUST_VARIABLE_NAME: DroneVariable(self, "Thrust", 0, 0, 0, 10, 0, THRUST_MAX, storage_write_thrust_input),
 
-            "yaw_kp": DroneVariable(self, "Yaw Kp", YAW_KP, None, 0, 1, 0, 1000, storage_write_yaw_kp),
-            "yaw_ki": DroneVariable(self, "Yaw Ki", YAW_KI, None, 0, 1, 0, 1000, storage_write_yaw_ki),
-            "yaw_kd": DroneVariable(self, "Yaw Kd", YAW_KD, None, 0, 1, 0, 1000, storage_write_yaw_kd),
-            "pitch_kp": DroneVariable(self, "pitch Kp", PITCH_KP, None, 0, 1, 0, 1000, storage_write_pitch_kp),
-            "pitch_ki": DroneVariable(self, "pitch Ki", PITCH_KI, None, 0, 1, 0, 1000, storage_write_pitch_ki),
-            "pitch_kd": DroneVariable(self, "pitch Kd", PITCH_KD, None, 0, 1, 0, 1000, storage_write_pitch_kd),
-            "roll_kp": DroneVariable(self, "roll Kp", ROLL_KP, None, 0, 1, 0, 1000, storage_write_roll_kp),
-            "roll_ki": DroneVariable(self, "roll Ki", ROLL_KI, None, 0, 1, 0, 1000, storage_write_roll_ki),
-            "roll_kd": DroneVariable(self, "roll Kd", ROLL_KD, None, 0, 1, 0, 1000, storage_write_roll_kd)
+            "yaw_kp": DroneVariable(self, "Yaw Kp", YAW_KP, None, 0, 1, 0, 50000, storage_write_yaw_kp),
+            "yaw_ki": DroneVariable(self, "Yaw Ki", YAW_KI, None, 0, 1, 0, 50000, storage_write_yaw_ki),
+            "yaw_kd": DroneVariable(self, "Yaw Kd", YAW_KD, None, 0, 1, 0, 50000, storage_write_yaw_kd),
+            "pitch_kp": DroneVariable(self, "pitch Kp", PITCH_KP, None, 0, 1, 0, 50000, storage_write_pitch_kp),
+            "pitch_ki": DroneVariable(self, "pitch Ki", PITCH_KI, None, 0, 1, 0, 50000, storage_write_pitch_ki),
+            "pitch_kd": DroneVariable(self, "pitch Kd", PITCH_KD, None, 0, 1, 0, 50000, storage_write_pitch_kd),
+            "roll_kp": DroneVariable(self, "roll Kp", ROLL_KP, None, 0, 1, 0, 50000, storage_write_roll_kp),
+            "roll_ki": DroneVariable(self, "roll Ki", ROLL_KI, None, 0, 1, 0, 50000, storage_write_roll_ki),
+            "roll_kd": DroneVariable(self, "roll Kd", ROLL_KD, None, 0, 1, 0, 50000, storage_write_roll_kd)
         }
 
     def reset_variables(self):

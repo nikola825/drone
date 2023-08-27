@@ -1,3 +1,4 @@
+import datetime
 from functools import partial
 from PySide6 import QtCore
 from PySide6 import Qt
@@ -5,12 +6,16 @@ from PySide6.QtGui import QIntValidator, QKeyEvent
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QSizePolicy, \
     QLabel, QSpinBox, QCheckBox, QDial, QSlider, QLCDNumber, QProgressBar, QLineEdit, QPlainTextEdit
 from PySide6.QtCore import Qt, QTimer, Slot, Signal, QObject, QEvent
+from threading import Thread, Lock
+import evdev
+import matplotlib.pyplot as plt
 
 from dronecontrol import COMMAND_INPUT_MAX, THRUST_MAX, Drone, DroneVariable, THRUST_VARIABLE_NAME, ROLL_VARIABLE_NAME, \
     PITCH_VARIABLE_NAME, YAW_VARIABLE_NAME
 
 EXPAND_EVERYWHERE_POLICY = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 EXPAND_MIN_HORIZONTAL = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+LOG_LENGTH = 100
 
 
 class MainWindow(QWidget):
@@ -24,6 +29,12 @@ class MainWindow(QWidget):
     status_box: QPlainTextEdit
     rewrite_status_checkbox: QCheckBox
 
+    joystick: evdev.InputDevice
+    joystick_thread: Thread
+    joystick_lock: Lock
+
+    logged_data: list[list[tuple]]
+
     def __init__(self):
         super().__init__()
         self.drone = Drone()
@@ -33,6 +44,8 @@ class MainWindow(QWidget):
         self.command_inputs = {}
         self.pressed_commands = {}
         self.setter_inputs = {}
+        self.logged_data = []
+        self.ax = None
 
         self.yaw_variable = self.drone.variables[YAW_VARIABLE_NAME]
         self.pitch_variable = self.drone.variables[PITCH_VARIABLE_NAME]
@@ -41,6 +54,14 @@ class MainWindow(QWidget):
 
         self.setup_layout()
         self.setup_keymap()
+
+        for device in evdev.list_devices():
+            device = evdev.InputDevice(device)
+            if "Joystick" in device.name:
+                self.joystick = device
+                self.joystick_lock = Lock()
+                self.joystick_thread = Thread(target=self.joystick_listener, daemon=True)
+                self.joystick_thread.start()
 
     def keyPressEvent(self, event: QKeyEvent):
         if not event.isAutoRepeat():
@@ -58,12 +79,26 @@ class MainWindow(QWidget):
 
         super().keyPressEvent(event)
 
+    def joystick_listener(self):
+        for event in self.joystick.read_loop():
+            if event.type == evdev.ecodes.EV_KEY:
+                print(evdev.categorize(event))
+                if event.value == 1:
+                    self.handle_command_press(("J", event.code))
+                    self.handle_trim_press(("J", event.code))
+                elif event.value == 0:
+                    self.handle_command_release(("J", event.code))
+                    self.handle_trim_release(("J", event.code))
+                    self.handle_setter_key(("J", event.code))
+                if event.code == evdev.ecodes.BTN_BASE3:
+                    self.drone_stop()
+
     def setup_keymap(self):
         self.command_inputs = {
             Qt.Key.Key_A: (ROLL_VARIABLE_NAME, -1),
             Qt.Key.Key_D: (ROLL_VARIABLE_NAME, 1),
             Qt.Key.Key_W: (PITCH_VARIABLE_NAME, -1),
-            Qt.Key.Key_S: (PITCH_VARIABLE_NAME, 1)
+            Qt.Key.Key_S: (PITCH_VARIABLE_NAME, 1),
         }
 
         self.trim_inputs = {
@@ -71,36 +106,41 @@ class MainWindow(QWidget):
             Qt.Key.Key_L: (THRUST_VARIABLE_NAME, -1),
             Qt.Key.Key_Q: (YAW_VARIABLE_NAME, -1),
             Qt.Key.Key_E: (YAW_VARIABLE_NAME, 1),
+            ("J", evdev.ecodes.BTN_PINKIE): (YAW_VARIABLE_NAME, 1),
+            ("J", evdev.ecodes.BTN_TOP2): (YAW_VARIABLE_NAME, -1),
+            ("J", evdev.ecodes.BTN_BASE): (THRUST_VARIABLE_NAME, -1),
+            ("J", evdev.ecodes.BTN_BASE2): (THRUST_VARIABLE_NAME, 1)
         }
 
         self.setter_inputs = {
-            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 1010)
+            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 1010),
+            ("J", evdev.ecodes.BTN_BASE4): (THRUST_VARIABLE_NAME, 1010)
         }
 
-    def handle_command_press(self, key: int):
+    def handle_command_press(self, key: int | tuple[str, int]):
         if key in self.command_inputs:
             variable_name, sign = self.command_inputs[key]
             self.drone.variables[variable_name].set_input(sign)
             self.draw_status()
 
-    def handle_command_release(self, key: int):
+    def handle_command_release(self, key: int | tuple[str, int]):
         if key in self.command_inputs:
             variable_name, sign = self.command_inputs[key]
             self.drone.variables[variable_name].set_input(0)
             self.draw_status()
 
-    def handle_trim_press(self, key: int):
+    def handle_trim_press(self, key: int | tuple[str, int]):
         if key in self.trim_inputs:
             variable_name, sign = self.trim_inputs[key]
             self.pressed_trims[variable_name] = sign
 
-    def handle_trim_release(self, key: int):
+    def handle_trim_release(self, key: int | tuple[str, int]):
         if key in self.trim_inputs:
             variable_name, sign = self.trim_inputs[key]
             if variable_name in self.pressed_trims:
                 del self.pressed_trims[variable_name]
 
-    def handle_setter_key(self, key):
+    def handle_setter_key(self, key: int | tuple[str, int]):
         if key in self.setter_inputs:
             variable_name, new_value = self.setter_inputs[key]
             self.drone.variables[variable_name].trim_set(new_value)
@@ -141,7 +181,8 @@ class MainWindow(QWidget):
         top_menu_buttons = [
             ("Connect", self.bt_connect),
             ("Start", None),
-            ("Stop", self.drone_stop)
+            ("Stop", self.drone_stop),
+            ("Plot", self.plot)
         ]
         for text, callback in top_menu_buttons:
             button = QPushButton(text=text)
@@ -266,18 +307,25 @@ class MainWindow(QWidget):
         self.update_telemetry(self.drone.get_telemetry_snapshot())
 
     def update_telemetry(self, snapshot: dict):
-        if not self.rewrite_status_checkbox.isChecked() and self.thrust_variable.trim_value < 1000:
-            return
+        # if not self.rewrite_status_checkbox.isChecked() and self.thrust_variable.trim_value < 1000:
+        #    return
         values_list = [(val_id, snapshot[val_id]) for val_id in snapshot]
         values_list.sort(key=lambda x: x[0])
+        logged_list = [(-1, datetime.datetime.now())] + values_list
+        self.logged_data.append(logged_list)
+        print(logged_list)
+        self.logged_data = self.logged_data[-LOG_LENGTH:]
 
         text_line = []
         for value in values_list:
             val_id, val_val = value
-            text_line.append("{:10.2f}".format(val_val))
-        text_line = " ".join(text_line)
+            if type(val_val) == int:
+                text_line.append(f"{val_val:10d}")
+            else:
+                text_line.append(f"{val_val:10.2f}")
+        text_line = ",".join(text_line)
         if not self.rewrite_status_checkbox.isChecked():
-            text_line = self.status_box.toPlainText() + "\n"+text_line
+            text_line = self.status_box.toPlainText() + "\n" + text_line
         self.status_box.setPlainText(text_line)
         self.status_box.verticalScrollBar().setValue(self.status_box.verticalScrollBar().maximum())
 
@@ -310,6 +358,20 @@ class MainWindow(QWidget):
 
         self.thrust_bar.setValue(self.thrust_variable.get_cumulative_value())
         self.thrust_lcd.display(self.thrust_variable.get_cumulative_value())
+
+    @QtCore.Slot()
+    def plot(self):
+        if self.ax is None:
+            plt.ion()
+            self.fig, self.ax = plt.subplots()
+            self.line, = self.ax.plot([(x[0][1]-self.logged_data[0][0][1]).total_seconds() for x in self.logged_data], [x[1][1] for x in self.logged_data])
+            plt.plot()
+
+        self.line.set_ydata([x[1][1] for x in self.logged_data])
+        self.line.set_xdata([(x[0][1]-self.logged_data[0][0][1]).total_seconds() for x in self.logged_data])
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
 
 
 def start_app():
