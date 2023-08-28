@@ -16,7 +16,7 @@ from dronecontrol import COMMAND_INPUT_MAX, THRUST_MAX, Drone, DroneVariable, TH
 EXPAND_EVERYWHERE_POLICY = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 EXPAND_MIN_HORIZONTAL = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 LOG_LENGTH = 100
-
+PLOTTED_VALUE_ID = 6
 
 class MainWindow(QWidget):
     line_edits: dict[str, QLineEdit]
@@ -35,6 +35,10 @@ class MainWindow(QWidget):
 
     logged_data: list[list[tuple]]
 
+    plotted_values: list[tuple[datetime.datetime, int | float]]
+
+    plot_refresh: bool
+
     def __init__(self):
         super().__init__()
         self.drone = Drone()
@@ -46,6 +50,9 @@ class MainWindow(QWidget):
         self.setter_inputs = {}
         self.logged_data = []
         self.ax = None
+        self.fig = None
+        self.plotted_values = []
+        self.plot_refresh = True
 
         self.yaw_variable = self.drone.variables[YAW_VARIABLE_NAME]
         self.pitch_variable = self.drone.variables[PITCH_VARIABLE_NAME]
@@ -109,7 +116,8 @@ class MainWindow(QWidget):
             ("J", evdev.ecodes.BTN_PINKIE): (YAW_VARIABLE_NAME, 1),
             ("J", evdev.ecodes.BTN_TOP2): (YAW_VARIABLE_NAME, -1),
             ("J", evdev.ecodes.BTN_BASE): (THRUST_VARIABLE_NAME, -1),
-            ("J", evdev.ecodes.BTN_BASE2): (THRUST_VARIABLE_NAME, 1)
+            ("J", evdev.ecodes.BTN_BASE2): (THRUST_VARIABLE_NAME, 1),
+
         }
 
         self.setter_inputs = {
@@ -182,7 +190,7 @@ class MainWindow(QWidget):
             ("Connect", self.bt_connect),
             ("Start", None),
             ("Stop", self.drone_stop),
-            ("Plot", self.plot)
+            ("Plot", self.plot_toggle)
         ]
         for text, callback in top_menu_buttons:
             button = QPushButton(text=text)
@@ -311,18 +319,26 @@ class MainWindow(QWidget):
         #    return
         values_list = [(val_id, snapshot[val_id]) for val_id in snapshot]
         values_list.sort(key=lambda x: x[0])
-        logged_list = [(-1, datetime.datetime.now())] + values_list
-        self.logged_data.append(logged_list)
-        print(logged_list)
-        self.logged_data = self.logged_data[-LOG_LENGTH:]
 
         text_line = []
+
+
+        timestamp = datetime.datetime.now()
+
         for value in values_list:
             val_id, val_val = value
             if type(val_val) == int:
                 text_line.append(f"{val_val:10d}")
             else:
                 text_line.append(f"{val_val:10.2f}")
+            if val_id == PLOTTED_VALUE_ID:
+                self.plotted_values.append((timestamp, val_val))
+
+        self.plotted_values = self.plotted_values[-LOG_LENGTH:]
+
+        if len(self.plotted_values)>0:
+            self.plot()
+
         text_line = ",".join(text_line)
         if not self.rewrite_status_checkbox.isChecked():
             text_line = self.status_box.toPlainText() + "\n" + text_line
@@ -359,19 +375,31 @@ class MainWindow(QWidget):
         self.thrust_bar.setValue(self.thrust_variable.get_cumulative_value())
         self.thrust_lcd.display(self.thrust_variable.get_cumulative_value())
 
-    @QtCore.Slot()
     def plot(self):
+        timestamps = [x[0] for x in self.plotted_values]
+
+        timestart = timestamps[0]
+
+        timestamps = [(x-timestart).total_seconds() for x in timestamps]
+
+        values = [x[1] for x in self.plotted_values]
         if self.ax is None:
             plt.ion()
             self.fig, self.ax = plt.subplots()
-            self.line, = self.ax.plot([(x[0][1]-self.logged_data[0][0][1]).total_seconds() for x in self.logged_data], [x[1][1] for x in self.logged_data])
+            self.line, = self.ax.plot([], [])
             plt.plot()
+        elif self.plot_refresh:
+            self.line.set_ydata(values)
+            self.line.set_xdata(timestamps)
+            self.ax.set_ylim(min(values)-(max(values)-min(values))*0.05, max(values)+(max(values)-min(values))*0.05)
+            self.ax.set_xlim(timestamps[0], timestamps[-1])
 
-        self.line.set_ydata([x[1][1] for x in self.logged_data])
-        self.line.set_xdata([(x[0][1]-self.logged_data[0][0][1]).total_seconds() for x in self.logged_data])
+            self.fig.canvas.draw()
+            self.fig.canvas.flush_events()
 
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+    @QtCore.Slot()
+    def plot_toggle(self):
+        self.plot_refresh = not self.plot_refresh
 
 
 def start_app():

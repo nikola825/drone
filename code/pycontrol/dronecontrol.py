@@ -22,21 +22,23 @@ ROLL_VARIABLE_NAME = "roll"
 Ziegler_Kpf = 0.2
 Ziegler_Kif = 0.4
 Ziegler_Kdf = 2/30.0
+
+
 def ziegler_calc(ku, tu):
     return int(round(Ziegler_Kpf*ku)), int(round(Ziegler_Kif*ku/tu)), int(round(Ziegler_Kdf*ku*tu))
 
 
-YAW_KU = 12000
-YAW_TU = 0.8
+YAW_KU = 10100
+YAW_TU = 0.324
 YAW_KP, YAW_KI, YAW_KD = ziegler_calc(YAW_KU, YAW_TU)
 
-PITCH_KU = 1200
-PITCH_TU = 1.2
+PITCH_KU = 2600
+PITCH_TU = 0.392
 
 PITCH_KP, PITCH_KI, PITCH_KD = ziegler_calc(PITCH_KU, PITCH_TU)
 
-ROLL_KU = 1200
-ROLL_TU = 1.2
+ROLL_KU = 1500
+ROLL_TU = 0.4715
 
 ROLL_KP, ROLL_KI, ROLL_KD = ziegler_calc(ROLL_KU, ROLL_TU)
 
