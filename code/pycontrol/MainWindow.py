@@ -16,7 +16,8 @@ from dronecontrol import COMMAND_INPUT_MAX, THRUST_MAX, Drone, DroneVariable, TH
 EXPAND_EVERYWHERE_POLICY = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 EXPAND_MIN_HORIZONTAL = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 LOG_LENGTH = 100
-PLOTTED_VALUE_ID = 6
+PLOTTED_VALUE_ID = 8
+plot_enabled = False
 
 class MainWindow(QWidget):
     line_edits: dict[str, QLineEdit]
@@ -106,13 +107,13 @@ class MainWindow(QWidget):
             Qt.Key.Key_D: (ROLL_VARIABLE_NAME, 1),
             Qt.Key.Key_W: (PITCH_VARIABLE_NAME, -1),
             Qt.Key.Key_S: (PITCH_VARIABLE_NAME, 1),
+            Qt.Key.Key_Q: (YAW_VARIABLE_NAME, 1),
+            Qt.Key.Key_E: (YAW_VARIABLE_NAME, -1),
         }
 
         self.trim_inputs = {
             Qt.Key.Key_P: (THRUST_VARIABLE_NAME, 1),
             Qt.Key.Key_L: (THRUST_VARIABLE_NAME, -1),
-            Qt.Key.Key_Q: (YAW_VARIABLE_NAME, -1),
-            Qt.Key.Key_E: (YAW_VARIABLE_NAME, 1),
             ("J", evdev.ecodes.BTN_PINKIE): (YAW_VARIABLE_NAME, 1),
             ("J", evdev.ecodes.BTN_TOP2): (YAW_VARIABLE_NAME, -1),
             ("J", evdev.ecodes.BTN_BASE): (THRUST_VARIABLE_NAME, -1),
@@ -121,7 +122,7 @@ class MainWindow(QWidget):
         }
 
         self.setter_inputs = {
-            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 1010),
+            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 1300),
             ("J", evdev.ecodes.BTN_BASE4): (THRUST_VARIABLE_NAME, 1010)
         }
 
@@ -376,6 +377,10 @@ class MainWindow(QWidget):
         self.thrust_lcd.display(self.thrust_variable.get_cumulative_value())
 
     def plot(self):
+        if not plot_enabled:
+            return
+        if self.thrust_variable.trim_value < 1000:
+            return
         timestamps = [x[0] for x in self.plotted_values]
 
         timestart = timestamps[0]

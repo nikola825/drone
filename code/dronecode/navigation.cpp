@@ -55,7 +55,6 @@ void pid(const float e0, const float e1, const float dt, const float kp, const f
     float p = kp * e1;
     o = p + i + d;
     o = RANGE_LIMIT(o, limit);
-
 }
 
 float fit_angle(float angle)
@@ -74,73 +73,69 @@ float angle_error(float target, float value)
 
 void navigate()
 {
-    float yaw_measured, pitch_measured, roll_measured;
-    get_ypr(yaw_measured, pitch_measured, roll_measured);
+    motor_thrust = thrust_input;
+    uint16_t command_limit = thrust_input >> 2;
+
     static unsigned long past_time = millis();
     unsigned long current_time = millis();
-    yaw_measured = fit_angle(yaw_measured) * -1;
-    roll_measured *= -1;
 
     float dt = (current_time - past_time) * 0.001;
     past_time = current_time;
 
-    motor_thrust = thrust_input;
-    uint16_t command_limit = thrust_input >> 2;
+
+    constexpr float pid_scale_factor = 0.01;
+
+    float yaw_measured, pitch_measured, roll_measured;
+    get_ypr(yaw_measured, pitch_measured, roll_measured);
 
     if (thrust_input < THRUST_NAVIGATION_THRESHOLD)
     {
-        reset_pids(yaw_measured - yaw_input, 0, 0);
+        reset_pids(0, 0, 0);
+        motor_yaw = RANGE_LIMIT(0, command_limit);
+        motor_pitch = RANGE_LIMIT(0, command_limit);
+        motor_roll = RANGE_LIMIT(0, command_limit);
     }
+    else
+    {
 
-    float yaw_error = yaw_pid.target + yaw_input - yaw_measured;
+        pitch_measured*=-1;
+        yaw_measured = fit_angle(yaw_measured) * -1;
 
-    float yaw_pid_result;
-    pid(yaw_pid.lasterror, yaw_error, dt, yaw_kp * 0.01, yaw_ki * 0.01, yaw_kd * 0.01, command_limit,
-        yaw_pid.i, yaw_pid_result);
-    yaw_pid.lasterror = yaw_error;
+        float yaw_error = yaw_pid.target + yaw_input - yaw_measured;
 
-    float pitch_error = pitch_pid.target - pitch_measured + pitch_input*0.1;
-    float pitch_pid_result;
-    pid(pitch_pid.lasterror, pitch_error, dt, pitch_kp * 0.01, pitch_ki * 0.01, pitch_kd * 0.01, 100, pitch_pid.i,
-        pitch_pid_result);
-    pitch_pid.lasterror = pitch_error;
+        float yaw_pid_result;
+        pid(yaw_pid.lasterror, yaw_error, dt, yaw_kp * pid_scale_factor, yaw_ki * pid_scale_factor,
+            yaw_kd * pid_scale_factor, command_limit,
+            yaw_pid.i, yaw_pid_result);
+        yaw_pid.lasterror = yaw_error;
 
-    float roll_error = roll_pid.target + -roll_measured + roll_input*0.1;
-    float roll_pid_result;
-    pid(roll_pid.lasterror, roll_error, dt, roll_kp*0.01, roll_ki*0.01, roll_kd*0.01, 100, roll_pid.i,
-        roll_pid_result);
-    roll_pid.lasterror = roll_error;
+        float pitch_error = pitch_pid.target - pitch_measured + pitch_input * 0.1;
+        float pitch_pid_result;
+        pid(pitch_pid.lasterror, pitch_error, dt, pitch_kp * pid_scale_factor, pitch_ki * pid_scale_factor,
+            pitch_kd * pid_scale_factor, command_limit, pitch_pid.i,
+            pitch_pid_result);
+        pitch_pid.lasterror = pitch_error;
 
-    /*DBG_PRINTVAR(2, thrust_input);
-    DBG_PRINTVAR(2, yaw_input);
-    DBG_PRINTVAR(2, pitch_input);
-    DBG_PRINTVAR(2, roll_input);
+        float roll_error = roll_pid.target + -roll_measured + roll_input * 0.1;
+        float roll_pid_result;
+        pid(roll_pid.lasterror, roll_error, dt, roll_kp * pid_scale_factor, roll_ki * pid_scale_factor,
+            roll_kd * pid_scale_factor, command_limit, roll_pid.i,
+            roll_pid_result);
+        roll_pid.lasterror = roll_error;
 
-    float yaw_error = angle_error(fit_angle(yaw_pid.target + yaw_input), yaw_measured);
-
-
-    float roll_error = -angle_error(fit_angle(roll_pid.target-roll_input/100.f), roll_measured);
-    float roll_pid_result;
-    pid(roll_pid.lasterror, roll_error, dt, roll_kp, 0.001*roll_ki, 0.01f*roll_kd, 100, roll_pid.i, roll_pid_result);
-    roll_pid.lasterror = roll_error;
-
-    float pitch_error = angle_error(fit_angle(pitch_pid.target-pitch_input/100.f), pitch_measured);
-    float pitch_pid_result;
-    pid(pitch_pid.lasterror, pitch_error, dt, pitch_kp, 0.001*pitch_ki, 0.01f*pitch_kd, 100, pitch_pid.i, pitch_pid_result);
-    pitch_pid.lasterror = pitch_error;*/
-
-    bt_send_float(1, yaw_measured);
-    bt_send_float(2, pitch_measured);
-    bt_send_float(3, roll_measured);
-    bt_send_float(4, yaw_error);
-    bt_send_float(5, yaw_pid_result);
-    bt_send_float(6, pitch_error);
-    bt_send_float(7, pitch_pid_result);
-    bt_send_float(8, roll_error);
-    bt_send_float(9, roll_pid_result);
+        bt_send_float(1, yaw_measured);
+        bt_send_float(2, pitch_measured);
+        bt_send_float(3, roll_measured);
+        bt_send_float(4, yaw_error);
+        bt_send_float(5, yaw_pid_result);
+        bt_send_float(6, pitch_error);
+        bt_send_float(7, pitch_pid_result);
+        bt_send_float(8, roll_error);
+        bt_send_float(9, roll_pid_result);
 
 
-    motor_yaw = RANGE_LIMIT(yaw_pid_result, command_limit);
-    motor_pitch = RANGE_LIMIT(pitch_pid_result, command_limit);
-    motor_roll = RANGE_LIMIT(roll_pid_result, command_limit);
+        motor_yaw = RANGE_LIMIT(yaw_pid_result, command_limit);
+        motor_pitch = RANGE_LIMIT(pitch_pid_result, command_limit);
+        motor_roll = RANGE_LIMIT(roll_pid_result, command_limit);
+    }
 }

@@ -9,8 +9,8 @@ from typing import Callable
 from threading import Thread, Lock
 
 COMMAND_INPUT_MAX = 500
-COMMAND_INPUT = 40
-THRUST_MAX = 2000
+COMMAND_INPUT = 100
+THRUST_MAX =2000
 
 ANGLE_INPUT_MAX = 180
 
@@ -19,26 +19,26 @@ PITCH_VARIABLE_NAME = "pitch"
 YAW_VARIABLE_NAME = "yaw"
 ROLL_VARIABLE_NAME = "roll"
 
-Ziegler_Kpf = 0.2
-Ziegler_Kif = 0.4
-Ziegler_Kdf = 2/30.0
+Ziegler_Kpf = 0.7
+Ziegler_Kif = 1.75
+Ziegler_Kdf = 0.105
 
 
 def ziegler_calc(ku, tu):
     return int(round(Ziegler_Kpf*ku)), int(round(Ziegler_Kif*ku/tu)), int(round(Ziegler_Kdf*ku*tu))
 
 
-YAW_KU = 10100
-YAW_TU = 0.324
+YAW_KU = 0
+YAW_TU = 0.15
 YAW_KP, YAW_KI, YAW_KD = ziegler_calc(YAW_KU, YAW_TU)
 
-PITCH_KU = 2600
-PITCH_TU = 0.392
+PITCH_KU = 0
+PITCH_TU = 0.2
 
 PITCH_KP, PITCH_KI, PITCH_KD = ziegler_calc(PITCH_KU, PITCH_TU)
 
-ROLL_KU = 1500
-ROLL_TU = 0.4715
+ROLL_KU = 400
+ROLL_TU = 0.25
 
 ROLL_KP, ROLL_KI, ROLL_KD = ziegler_calc(ROLL_KU, ROLL_TU)
 
@@ -179,7 +179,7 @@ class Drone:
 
     def initialize_variables(self):
         self.variables = {
-            YAW_VARIABLE_NAME: DroneVariable(self, "Yaw", 0, None, 0, 1, -ANGLE_INPUT_MAX,
+            YAW_VARIABLE_NAME: DroneVariable(self, "Yaw", 0, None, COMMAND_INPUT, 1, -ANGLE_INPUT_MAX,
                                              ANGLE_INPUT_MAX,
                                              storage_write_yaw_input),
             PITCH_VARIABLE_NAME: DroneVariable(self, "Pitch", 0, None, COMMAND_INPUT, 1, -COMMAND_INPUT_MAX,

@@ -20,9 +20,11 @@ constexpr uint8_t SYS_TRIGGER = 0x3f;
 constexpr uint8_t EUL_Heading_LSB = 0x1a;
 constexpr uint8_t EUL_Roll_LSB = 0x1c;
 constexpr uint8_t EUL_Pitch_LSB = 0x1e;
+constexpr uint8_t GYR_DATA_X_LSB = 0x14;
 
 constexpr uint8_t OPR_MODE_NDOF = 0x0c;
 constexpr uint8_t OPR_MODE_CONFIG = 0x00;
+constexpr uint8_t OPR_MODE_GYROONLY = 0x03;
 constexpr uint8_t SYS_TRIGGER_RESET = 0x20;
 
 constexpr uint8_t CALIB_BLOCK_START = 0x55;

@@ -46,9 +46,21 @@ uint16_t read16(uint8_t address)
 void read_buffer(uint8_t address, int len, void* buffer)
 {
     Wire.beginTransmission(MPU_ADDRESS);
+    if(Wire.getWireTimeoutFlag())
+    {
+        halt(WIRE_FAIL);
+    }
     Wire.write(address);
+    if(Wire.getWireTimeoutFlag())
+    {
+        halt(WIRE_FAIL);
+    }
 
     if(Wire.endTransmission(true) != 0)
+    {
+        halt(WIRE_FAIL);
+    }
+    if(Wire.getWireTimeoutFlag())
     {
         halt(WIRE_FAIL);
     }
@@ -57,8 +69,16 @@ void read_buffer(uint8_t address, int len, void* buffer)
     {
         halt(WIRE_FAIL);
     }
+    if(Wire.getWireTimeoutFlag())
+    {
+        halt(WIRE_FAIL);
+    }
 
     if(Wire.readBytes((uint8_t*)buffer, len) != len)
+    {
+        halt(WIRE_FAIL);
+    }
+    if(Wire.getWireTimeoutFlag())
     {
         halt(WIRE_FAIL);
     }
@@ -79,26 +99,32 @@ void write8(uint8_t address, uint8_t data)
 
 void get_ypr(float &yaw, float &pitch, float &roll)
 {
-    read_buffer(EUL_Heading_LSB, 6, ypr_binary);
+
+    read_buffer(GYR_DATA_X_LSB, 6, ypr_binary);
+    if(Wire.getWireTimeoutFlag())
+    {
+        halt(WIRE_FAIL);
+    }
+
+    yaw = ypr_binary[2]/16.0;
+    pitch = ypr_binary[1]/16.0;
+    roll = ypr_binary[0]/16.0;
+
+    /*read_buffer(EUL_Heading_LSB, 6, ypr_binary);
 
     yaw = ypr_binary[0]/16.0;
     pitch = ypr_binary[1]/16.0;
-    roll = ypr_binary[2]/16.0;
-    /*int16_t yaw_int, pitch_int, roll_int;
-    yaw_int = read16(EUL_Heading_LSB);
-    pitch_int = read16(EUL_Roll_LSB);
-    roll_int = read16(EUL_Pitch_LSB);
-
-    yaw = yaw_int/16.0;
-    pitch = pitch_int/16.0;
-    roll = roll_int/16.0;*/
+    roll = ypr_binary[2]/16.0;*/
 }
 
 void init_mpu()
 {
     DBG_PRINTLN(1,  "Motion init");
     delay(700);
+    Wire.setClock(400000);
     Wire.begin();
+    Wire.setTimeout(0);
+    Wire.clearWireTimeoutFlag();
 
     DBG_PRINTLN(2, "Wire init done");
 
@@ -155,7 +181,7 @@ void mpu_setmode_config()
 
 void mpu_setmode_fusion()
 {
-    write8(OPR_MODE, OPR_MODE_NDOF);
+    write8(OPR_MODE, OPR_MODE_GYROONLY);
     delay(750);
 }
 
@@ -187,7 +213,7 @@ void init_motion()
 
     mpu_setmode_fusion();
 
-    if(read8(SYS_STATUS) != 5 || read8(SYS_ERR) != 0)
+    if(read8(SYS_STATUS) != 6 || read8(SYS_ERR) != 0)
     {
         halt(MPU_FAIL);
     }
