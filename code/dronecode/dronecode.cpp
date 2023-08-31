@@ -52,7 +52,6 @@ void loop()
     digitalWrite(LED_BUILTIN, LOW);
     process_commands(bluetooth_port);
     navigate();
-    delay(1);
     drive();
     digitalWrite(LED_BUILTIN, HIGH);
     delay(10);

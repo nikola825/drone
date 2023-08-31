@@ -46,7 +46,7 @@ void pid(const float e0, const float e1, const float dt, const float kp, const f
          const float limit, float &i,
          float &o)
 {
-    i += (e1 + e0) / 2 * dt * ki;
+    i += e1 * dt * ki;
     i = RANGE_LIMIT(i, limit);
 
 
@@ -84,9 +84,13 @@ void navigate()
 
 
     constexpr float pid_scale_factor = 0.01;
+    constexpr float input_scale_factor = 0.1;
 
     float yaw_measured, pitch_measured, roll_measured;
     get_ypr(yaw_measured, pitch_measured, roll_measured);
+    bt_send_float(1, yaw_measured);
+    bt_send_float(2, pitch_measured);
+    bt_send_float(3, roll_measured);
 
     if (thrust_input < THRUST_NAVIGATION_THRESHOLD)
     {
@@ -98,9 +102,6 @@ void navigate()
     else
     {
 
-        pitch_measured*=-1;
-        yaw_measured = fit_angle(yaw_measured) * -1;
-
         float yaw_error = yaw_pid.target + yaw_input - yaw_measured;
 
         float yaw_pid_result;
@@ -109,23 +110,20 @@ void navigate()
             yaw_pid.i, yaw_pid_result);
         yaw_pid.lasterror = yaw_error;
 
-        float pitch_error = pitch_pid.target - pitch_measured + pitch_input * 0.1;
+        float pitch_error = pitch_pid.target - pitch_measured + pitch_input * input_scale_factor;
         float pitch_pid_result;
         pid(pitch_pid.lasterror, pitch_error, dt, pitch_kp * pid_scale_factor, pitch_ki * pid_scale_factor,
             pitch_kd * pid_scale_factor, command_limit, pitch_pid.i,
             pitch_pid_result);
         pitch_pid.lasterror = pitch_error;
 
-        float roll_error = roll_pid.target + -roll_measured + roll_input * 0.1;
+        float roll_error = roll_pid.target + -roll_measured + roll_input * input_scale_factor;
         float roll_pid_result;
         pid(roll_pid.lasterror, roll_error, dt, roll_kp * pid_scale_factor, roll_ki * pid_scale_factor,
             roll_kd * pid_scale_factor, command_limit, roll_pid.i,
             roll_pid_result);
         roll_pid.lasterror = roll_error;
 
-        bt_send_float(1, yaw_measured);
-        bt_send_float(2, pitch_measured);
-        bt_send_float(3, roll_measured);
         bt_send_float(4, yaw_error);
         bt_send_float(5, yaw_pid_result);
         bt_send_float(6, pitch_error);

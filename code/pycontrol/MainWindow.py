@@ -16,7 +16,7 @@ from dronecontrol import COMMAND_INPUT_MAX, THRUST_MAX, Drone, DroneVariable, TH
 EXPAND_EVERYWHERE_POLICY = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 EXPAND_MIN_HORIZONTAL = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 LOG_LENGTH = 100
-PLOTTED_VALUE_ID = 8
+PLOTTED_VALUE_ID = 4
 plot_enabled = False
 
 class MainWindow(QWidget):
@@ -122,7 +122,8 @@ class MainWindow(QWidget):
         }
 
         self.setter_inputs = {
-            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 1300),
+            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 1010),
+            Qt.Key.Key_V: (THRUST_VARIABLE_NAME, 1340),
             ("J", evdev.ecodes.BTN_BASE4): (THRUST_VARIABLE_NAME, 1010)
         }
 
@@ -379,8 +380,8 @@ class MainWindow(QWidget):
     def plot(self):
         if not plot_enabled:
             return
-        if self.thrust_variable.trim_value < 1000:
-            return
+        #if self.thrust_variable.trim_value < 1000:
+        #    return
         timestamps = [x[0] for x in self.plotted_values]
 
         timestart = timestamps[0]
