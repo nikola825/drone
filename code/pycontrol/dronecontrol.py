@@ -36,12 +36,12 @@ def ziegler_calc(ku, tu, cs):
 
 YAW_KU = 1300
 YAW_TU = 0.15
-YAW_KP, YAW_KI, YAW_KD = ziegler_calc(YAW_KU, YAW_TU, 5)
+YAW_KP, YAW_KI, YAW_KD = ziegler_calc(YAW_KU, YAW_TU, 3)
 
 PITCH_KU = 330
 PITCH_TU = 0.25
 
-PITCH_KP, PITCH_KI, PITCH_KD = ziegler_calc(PITCH_KU, PITCH_TU, 5)
+PITCH_KP, PITCH_KI, PITCH_KD = ziegler_calc(PITCH_KU, PITCH_TU, 4)
 
 ROLL_KU = 330
 ROLL_TU = 0.25

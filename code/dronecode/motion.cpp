@@ -24,17 +24,17 @@ uint8_t read8(uint8_t address)
     Wire.beginTransmission(MPU_ADDRESS);
     Wire.write(address);
 
-    if(Wire.endTransmission(true) != 0)
+    if (Wire.endTransmission(true) != 0)
     {
         halt(WIRE_FAIL);
     }
 
-    if(Wire.requestFrom(MPU_ADDRESS, 1, true) != 1)
+    if (Wire.requestFrom(MPU_ADDRESS, 1, true) != 1)
     {
         halt(WIRE_FAIL);
     }
 
-    if(Wire.available())
+    if (Wire.available())
     {
         data = Wire.read();
     }
@@ -52,42 +52,42 @@ uint16_t read16(uint8_t address)
     return data;
 }
 
-void read_buffer(uint8_t address, int len, void* buffer)
+void read_buffer(uint8_t address, int len, void *buffer)
 {
     Wire.beginTransmission(MPU_ADDRESS);
-    if(Wire.getWireTimeoutFlag())
+    if (Wire.getWireTimeoutFlag())
     {
         halt(WIRE_FAIL);
     }
     Wire.write(address);
-    if(Wire.getWireTimeoutFlag())
+    if (Wire.getWireTimeoutFlag())
     {
         halt(WIRE_FAIL);
     }
 
-    if(Wire.endTransmission(true) != 0)
+    if (Wire.endTransmission(true) != 0)
     {
         halt(WIRE_FAIL);
     }
-    if(Wire.getWireTimeoutFlag())
-    {
-        halt(WIRE_FAIL);
-    }
-
-    if(Wire.requestFrom(MPU_ADDRESS, len, true) != len)
-    {
-        halt(WIRE_FAIL);
-    }
-    if(Wire.getWireTimeoutFlag())
+    if (Wire.getWireTimeoutFlag())
     {
         halt(WIRE_FAIL);
     }
 
-    if(Wire.readBytes((uint8_t*)buffer, len) != len)
+    if (Wire.requestFrom(MPU_ADDRESS, len, true) != len)
     {
         halt(WIRE_FAIL);
     }
-    if(Wire.getWireTimeoutFlag())
+    if (Wire.getWireTimeoutFlag())
+    {
+        halt(WIRE_FAIL);
+    }
+
+    if (Wire.readBytes((uint8_t *) buffer, len) != len)
+    {
+        halt(WIRE_FAIL);
+    }
+    if (Wire.getWireTimeoutFlag())
     {
         halt(WIRE_FAIL);
     }
@@ -100,7 +100,7 @@ void write8(uint8_t address, uint8_t data)
 
     Wire.write(data);
 
-    if(Wire.endTransmission(true) != 0)
+    if (Wire.endTransmission(true) != 0)
     {
         halt(WIRE_FAIL);
     }
@@ -113,14 +113,14 @@ void get_ypr(float &yaw, float &pitch, float &roll)
 
     float divisor = 131.0;
 
-    pitch=xr/divisor;
-    roll=-yr/divisor;
-    yaw=-zr/divisor;
+    pitch = xr / divisor;
+    roll = -yr / divisor;
+    yaw = -zr / divisor;
 }
 
 void init_mpu()
 {
-    DBG_PRINTLN(1,  "Motion init");
+    DBG_PRINTLN(1, "Motion init");
     delay(700);
     Wire.setClock(400000);
     Wire.begin();
@@ -129,28 +129,28 @@ void init_mpu()
 
     DBG_PRINTLN(2, "Wire init done");
 
-    if(read8(CHIP_ID) != 0xa0)
+    if (read8(CHIP_ID) != 0xa0)
     {
         DBG_PRINTLN(1, "Invalid BNO chip id");
         halt(MPU_FAIL);
     }
     DBG_PRINTLN(2, "BNO chip id OK");
 
-    if(read8(ACC_ID) != 0xfb)
+    if (read8(ACC_ID) != 0xfb)
     {
         DBG_PRINTLN(1, "Invalid BNO acc id");
         halt(MPU_FAIL);
     }
     DBG_PRINTLN(2, "BNO acc id OK");
 
-    if(read8(MAG_ID) != 0x32)
+    if (read8(MAG_ID) != 0x32)
     {
         DBG_PRINTLN(1, "Invalid BNO mag id");
         halt(MPU_FAIL);
     }
     DBG_PRINTLN(2, "BNO mag id OK");
 
-    if(read8(GYR_ID) != 0x0f)
+    if (read8(GYR_ID) != 0x0f)
     {
         DBG_PRINTLN(1, "Invalid BNO gyro id");
         halt(MPU_FAIL);
@@ -166,7 +166,7 @@ void init_mpu()
 
     delay(750);
 
-    if((read8(ST_RESULT) & 0x0f) != 0x0f)
+    if ((read8(ST_RESULT) & 0x0f) != 0x0f)
     {
         DBG_PRINTLN(1, "BNO POST fail");
         halt(MPU_FAIL);
@@ -204,6 +204,7 @@ void init_motion()
         DBG_PRINTVAR(0, "Flashing DMP");
 
         mpu.setFullScaleGyroRange(MPU6050_IMU::MPU6050_GYRO_FS_250);
+        mpu.setFullScaleAccelRange(MPU6050_IMU::MPU6050_ACCEL_FS_4);
         mpu.setDLPFMode(MPU6050_IMU::MPU6050_DLPF_BW_10);
 
         /*mpu.setXAccelOffset(-2630);
@@ -238,21 +239,27 @@ void init_motion()
 }
 
 
-void get_ypra(float &y, float &p, float &r)
+void get_ypra(float &x, float &y, float &z, bool still)
 {
-    //raw_ypr(y, p, r);
-    /*while (mpu.dmpGetCurrentFIFOPacket(fifoBuffer))
-    {
-        mpu.dmpGetQuaternion(&q, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-    }
-    if(Wire.getWireTimeoutFlag())
-    {
-        halt(MPU_FAIL);
-    }*/
+    static float gx = 0, gy = 0, gz = 0;
 
-    y = ypr[0] * RADIANS_TO_DEGREES_FACTOR;
-    p = ypr[1] * RADIANS_TO_DEGREES_FACTOR;
-    r = ypr[2] * RADIANS_TO_DEGREES_FACTOR;
+    constexpr float divisor = 8192.0;
+    constexpr float G = 9.80665;
+    constexpr float coeff = G / divisor;
+    int16_t xa, ya, za;
+    mpu.getAcceleration(&xa, &ya, &za);
+
+    x = xa * coeff;
+    y = ya * coeff;
+    z = za * coeff;
+
+    if (still)
+    {
+        gx = gx * 0.99 + x * 0.01;
+        gy = gy * 0.99 + y * 0.01;
+        gz = gz * 0.99 + z * 0.01;
+    }
+    x -= gx;
+    y -= gy;
+    z -= gz;
 }

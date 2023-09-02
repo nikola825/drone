@@ -13,8 +13,9 @@ constexpr uint8_t HALT_BY_USER_INPUT = 7;
 constexpr uint8_t WIRE_FAIL = 8;
 constexpr uint8_t MPU_FAIL = 9;
 constexpr uint8_t EEPROM_FAIL = 10;
+constexpr uint8_t RADIO_FAIL = 11;
 
-constexpr uint8_t WATCHDOG_TIMEOUT = WDTO_500MS;
+constexpr uint8_t WATCHDOG_TIMEOUT = WDTO_250MS;
 
 extern bool halted;
 

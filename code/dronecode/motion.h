@@ -32,7 +32,7 @@ constexpr uint8_t CALIB_BLOCK_LEN = 22;
 
 void init_motion();
 void get_ypr(float &y, float &p, float &r);
-void get_ypra(float &y, float &p, float &r);
+void get_ypra(float &y, float &p, float &r, bool still);
 
 uint8_t read8(uint8_t address);
 uint16_t read16(uint16_t address);

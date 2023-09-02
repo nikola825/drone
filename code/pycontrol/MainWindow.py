@@ -16,7 +16,7 @@ from dronecontrol import COMMAND_INPUT_MAX, THRUST_MAX, Drone, DroneVariable, TH
 EXPAND_EVERYWHERE_POLICY = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 EXPAND_MIN_HORIZONTAL = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 LOG_LENGTH = 100
-PLOTTED_VALUE_ID = 4
+PLOTTED_VALUE_ID = 1
 plot_enabled = False
 
 class MainWindow(QWidget):
@@ -53,7 +53,7 @@ class MainWindow(QWidget):
         self.ax = None
         self.fig = None
         self.plotted_values = []
-        self.plot_refresh = True
+        self.line = None
 
         self.yaw_variable = self.drone.variables[YAW_VARIABLE_NAME]
         self.pitch_variable = self.drone.variables[PITCH_VARIABLE_NAME]
@@ -191,8 +191,7 @@ class MainWindow(QWidget):
         top_menu_buttons = [
             ("Connect", self.bt_connect),
             ("Start", None),
-            ("Stop", self.drone_stop),
-            ("Plot", self.plot_toggle)
+            ("Stop", self.drone_stop)
         ]
         for text, callback in top_menu_buttons:
             button = QPushButton(text=text)
@@ -338,8 +337,7 @@ class MainWindow(QWidget):
 
         self.plotted_values = self.plotted_values[-LOG_LENGTH:]
 
-        if len(self.plotted_values)>0:
-            self.plot()
+        self.plot()
 
         text_line = ",".join(text_line)
         if not self.rewrite_status_checkbox.isChecked():
@@ -380,32 +378,33 @@ class MainWindow(QWidget):
     def plot(self):
         if not plot_enabled:
             return
-        #if self.thrust_variable.trim_value < 1000:
-        #    return
         timestamps = [x[0] for x in self.plotted_values]
 
-        timestart = timestamps[0]
-
-        timestamps = [(x-timestart).total_seconds() for x in timestamps]
+        time_start = 0
+        if timestamps:
+            time_start = timestamps[0]
+            timestamps = [(x-time_start).total_seconds() for x in timestamps]
 
         values = [x[1] for x in self.plotted_values]
+        min_value = 0
+        max_value = 0
+        if values:
+            min_value = min(values)
+            max_value = max(values)
+
         if self.ax is None:
             plt.ion()
             self.fig, self.ax = plt.subplots()
             self.line, = self.ax.plot([], [])
             plt.plot()
-        elif self.plot_refresh:
+        elif self.thrust_variable.trim_value > 0:
             self.line.set_ydata(values)
             self.line.set_xdata(timestamps)
-            self.ax.set_ylim(min(values)-(max(values)-min(values))*0.05, max(values)+(max(values)-min(values))*0.05)
-            self.ax.set_xlim(timestamps[0], timestamps[-1])
+            self.ax.set_ylim(min_value, max_value)
+            self.ax.set_xlim(0, 5)
 
             self.fig.canvas.draw()
             self.fig.canvas.flush_events()
-
-    @QtCore.Slot()
-    def plot_toggle(self):
-        self.plot_refresh = not self.plot_refresh
 
 
 def start_app():

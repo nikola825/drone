@@ -16,14 +16,29 @@ constexpr int ERROR_FLASH_PERIOD = 300;
 constexpr int ERROR_FLASH_DELAY = 1000;
 void flash_error()
 {
+    wdt_reset();
     for(int i=0; i<global_error; i++)
     {
+        wdt_reset();
         digitalWrite(LED_BUILTIN, HIGH);
-        delay(ERROR_FLASH_PERIOD);
+        wdt_reset();
+        delay(ERROR_FLASH_PERIOD/2);
+        wdt_reset();
+        delay(ERROR_FLASH_PERIOD/2);
+        wdt_reset();
         digitalWrite(LED_BUILTIN, LOW);
-        delay(ERROR_FLASH_PERIOD);
+        wdt_reset();
+        delay(ERROR_FLASH_PERIOD/2);
+        wdt_reset();
+        delay(ERROR_FLASH_PERIOD/2);
+        wdt_reset();
     }
-    delay(ERROR_FLASH_DELAY);
+    for(int i=0;i<10;i++)
+    {
+        wdt_reset();
+        delay(ERROR_FLASH_DELAY/10);
+    }
+    wdt_reset();
 }
 
 void setup()
@@ -60,14 +75,14 @@ void loop()
 
 void halt(uint8_t error)
 {
-    wdt_disable();
     DBG_PRINTLN(1, "Halting");
     DBG_PRINTVAR(1, error);
     halted=true;
     stop_motors();
     global_error = error;
-    while(1)
+    while (1)
     {
+        wdt_reset();
         flash_error();
     }
 }

@@ -73,8 +73,13 @@ float angle_error(float target, float value)
 
 void navigate()
 {
+    static bool standing_still = true;
     motor_thrust = thrust_input;
     uint16_t command_limit = thrust_input >> 2;
+    if(thrust_input>0)
+    {
+        standing_still = false;
+    }
 
     static unsigned long past_time = millis();
     unsigned long current_time = millis();
@@ -88,9 +93,12 @@ void navigate()
 
     float yaw_measured, pitch_measured, roll_measured;
     get_ypr(yaw_measured, pitch_measured, roll_measured);
-    bt_send_float(1, yaw_measured);
-    bt_send_float(2, pitch_measured);
-    bt_send_float(3, roll_measured);
+
+    float x, y, z;
+    get_ypra(x, y, z, standing_still);
+    bt_send_float(1, x);
+    bt_send_float(2, y);
+    bt_send_float(3, z);
 
     if (thrust_input < THRUST_NAVIGATION_THRESHOLD)
     {
@@ -101,7 +109,6 @@ void navigate()
     }
     else
     {
-
         float yaw_error = yaw_pid.target + yaw_input - yaw_measured;
 
         float yaw_pid_result;
@@ -123,13 +130,6 @@ void navigate()
             roll_kd * pid_scale_factor, command_limit, roll_pid.i,
             roll_pid_result);
         roll_pid.lasterror = roll_error;
-
-        bt_send_float(4, yaw_error);
-        bt_send_float(5, yaw_pid_result);
-        bt_send_float(6, pitch_error);
-        bt_send_float(7, pitch_pid_result);
-        bt_send_float(8, roll_error);
-        bt_send_float(9, roll_pid_result);
 
 
         motor_yaw = RANGE_LIMIT(yaw_pid_result, command_limit);
