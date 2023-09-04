@@ -134,7 +134,7 @@ void process_command()
 
 void process_commands(HardwareSerial &serial)
 {
-    if (watchdog_enabled)
+    /*if (watchdog_enabled)
     {
         wdt_reset();
         cycles_since_last_message += 1;
@@ -142,7 +142,7 @@ void process_commands(HardwareSerial &serial)
         {
             halt(RADIO_FAIL);
         }
-    }
+    }*/
 
     DBG_PRINTLN(2, "Receiving command data");
     while (serial.available())

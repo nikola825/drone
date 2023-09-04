@@ -9,7 +9,7 @@ from typing import Callable
 from threading import Thread, Lock
 
 COMMAND_INPUT_MAX = 500
-COMMAND_INPUT = 220
+COMMAND_INPUT = 75
 THRUST_MAX = 2000
 
 ANGLE_INPUT_MAX = 180
@@ -20,33 +20,41 @@ YAW_VARIABLE_NAME = "yaw"
 ROLL_VARIABLE_NAME = "roll"
 
 ziegler_coefficients = [
-    [0.5,  0.0,  0.0],
+    [0.5, 0.0, 0.0],
     [0.45, 0.54, 0.0],
-    [0.8,  0.0,  0.1],
-    [0.6,  1.2,  0.075],
-    [0.7,  1.75, 0.105],
-    [1/3,  2/3,  1/9],
-    [0.2,  0.4,  3/20]
+    [0.8, 0.0, 0.1],
+    [0.6, 1.2, 0.075],
+    [0.7, 1.75, 0.105],
+    [1 / 3, 2 / 3, 1 / 9],
+    [0.2, 0.4, 3 / 20],
+    [1.0, 0.0, 0.0]
 ]
 
 
 def ziegler_calc(ku, tu, cs):
-    return int(round(ziegler_coefficients[cs][0]*ku)), int(round(ziegler_coefficients[cs][1]*ku/tu)), int(round(ziegler_coefficients[cs][2]*ku*tu))
+    return int(round(ziegler_coefficients[cs][0] * ku)), int(round(ziegler_coefficients[cs][1] * ku / tu)), int(
+        round(ziegler_coefficients[cs][2] * ku * tu))
 
 
-YAW_KU = 1300
-YAW_TU = 0.15
-YAW_KP, YAW_KI, YAW_KD = ziegler_calc(YAW_KU, YAW_TU, 3)
+YAW_KU = 1200
+YAW_TU = 0.13
+YAW_KP, YAW_KI, YAW_KD = ziegler_calc(YAW_KU, YAW_TU, 5)
 
-PITCH_KU = 330
-PITCH_TU = 0.25
+PITCH_KU = 350
+PITCH_TU = 0.24
+PITCH_KP, PITCH_KI, PITCH_KD = ziegler_calc(PITCH_KU, PITCH_TU, 6)
 
-PITCH_KP, PITCH_KI, PITCH_KD = ziegler_calc(PITCH_KU, PITCH_TU, 4)
+PITCH_ANGLE_KU = 1150
+PITCH_ANGLE_TU = 0.25
+PITCH_ANGLE_KP, PITCH_ANGLE_KI, PITCH_ANGLE_KD = ziegler_calc(PITCH_ANGLE_KU, PITCH_ANGLE_TU, 7)
 
-ROLL_KU = 330
-ROLL_TU = 0.25
+ROLL_KU = 290
+ROLL_TU = 0.23
+ROLL_KP, ROLL_KI, ROLL_KD = ziegler_calc(ROLL_KU, ROLL_TU, 6)
 
-ROLL_KP, ROLL_KI, ROLL_KD = ziegler_calc(ROLL_KU, ROLL_TU, 3)
+ROLL_ANGLE_KU = 720
+ROLL_ANGLE_TU = 0.28
+ROLL_ANGLE_KP, ROLL_ANGLE_KI, ROLL_ANGLE_KD = ziegler_calc(ROLL_ANGLE_KU, ROLL_ANGLE_TU, 7)
 
 
 def dummy_setter(*args, **kwargs):
@@ -123,7 +131,7 @@ class DroneVariable:
     def apply_value(self):
         if self.owner.is_connected():
             new_value = self.get_cumulative_value()
-            if self.last_applied_value is None or new_value != self.last_applied_value:
+            if (self.last_applied_value is None) or (new_value != self.last_applied_value):
                 self.setter(self.owner.connection, new_value)
             self.last_applied_value = new_value
 
@@ -137,6 +145,7 @@ class Drone:
     telemetry_buffer: bytes
     telemetry_values: dict
     telemetry_lock: Lock
+    socket_lock: Lock
 
     def __init__(self):
         self.connection = None
@@ -149,6 +158,7 @@ class Drone:
         self.telemetry_buffer = b""
         self.telemetry_values = {}
         self.telemetry_lock = Lock()
+        self.socket_lock = Lock()
 
     def reconnect(self):
         try:
@@ -196,15 +206,36 @@ class Drone:
                                               storage_write_roll_input),
             THRUST_VARIABLE_NAME: DroneVariable(self, "Thrust", 0, 0, 0, 10, 0, THRUST_MAX, storage_write_thrust_input),
 
-            "yaw_kp": DroneVariable(self, "Yaw Kp", YAW_KP, None, 0, 1, 0, 50000, storage_write_yaw_kp),
-            "yaw_ki": DroneVariable(self, "Yaw Ki", YAW_KI, None, 0, 1, 0, 50000, storage_write_yaw_ki),
-            "yaw_kd": DroneVariable(self, "Yaw Kd", YAW_KD, None, 0, 1, 0, 50000, storage_write_yaw_kd),
-            "pitch_kp": DroneVariable(self, "pitch Kp", PITCH_KP, None, 0, 1, 0, 50000, storage_write_pitch_kp),
-            "pitch_ki": DroneVariable(self, "pitch Ki", PITCH_KI, None, 0, 1, 0, 50000, storage_write_pitch_ki),
-            "pitch_kd": DroneVariable(self, "pitch Kd", PITCH_KD, None, 0, 1, 0, 50000, storage_write_pitch_kd),
-            "roll_kp": DroneVariable(self, "roll Kp", ROLL_KP, None, 0, 1, 0, 50000, storage_write_roll_kp),
-            "roll_ki": DroneVariable(self, "roll Ki", ROLL_KI, None, 0, 1, 0, 50000, storage_write_roll_ki),
-            "roll_kd": DroneVariable(self, "roll Kd", ROLL_KD, None, 0, 1, 0, 50000, storage_write_roll_kd)
+            "yaw_velocity_kp": DroneVariable(self, "Yaw velocity Kp", YAW_KP, None, 0, 1, 0, 50000,
+                                             storage_write_yaw_velocity_kp),
+            "yaw_velocity_ki": DroneVariable(self, "Yaw velocity Ki", YAW_KI, None, 0, 1, 0, 50000,
+                                             storage_write_yaw_velocity_ki),
+            "yaw_velocity_kd": DroneVariable(self, "Yaw velocity Kd", YAW_KD, None, 0, 1, 0, 50000,
+                                             storage_write_yaw_velocity_kd),
+            "pitch_velocity_kp": DroneVariable(self, "Pitch velocity Kp", PITCH_KP, None, 0, 1, 0, 50000,
+                                               storage_write_pitch_velocity_kp),
+            "pitch_velocity_ki": DroneVariable(self, "Pitch velocity Ki", PITCH_KI, None, 0, 1, 0, 50000,
+                                               storage_write_pitch_velocity_ki),
+            "pitch_velocity_kd": DroneVariable(self, "Pitch velocity Kd", PITCH_KD, None, 0, 1, 0, 50000,
+                                               storage_write_pitch_velocity_kd),
+            "pitch_angle_kp": DroneVariable(self, "Pitch angle Kp", PITCH_ANGLE_KP, None, 0, 1, 0, 50000,
+                                            storage_write_pitch_angle_kp),
+            "pitch_angle_ki": DroneVariable(self, "Pitch angle Ki", PITCH_ANGLE_KI, None, 0, 1, 0, 50000,
+                                            storage_write_pitch_angle_ki),
+            "pitch_angle_kd": DroneVariable(self, "Pitch angle Kd", PITCH_ANGLE_KD, None, 0, 1, 0, 50000,
+                                            storage_write_pitch_angle_kd),
+            "roll_velocity_kp": DroneVariable(self, "Roll velocity Kp", ROLL_KP, None, 0, 1, 0, 50000,
+                                              storage_write_roll_velocity_kp),
+            "roll_velocity_ki": DroneVariable(self, "Roll velocity Ki", ROLL_KI, None, 0, 1, 0, 50000,
+                                              storage_write_roll_velocity_ki),
+            "roll_velocity_kd": DroneVariable(self, "Roll velocity Kd", ROLL_KD, None, 0, 1, 0, 50000,
+                                              storage_write_roll_velocity_kd),
+            "roll_angle_kp": DroneVariable(self, "Roll angle Kp", ROLL_ANGLE_KP, None, 0, 1, 0, 50000,
+                                           storage_write_roll_angle_kp),
+            "roll_angle_ki": DroneVariable(self, "Roll angle Ki", ROLL_ANGLE_KI, None, 0, 1, 0, 50000,
+                                           storage_write_roll_angle_ki),
+            "roll_angle_kd": DroneVariable(self, "Roll angle Kd", ROLL_ANGLE_KD, None, 0, 1, 0, 50000,
+                                           storage_write_roll_angle_kd)
         }
 
     def reset_variables(self):
@@ -226,8 +257,12 @@ class Drone:
     def apply_all_variables(self):
         if self.is_connected():
             for variable in self.variables.values():
-                variable.apply_value()
-                time.sleep(0.05)
+                try:
+                    self.socket_lock.acquire()
+                    variable.apply_value()
+                finally:
+                    self.socket_lock.release()
+                time.sleep(0.1)
 
     def receiver_thread_body(self):
         print("Receiver thread start")
@@ -286,7 +321,11 @@ class Drone:
 
     def heartbeat(self):
         if self.is_connected():
-            heartbeat_command(self.connection)
+            try:
+                self.socket_lock.acquire()
+                heartbeat_command(self.connection)
+            finally:
+                self.socket_lock.release()
 
     def heartbeat_thread_body(self):
         print("Heartbeat thread start")

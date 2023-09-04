@@ -16,8 +16,9 @@ from dronecontrol import COMMAND_INPUT_MAX, THRUST_MAX, Drone, DroneVariable, TH
 EXPAND_EVERYWHERE_POLICY = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 EXPAND_MIN_HORIZONTAL = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 LOG_LENGTH = 100
-PLOTTED_VALUE_ID = 1
+PLOTTED_VALUE_ID = 4
 plot_enabled = False
+
 
 class MainWindow(QWidget):
     line_edits: dict[str, QLineEdit]
@@ -257,7 +258,7 @@ class MainWindow(QWidget):
                 continue
 
             variable = self.drone.variables[variable_name]
-            label = QLabel(text=variable_name)
+            label = QLabel(text=variable.name)
             editor = QLineEdit(str(variable.trim_value))
             editor.setValidator(QIntValidator(variable.min_value, variable.max_value, self))
             increment_button = QPushButton(text="+")
@@ -323,7 +324,6 @@ class MainWindow(QWidget):
 
         text_line = []
 
-
         timestamp = datetime.datetime.now()
 
         for value in values_list:
@@ -376,14 +376,12 @@ class MainWindow(QWidget):
         self.thrust_lcd.display(self.thrust_variable.get_cumulative_value())
 
     def plot(self):
-        if not plot_enabled:
-            return
         timestamps = [x[0] for x in self.plotted_values]
 
         time_start = 0
         if timestamps:
             time_start = timestamps[0]
-            timestamps = [(x-time_start).total_seconds() for x in timestamps]
+            timestamps = [(x - time_start).total_seconds() for x in timestamps]
 
         values = [x[1] for x in self.plotted_values]
         min_value = 0
@@ -391,6 +389,20 @@ class MainWindow(QWidget):
         if values:
             min_value = min(values)
             max_value = max(values)
+
+        peaks = []
+        for i in range(1, len(values) - 1):
+            if values[i] > values[i - 1] and values[i] > values[i + 1]:
+                peaks.append(timestamps[i])
+
+        if len(peaks) > 2:
+            periods = [peaks[i] - peaks[i - 1] for i in range(1, len(peaks))]
+            print("PERIOD: ", sum(periods)/len(periods))
+
+        #print("AMPLITUDE:", max_value-min_value)
+
+        if not plot_enabled:
+            return
 
         if self.ax is None:
             plt.ion()

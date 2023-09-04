@@ -106,18 +106,6 @@ void write8(uint8_t address, uint8_t data)
     }
 }
 
-void get_ypr(float &yaw, float &pitch, float &roll)
-{
-    int16_t xr, yr, zr;
-    mpu.getRotation(&xr, &yr, &zr);
-
-    float divisor = 131.0;
-
-    pitch = xr / divisor;
-    roll = -yr / divisor;
-    yaw = -zr / divisor;
-}
-
 void init_mpu()
 {
     DBG_PRINTLN(1, "Motion init");
@@ -188,12 +176,19 @@ void mpu_setmode_fusion()
 
 void init_motion()
 {
+    pinMode(16, OUTPUT);
+    pinMode(17, OUTPUT);
+    digitalWrite(16, HIGH);
+    digitalWrite(17, LOW);
+    delay(200);
     Wire.begin();
     Wire.setClock(400000);
     Wire.setWireTimeout(100000, false);
     Wire.clearWireTimeoutFlag();
 
     DBG_PRINTLN(1, "Initializing MPU");
+    mpu.reset();
+    delay(200);
     mpu.initialize();
 
     DBG_PRINTLN(0, "Testing MPU connection");
@@ -202,25 +197,21 @@ void init_motion()
         DBG_PRINTLN(0, "MPU connection OK");
 
         DBG_PRINTVAR(0, "Flashing DMP");
+        if (mpu.dmpInitialize() != 0)
+        {
+            halt(MPU_FAIL);
+        }
 
-        mpu.setFullScaleGyroRange(MPU6050_IMU::MPU6050_GYRO_FS_250);
-        mpu.setFullScaleAccelRange(MPU6050_IMU::MPU6050_ACCEL_FS_4);
-        mpu.setDLPFMode(MPU6050_IMU::MPU6050_DLPF_BW_10);
+        //mpu.setFullScaleGyroRange(MPU6050_IMU::MPU6050_GYRO_FS_250);
+        //mpu.setFullScaleAccelRange(MPU6050_IMU::MPU6050_ACCEL_FS_4);
+        mpu.setDLPFMode(MPU6050_IMU::MPU6050_DLPF_BW_42);
+        mpu.setXAccelOffset(-2628);
+        mpu.setYAccelOffset(-1526);
+        mpu.setZAccelOffset(1437);
 
-        /*mpu.setXAccelOffset(-2630);
-        mpu.setYAccelOffset(-1512);
-        mpu.setZAccelOffset(1443);
-
-        mpu.setXGyroOffset(5);
-        mpu.setYGyroOffset(38);
-        mpu.setZGyroOffset(58);/**/
-        mpu.setXAccelOffset(-4757);
-        mpu.setYAccelOffset(-106);
-        mpu.setZAccelOffset(4648);
-
-        mpu.setXGyroOffset(139);
-        mpu.setYGyroOffset(-7);
-        mpu.setZGyroOffset(-2);/**/
+        mpu.setXGyroOffset(14);
+        mpu.setYGyroOffset(34);
+        mpu.setZGyroOffset(43);
 
         mpu.setRate(4);
 
@@ -229,6 +220,7 @@ void init_motion()
         mpu.CalibrateGyro(6);
         mpu.PrintActiveOffsets();
 
+        mpu.setDMPEnabled(true);
         // turn on the DMP, now that it's ready
         mpu.getIntStatus();
     }
@@ -238,28 +230,30 @@ void init_motion()
     }
 }
 
-
-void get_ypra(float &x, float &y, float &z, bool still)
+void get_ypr_velocities(float &yaw, float &pitch, float &roll)
 {
-    static float gx = 0, gy = 0, gz = 0;
+    int16_t xr, yr, zr;
+    mpu.getRotation(&xr, &yr, &zr);
 
-    constexpr float divisor = 8192.0;
-    constexpr float G = 9.80665;
-    constexpr float coeff = G / divisor;
-    int16_t xa, ya, za;
-    mpu.getAcceleration(&xa, &ya, &za);
+    float divisor = 16.4;
 
-    x = xa * coeff;
-    y = ya * coeff;
-    z = za * coeff;
+    roll = yr / divisor;
+    pitch = xr / divisor;
+    yaw = zr / divisor;
+}
 
-    if (still)
-    {
-        gx = gx * 0.99 + x * 0.01;
-        gy = gy * 0.99 + y * 0.01;
-        gz = gz * 0.99 + z * 0.01;
-    }
-    x -= gx;
-    y -= gy;
-    z -= gz;
+void get_ypr_angles(float &yaw, float &pitch, float &roll, bool still)
+{
+    static float pitch_offset = 0;
+    static float roll_offset = 0;
+    while (mpu.dmpGetCurrentFIFOPacket(fifoBuffer));
+    mpu.dmpGetQuaternion(&q, fifoBuffer);
+    mpu.dmpGetGravity(&gravity, &q);
+    mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+
+    yaw = -ypr[0] * 180 / M_PI;
+
+    pitch = ypr[2] * 180 / M_PI;
+
+    roll = -ypr[1] * 180 / M_PI;
 }
