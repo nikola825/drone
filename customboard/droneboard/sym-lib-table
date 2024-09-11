@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "SPX1117M3-L-5-0TR")(type "KiCad")(uri "${KIPRJMOD}/components/symbols/SPX1117M3-L-5-0TR.kicad_sym")(options "")(descr ""))
+  (lib (name "CSTNE16M0V530000R0")(type "KiCad")(uri "${KIPRJMOD}/components/symbols/CSTNE16M0V530000R0.kicad_sym")(options "")(descr ""))
+)

@@ -1,0 +1,128 @@
+(footprint "ESCPAD"
+	(version 20240108)
+	(generator "pcbnew")
+	(generator_version "8.0")
+	(layer "F.Cu")
+	(descr "SMD rectangular pad as test Point, square 2.0mm side length")
+	(tags "test point SMD pad rectangle square")
+	(property "Reference" "H20"
+		(at 0 -2.794 0)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "772f3e94-8d0a-443b-9d79-9b8c79e26f9a")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "MountingHole_Pad"
+		(at 0 2.05 0)
+		(layer "F.Fab")
+		(uuid "5c047786-30cc-4e42-8b79-ccf9fee24dde")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Footprint" "Custom:ESCPAD"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "834a64f0-c121-47a1-b912-7a0546114377")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "e5a3775e-eb3e-4b3d-b13b-6a513cf58424")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Mounting Hole with connection"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "ef381601-7a4f-4a7d-ac42-2b1621b7b71f")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr exclude_from_pos_files exclude_from_bom)
+	(fp_line
+		(start -2.54 -1.5)
+		(end -2.54 1.5)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "357036e9-5f02-4998-b44b-314e4e7fa66e")
+	)
+	(fp_line
+		(start -2.54 -1.5)
+		(end 2.54 -1.5)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "5de329e9-4f43-4df5-bcbf-7ab79d7fac71")
+	)
+	(fp_line
+		(start 2.54 1.5)
+		(end -2.54 1.5)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "2d8a27dd-8988-4be3-9569-9c08de57135f")
+	)
+	(fp_line
+		(start 2.54 1.5)
+		(end 2.54 -1.5)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "d14d72de-7e11-49da-a1e8-658af28fba8e")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 -2 0)
+		(layer "F.Fab")
+		(uuid "c1d18a40-456e-449f-b934-f33d9f0b0142")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "1" smd rect
+		(at 0 0)
+		(size 5 3)
+		(layers "F.Cu" "F.Mask")
+		(uuid "08321cd6-7e57-4007-bf5e-6494579bc676")
+	)
+)

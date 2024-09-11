@@ -1,0 +1,37 @@
+### Footprint positions - created on 2024-08-05T22:27:24+0200 ###
+### Printed by KiCad version 8.0.4
+## Unit = mm, Angle = deg.
+## Side : All
+# Ref     Val                 Package                              PosX       PosY       Rot  Side
+C1        4.7u                C_1206_3216Metric                 40.9750     7.6250  -90.0000  top
+C2        10n                 C_0603_1608Metric                 41.8750    19.8375   90.0000  top
+C3        220n                C_0603_1608Metric                 10.4250    45.3000  -90.0000  top
+C4        10u                 C_1206_3216Metric                 39.7750    20.6625  -90.0000  top
+C5        100n                C_0603_1608Metric                 30.7500    59.8750  -90.0000  top
+C6        47u                 C_1206_3216Metric                 28.0000    59.0000  -90.0000  top
+C7        47u                 C_1206_3216Metric                 43.0000    53.0000  -90.0000  top
+C8        100n                C_0603_1608Metric                 34.1000    15.0750  -90.0000  top
+C9        100n                C_0603_1608Metric                 45.7250    41.0750    0.0000  top
+C10       100n                C_0603_1608Metric                 23.2500    42.8000  180.0000  top
+C11       100n                C_0603_1608Metric                 29.2750    51.7250    0.0000  top
+C12       100n                C_0603_1608Metric                 37.7250    19.8250  -90.0000  top
+C13       10n                 C_0603_1608Metric                 31.7250    15.4750   90.0000  top
+C14       2.2n                C_0805_2012Metric                 35.4750    26.0500    0.0000  top
+D1        LED                 LED_0603_1608Metric               57.4625    41.4870  180.0000  top
+D2        LED                 LED_0603_1608Metric               57.4625    37.9310  180.0000  top
+D3        LED                 LED_0603_1608Metric               57.4625    34.3750  180.0000  top
+D4        LED                 LED_0603_1608Metric               57.4625    30.5650  180.0000  top
+R1        10K                 R_0603_1608Metric                  8.6000    48.3250    0.0000  top
+R2        10K                 R_0603_1608Metric                 54.1750    43.3250    0.0000  top
+R3        1K                  R_0603_1608Metric                 54.1605    41.4870    0.0000  top
+R4        1K                  R_0603_1608Metric                 54.1605    37.9310    0.0000  top
+R5        1K                  R_0603_1608Metric                 54.1605    34.3750    0.0000  top
+R6        1K                  R_0603_1608Metric                 54.1605    30.5650    0.0000  top
+R7        2.2K                R_0603_1608Metric                 28.6500    24.9900  180.0000  top
+R8        2.2K                R_0603_1608Metric                 28.6500    27.5000  180.0000  top
+U1        ATmega2560-16A      TQFP-100_14x14mm_P0.5mm           34.5000    42.0750    0.0000  top
+U2        MPU-6050            InvenSense_QFN-24_4x4mm_P0.5mm    33.2250    20.3500    0.0000  top
+U3        SPX1117M3-L-5-0/TR  SOT-223-3_TabPin2                 37.0000    58.5320  -90.0000  top
+U4        LP2985-3.3          SOT-23-5                          39.4500    15.3750   90.0000  top
+XTAL1     CSTCE16M0V53-R0     CSTCE_V_MUR                       32.3000    31.3500  180.0000  top
+## End

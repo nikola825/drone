@@ -8,11 +8,14 @@ from storage_gen import *
 from typing import Callable
 from threading import Thread, Lock
 
-COMMAND_INPUT_MAX = 500
-COMMAND_INPUT = 220
-THRUST_MAX = 2000
+# DRONE_ADDR = "00:22:05:00:31:56"
+DRONE_ADDR = "00:22:05:00:31:68"
 
-ANGLE_INPUT_MAX = 180
+COMMAND_INPUT_MAX = 50
+COMMAND_INPUT = 10
+THRUST_MAX = 3000
+
+ANGLE_INPUT_MAX = 225
 
 THRUST_VARIABLE_NAME = "thrust"
 PITCH_VARIABLE_NAME = "pitch"
@@ -34,19 +37,19 @@ def ziegler_calc(ku, tu, cs):
     return int(round(ziegler_coefficients[cs][0]*ku)), int(round(ziegler_coefficients[cs][1]*ku/tu)), int(round(ziegler_coefficients[cs][2]*ku*tu))
 
 
-YAW_KU = 1300
-YAW_TU = 0.15
-YAW_KP, YAW_KI, YAW_KD = ziegler_calc(YAW_KU, YAW_TU, 3)
+YAW_KU = 6000
+YAW_TU = 0.5
+YAW_KP, YAW_KI, YAW_KD = ziegler_calc(YAW_KU, YAW_TU, 1)
 
-PITCH_KU = 330
+PITCH_KU = 1000
 PITCH_TU = 0.25
 
-PITCH_KP, PITCH_KI, PITCH_KD = ziegler_calc(PITCH_KU, PITCH_TU, 4)
+PITCH_KP, PITCH_KI, PITCH_KD = ziegler_calc(PITCH_KU, PITCH_TU, 1)
 
-ROLL_KU = 330
+ROLL_KU = 1000
 ROLL_TU = 0.25
 
-ROLL_KP, ROLL_KI, ROLL_KD = ziegler_calc(ROLL_KU, ROLL_TU, 3)
+ROLL_KP, ROLL_KI, ROLL_KD = ziegler_calc(ROLL_KU, ROLL_TU, 1)
 
 
 def dummy_setter(*args, **kwargs):
@@ -62,6 +65,7 @@ class DroneVariable:
     min_value: int
     max_value: int
     setter: Callable[[socket.socket, int], None]
+    analog: int
 
     trim_value: int
     input_sign: int
@@ -89,6 +93,7 @@ class DroneVariable:
         self.trim_value = initial_trim
         self.input_sign = 0
         self.last_applied_value = None
+        self.analog = 0
 
     def trim_increment(self, sign):
         old_value = self.trim_value
@@ -111,6 +116,10 @@ class DroneVariable:
         self.input_sign = sign
         self.apply_value()
 
+    def set_analog(self, analog):
+        self.analog = analog
+        self.apply_value()
+
     def reset(self):
         self.last_applied_value = None
         if self.reset_trim is not None:
@@ -118,7 +127,7 @@ class DroneVariable:
         self.input_sign = 0
 
     def get_cumulative_value(self):
-        return min(self.max_value, max(self.min_value, self.trim_value + self.input_sign * self.input_step))
+        return min(self.max_value, max(self.min_value, self.trim_value + self.input_sign * self.input_step + self.analog))
 
     def apply_value(self):
         if self.owner.is_connected():
@@ -148,15 +157,18 @@ class Drone:
         self.heartbeat_thread.start()
         self.telemetry_buffer = b""
         self.telemetry_values = {}
+        self.frequency_log = []
         self.telemetry_lock = Lock()
+        self.sensor_logging_started = False
 
     def reconnect(self):
         try:
             self.disconnect()
             self.telemetry_values = {}
+            self.frequency_log = []
             print("Connecting")
             connection = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-            connection.connect(('00:18:E4:35:53:8C', 1))
+            connection.connect((DRONE_ADDR, 1))
             print("Connection successful, resetting drone")
             self.connection = connection
             self.stop()
@@ -185,7 +197,7 @@ class Drone:
 
     def initialize_variables(self):
         self.variables = {
-            YAW_VARIABLE_NAME: DroneVariable(self, "Yaw", 0, None, 10, 1, -ANGLE_INPUT_MAX,
+            YAW_VARIABLE_NAME: DroneVariable(self, "Yaw", 0, None, 90, 1, -ANGLE_INPUT_MAX,
                                              ANGLE_INPUT_MAX,
                                              storage_write_yaw_input),
             PITCH_VARIABLE_NAME: DroneVariable(self, "Pitch", 0, None, COMMAND_INPUT, 1, -COMMAND_INPUT_MAX,
@@ -196,9 +208,9 @@ class Drone:
                                               storage_write_roll_input),
             THRUST_VARIABLE_NAME: DroneVariable(self, "Thrust", 0, 0, 0, 10, 0, THRUST_MAX, storage_write_thrust_input),
 
-            "yaw_kp": DroneVariable(self, "Yaw Kp", YAW_KP, None, 0, 1, 0, 50000, storage_write_yaw_kp),
-            "yaw_ki": DroneVariable(self, "Yaw Ki", YAW_KI, None, 0, 1, 0, 50000, storage_write_yaw_ki),
-            "yaw_kd": DroneVariable(self, "Yaw Kd", YAW_KD, None, 0, 1, 0, 50000, storage_write_yaw_kd),
+            "yaw_kp": DroneVariable(self, "Yaw Kp", YAW_KP, None, 0, 1, 0, 5000000, storage_write_yaw_kp),
+            "yaw_ki": DroneVariable(self, "Yaw Ki", YAW_KI, None, 0, 1, 0, 5000000, storage_write_yaw_ki),
+            "yaw_kd": DroneVariable(self, "Yaw Kd", YAW_KD, None, 0, 1, 0, 5000000, storage_write_yaw_kd),
             "pitch_kp": DroneVariable(self, "pitch Kp", PITCH_KP, None, 0, 1, 0, 50000, storage_write_pitch_kp),
             "pitch_ki": DroneVariable(self, "pitch Ki", PITCH_KI, None, 0, 1, 0, 50000, storage_write_pitch_ki),
             "pitch_kd": DroneVariable(self, "pitch Kd", PITCH_KD, None, 0, 1, 0, 50000, storage_write_pitch_kd),
@@ -220,6 +232,31 @@ class Drone:
     def stop(self):
         if self.is_connected():
             stop_command(self.connection)
+            self.variables[THRUST_VARIABLE_NAME].reset()
+            self.variables[THRUST_VARIABLE_NAME].apply_value()
+
+    def sensor_dump(self):
+        if self.is_connected():
+            if not self.sensor_logging_started:
+                print("Invoking sensor log")
+                sensor_log(self.connection)
+                self.sensor_logging_started = True
+            else:
+                print("Invoking sensor dump")
+                sensor_dump(self.connection)
+                self.sensor_logging_started = False
+
+    def set_bandwidth(self, bandwidth):
+        if self.is_connected:
+            set_mpu_dlpf(self.connection, bandwidth)
+
+    def set_rate(self, rate):
+        if self.is_connected:
+            set_mpu_rate(self.connection, rate)
+
+    def start(self):
+        if self.is_connected():
+            start_command(self.connection)
             self.variables[THRUST_VARIABLE_NAME].reset()
             self.variables[THRUST_VARIABLE_NAME].apply_value()
 
@@ -257,12 +294,20 @@ class Drone:
         finally:
             self.telemetry_lock.release()
 
+    def get_frequency_log(self):
+        self.telemetry_lock.acquire()
+        try:
+            log = self.frequency_log
+            self.frequency_log = []
+            return log
+        finally:
+            self.telemetry_lock.release()
+
     def process_recv_buffer(self):
         while b"\x42" in self.telemetry_buffer:
             self.telemetry_buffer = self.telemetry_buffer[self.telemetry_buffer.find(b"\x42"):]
             if len(self.telemetry_buffer) < 8:
                 break
-
             chunk = self.telemetry_buffer[:8]
             self.process_recv_chunk(chunk)
 
@@ -279,10 +324,14 @@ class Drone:
             var_id = chunk[1]
             var_val = chunk[2:]
             if var_type == 0:
-                var_val = struct.unpack("<l", var_val)[0]
+                var_val = struct.unpack("<L", var_val)[0]
             else:
                 var_val = struct.unpack("<f", var_val)[0]
             self.telemetry_values[var_id] = var_val
+
+            if var_id == 1:
+                print("AAAAAAAAAAa", var_val, var_id, var_type)
+                self.frequency_log.append(var_val)
 
     def heartbeat(self):
         if self.is_connected():
@@ -302,7 +351,7 @@ class Drone:
 def dcmain():
     s = socket.socket(socket.AF_BLUETOOTH,
                       socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-    s.connect(('00:18:E4:35:53:8C', 1))
+    s.connect((DRONE_ADDR, 1))
 
     while True:
         sq = input("Thrust: ")
