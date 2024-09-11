@@ -4,10 +4,11 @@ from PySide6 import QtCore
 from PySide6 import Qt
 from PySide6.QtGui import QIntValidator, QKeyEvent
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QSizePolicy, \
-    QLabel, QSpinBox, QCheckBox, QDial, QSlider, QLCDNumber, QProgressBar, QLineEdit, QPlainTextEdit
+    QLabel, QSpinBox, QCheckBox, QDial, QSlider, QLCDNumber, QProgressBar, QLineEdit, QPlainTextEdit, QComboBox
 from PySide6.QtCore import Qt, QTimer, Slot, Signal, QObject, QEvent
 from threading import Thread, Lock
 import evdev
+from evdev import ecodes
 import matplotlib.pyplot as plt
 
 from dronecontrol import COMMAND_INPUT_MAX, THRUST_MAX, Drone, DroneVariable, THRUST_VARIABLE_NAME, ROLL_VARIABLE_NAME, \
@@ -18,6 +19,16 @@ EXPAND_MIN_HORIZONTAL = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Poli
 LOG_LENGTH = 100
 PLOTTED_VALUE_ID = 1
 plot_enabled = False
+
+bandwidths = ["DLPF_BW_256",
+            "DLPF_BW_188",
+            "DLPF_BW_98",
+            "DLPF_BW_42",
+            "DLPF_BW_20",
+            "DLPF_BW_10",
+            "DLPF_BW_5"]
+
+rates = ["0", "1", "2", "3", "4"]
 
 class MainWindow(QWidget):
     line_edits: dict[str, QLineEdit]
@@ -65,7 +76,8 @@ class MainWindow(QWidget):
 
         for device in evdev.list_devices():
             device = evdev.InputDevice(device)
-            if "Joystick" in device.name:
+            print(device.name)
+            if "Joystick" in device.name or "RumblePad" in device.name:
                 self.joystick = device
                 self.joystick_lock = Lock()
                 self.joystick_thread = Thread(target=self.joystick_listener, daemon=True)
@@ -73,33 +85,109 @@ class MainWindow(QWidget):
 
     def keyPressEvent(self, event: QKeyEvent):
         if not event.isAutoRepeat():
-            self.handle_command_press(event.key())
-            self.handle_trim_press(event.key())
+            self.key_press_release_handler(event.key(), True)
             if event.key() == Qt.Key.Key_X:
                 self.drone_stop()
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event: QKeyEvent):
         if not event.isAutoRepeat():
-            self.handle_command_release(event.key())
-            self.handle_trim_release(event.key())
-            self.handle_setter_key(event.key())
+            self.key_press_release_handler(event.key(), False)
 
         super().keyPressEvent(event)
 
+    def key_press_release_handler(self, key: int|str, press:bool):
+        if press:
+            self.handle_command_press(key)
+            self.handle_trim_press(key)
+        else:
+            self.handle_command_release(key)
+            self.handle_trim_release(key)
+            self.handle_setter_key(key)
+
     def joystick_listener(self):
+        joy_to_key_map = {
+            (ecodes.EV_ABS, ecodes.ABS_HAT0Y, -1): (["JOY_UP"], True),
+            (ecodes.EV_ABS, ecodes.ABS_HAT0Y, 1): (["JOY_DOWN"], True),
+            (ecodes.EV_ABS, ecodes.ABS_HAT0Y, 0): (["JOY_DOWN", "JOY_UP"], False),
+            (ecodes.EV_KEY, ecodes.BTN_TR, 1): (["JOY_TR"], True),
+            (ecodes.EV_KEY, ecodes.BTN_TR, 0): (["JOY_TR"], False),
+            (ecodes.EV_KEY, ecodes.BTN_TL, 1): (["JOY_TL"], True),
+            (ecodes.EV_KEY, ecodes.BTN_TL, 0): (["JOY_TL"], False),
+            (ecodes.EV_KEY, ecodes.BTN_X, 1): (["JOY_YELLOW"], True),
+            (ecodes.EV_KEY, ecodes.BTN_X, 0): (["JOY_YELLOW"], False),
+            (ecodes.EV_KEY, ecodes.BTN_B, 1): (["JOY_GREEN"], True),
+            (ecodes.EV_KEY, ecodes.BTN_B, 0): (["JOY_GREEN"], False),
+        }
+        joy_to_function_map = {
+            (ecodes.EV_KEY, ecodes.BTN_C, 1): (self.drone_stop, []),
+            (ecodes.EV_KEY, ecodes.BTN_A, 1): (self.start_motors, []),
+            (ecodes.EV_KEY, ecodes.BTN_TR2, 1): (self.bt_connect, []),
+        }
+        analogs = {
+            ecodes.ABS_Y: (1, 255, -1, 128, 400, THRUST_VARIABLE_NAME),
+            ecodes.ABS_Z: (1, 0, 1, 30, 30, ROLL_VARIABLE_NAME),
+            ecodes.ABS_RZ: (-1, 255, -1, 30, 30, PITCH_VARIABLE_NAME)
+        }
+
         for event in self.joystick.read_loop():
-            if event.type == evdev.ecodes.EV_KEY:
-                print(evdev.categorize(event))
-                if event.value == 1:
-                    self.handle_command_press(("J", event.code))
-                    self.handle_trim_press(("J", event.code))
-                elif event.value == 0:
-                    self.handle_command_release(("J", event.code))
-                    self.handle_trim_release(("J", event.code))
-                    self.handle_setter_key(("J", event.code))
-                if event.code == evdev.ecodes.BTN_BASE3:
-                    self.drone_stop()
+            if (event.type, event.code, event.value) in joy_to_key_map:
+                keys, press = joy_to_key_map[(event.type, event.code, event.value)]
+                for k in keys:
+                    self.key_press_release_handler(k, press)
+            elif (event.type, event.code, event.value) in joy_to_function_map:
+                f, a = joy_to_function_map[(event.type, event.code, event.value)]
+                f(*a)
+            elif event.type == ecodes.EV_ABS:
+                if event.code in analogs:
+                    multiplier, delta, factor, low_range, high_range, variable_name = analogs[event.code]
+                    value = event.value*factor + delta
+                    if value<=128:
+                        analog_input = int(-1 * low_range * (128-value)/128)
+                    else:
+                        analog_input = int((value-128)/128*high_range)
+                    self.drone.variables[variable_name].set_analog(analog_input*multiplier)
+
+            #elif event.code == evdev.ecodes.ABS_Y:
+            #    print("Y", event.value)
+            #else:
+            #    print(evdev.categorize(event))
+            """
+            if event.type == evdev.ecodes.EV_ABS:
+                if event.code == evdev.ecodes.ABS_X:
+                    print("X", event.value)
+                elif event.code == evdev.ecodes.ABS_Y:
+                    print("Y", event.value)
+                elif event.code == evdev.ecodes.ABS_Z:
+                    print("Z", event.value)
+                elif event.code == evdev.ecodes.ABS_RZ:
+                    print("RZ", event.value)
+                elif event.code == evdev.ecodes.ABS_HAT0X:
+                    print("HX", event.value)
+                elif event.code == evdev.ecodes.ABS_HAT0Y:
+                    if event.value < 0:
+                        self.handle_trim_press("JOY_UP")
+                    elif event.value > 0:
+                        self.handle_trim_press("JOY_DOWN")
+                    else:
+                        self.handle_trim_release("JOY_DOWN", "JOY_UP")
+                else:
+                    print("ABS:", evdev.categorize(event))
+            elif event.type == evdev.ecodes.EV_KEY:
+                if event.code == evdev.ecodes.BTN_TR:
+                    if event.value == 1:
+                        self.handle_command_press("JOY_TR")
+                    else:
+                        self.handle_command_release("JOY_TR")
+                elif event.code == evdev.ecodes.BTN_TL:
+                    if event.value == 1:
+                        self.handle_command_press("JOY_TL")
+                    else:
+                        self.handle_command_release("JOY_TL")
+                print("K", evdev.categorize(event))
+            elif event.type != evdev.ecodes.SYN_REPORT:
+                print("OTHER:", evdev.categorize(event))
+            """
 
     def setup_keymap(self):
         self.command_inputs = {
@@ -109,46 +197,49 @@ class MainWindow(QWidget):
             Qt.Key.Key_S: (PITCH_VARIABLE_NAME, 1),
             Qt.Key.Key_Q: (YAW_VARIABLE_NAME, 1),
             Qt.Key.Key_E: (YAW_VARIABLE_NAME, -1),
+            "JOY_TR": (YAW_VARIABLE_NAME, -1),
+            "JOY_TL": (YAW_VARIABLE_NAME, 1),
         }
 
         self.trim_inputs = {
             Qt.Key.Key_P: (THRUST_VARIABLE_NAME, 1),
             Qt.Key.Key_L: (THRUST_VARIABLE_NAME, -1),
-            ("J", evdev.ecodes.BTN_PINKIE): (YAW_VARIABLE_NAME, 1),
-            ("J", evdev.ecodes.BTN_TOP2): (YAW_VARIABLE_NAME, -1),
-            ("J", evdev.ecodes.BTN_BASE): (THRUST_VARIABLE_NAME, -1),
-            ("J", evdev.ecodes.BTN_BASE2): (THRUST_VARIABLE_NAME, 1),
+            "JOY_UP": (THRUST_VARIABLE_NAME, 1),
+            "JOY_DOWN": (THRUST_VARIABLE_NAME, -1)
 
         }
 
         self.setter_inputs = {
-            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 1010),
-            Qt.Key.Key_V: (THRUST_VARIABLE_NAME, 1340),
-            ("J", evdev.ecodes.BTN_BASE4): (THRUST_VARIABLE_NAME, 1010)
+            Qt.Key.Key_C: (THRUST_VARIABLE_NAME, 800),
+            Qt.Key.Key_V: (THRUST_VARIABLE_NAME, 1090),
+            "JOY_YELLOW": (THRUST_VARIABLE_NAME, 800),
+            "JOY_GREEN": (THRUST_VARIABLE_NAME, 1090),
         }
 
-    def handle_command_press(self, key: int | tuple[str, int]):
+    def handle_command_press(self, key: int | str):
         if key in self.command_inputs:
             variable_name, sign = self.command_inputs[key]
             self.drone.variables[variable_name].set_input(sign)
             self.draw_status()
 
-    def handle_command_release(self, key: int | tuple[str, int]):
+    def handle_command_release(self, key: int | str):
         if key in self.command_inputs:
             variable_name, sign = self.command_inputs[key]
             self.drone.variables[variable_name].set_input(0)
             self.draw_status()
 
-    def handle_trim_press(self, key: int | tuple[str, int]):
-        if key in self.trim_inputs:
-            variable_name, sign = self.trim_inputs[key]
-            self.pressed_trims[variable_name] = sign
+    def handle_trim_press(self, *args: str|int):
+        for key in args:
+            if key in self.trim_inputs:
+                variable_name, sign = self.trim_inputs[key]
+                self.pressed_trims[variable_name] = sign
 
-    def handle_trim_release(self, key: int | tuple[str, int]):
-        if key in self.trim_inputs:
-            variable_name, sign = self.trim_inputs[key]
-            if variable_name in self.pressed_trims:
-                del self.pressed_trims[variable_name]
+    def handle_trim_release(self, *args: str|int):
+        for key in args:
+            if key in self.trim_inputs:
+                variable_name, sign = self.trim_inputs[key]
+                if variable_name in self.pressed_trims:
+                    del self.pressed_trims[variable_name]
 
     def handle_setter_key(self, key: int | tuple[str, int]):
         if key in self.setter_inputs:
@@ -190,7 +281,7 @@ class MainWindow(QWidget):
     def setup_top_menu(self):
         top_menu_buttons = [
             ("Connect", self.bt_connect),
-            ("Start", None),
+            ("Start", self.start_motors),
             ("Stop", self.drone_stop)
         ]
         for text, callback in top_menu_buttons:
@@ -198,6 +289,27 @@ class MainWindow(QWidget):
             if callback is not None:
                 button.clicked.connect(callback)
             self.top_menu.addWidget(button)
+
+        bw_dropdown=QComboBox()
+        bw_dropdown.addItems(bandwidths)
+        bw_dropdown.setCurrentIndex(3)
+        bw_dropdown.currentIndexChanged.connect(self.select_bandwidth)
+        self.top_menu.addWidget(bw_dropdown)
+
+        self.rate_dropdown=QComboBox()
+        self.rate_dropdown.addItems(rates)
+        self.rate_dropdown.setCurrentIndex(0)
+        self.rate_dropdown.currentIndexChanged.connect(self.select_rate)
+        self.rate_dropdown.setEditable(False)
+        self.top_menu.addWidget(self.rate_dropdown)
+
+    def select_bandwidth(self, bandwidth_index):
+        self.drone.set_bandwidth(bandwidth_index)
+
+    def select_rate(self, rate_index):
+        self.drone.set_rate(rate_index)
+        self.rate_dropdown.clearFocus()
+        self.setFocus()
 
     def setup_status_grid(self):
         status_grid_rows = 7
@@ -295,7 +407,7 @@ class MainWindow(QWidget):
 
     def setup_timer(self):
         self.periodic_timer = QTimer()
-        self.periodic_timer.setInterval(50)
+        self.periodic_timer.setInterval(25)
         self.periodic_timer.timeout.connect(self.timer_tick)
         self.periodic_timer.start()
 
@@ -308,6 +420,9 @@ class MainWindow(QWidget):
 
         if (old_trim != new_trim) and (variable_name in self.line_edits):
             self.line_edits[variable_name].setText(str(new_trim))
+
+    def start_motors(self):
+        self.drone.start()
 
     @Slot()
     def timer_tick(self):
@@ -397,7 +512,7 @@ class MainWindow(QWidget):
             self.fig, self.ax = plt.subplots()
             self.line, = self.ax.plot([], [])
             plt.plot()
-        elif self.thrust_variable.trim_value > 0:
+        elif self.thrust_variable.trim_value >= 0:
             self.line.set_ydata(values)
             self.line.set_xdata(timestamps)
             self.ax.set_ylim(min_value, max_value)

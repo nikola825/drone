@@ -12,8 +12,7 @@ bool halted=false;
 uint8_t global_error;
 bool watchdog_enabled = false;
 
-constexpr int ERROR_FLASH_PERIOD = 300;
-constexpr int ERROR_FLASH_DELAY = 1000;
+
 void flash_error()
 {
     wdt_reset();
@@ -43,7 +42,7 @@ void flash_error()
 
 void setup()
 {
-    pinMode(LED_BUILTIN, OUTPUT);
+    /*pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, LOW);
 
     //calibrate_mpu();
@@ -58,19 +57,19 @@ void setup()
     digitalWrite(LED_BUILTIN, HIGH);
 
     DBG_PRINTLN(1, "Init done");
-    delay(100);
+    delay(100);*/
 }
 
 void loop()
 {
-    DBG_PRINTLN(2, "Loop");
+    /*DBG_PRINTLN(2, "Loop");
     digitalWrite(LED_BUILTIN, LOW);
     process_commands(bluetooth_port);
     navigate();
     drive();
     digitalWrite(LED_BUILTIN, HIGH);
     delay(10);
-    //Serial.println(millis()-x);
+    //Serial.println(millis()-x);*/
 }
 
 void halt(uint8_t error)

@@ -17,3 +17,9 @@ def read_storage_command(sock, address):
 
 def write_storage_command(sock, address, length, value):
     send_command(sock, 5, '<HBL', address, length, value)
+
+def set_mpu_rate(sock, rate):
+    send_command(sock, 6, '<B', rate)
+
+def set_mpu_dlpf(sock, dlpf):
+    send_command(sock, 7, '<B', dlpf)

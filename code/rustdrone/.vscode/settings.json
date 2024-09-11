@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./dronecode/Cargo.toml",
+        "./controller/Cargo.toml",
+        "./common/Cargo.toml"
+    ]
+}
