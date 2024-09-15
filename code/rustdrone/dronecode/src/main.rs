@@ -64,12 +64,18 @@ struct LinkStatistics {
     pub TxPower: u8,
     pub UplinkRSSI: u8,
     pub DownlinkSuccessRate: u8,
-    pub DownlinkSNR: i8
+    pub DownlinkSNR: i8,
 }
 
 impl defmt::Format for LinkStatistics {
     fn format(&self, fmt: defmt::Formatter) {
-        defmt::write!(fmt, "LinkStatistics RfMode:{} UplinkSuccessRate:{} UplinkSNR:{}", self.RfMode, self.UplinkSuccessRate, self.UplinkRssiAnt1);
+        defmt::write!(
+            fmt,
+            "LinkStatistics RfMode:{} UplinkSuccessRate:{} UplinkSNR:{}",
+            self.RfMode,
+            self.UplinkSuccessRate,
+            self.UplinkRssiAnt1
+        );
     }
 }
 
@@ -181,8 +187,7 @@ async fn main(_spawner: Spawner) {
                                         cmdbuf[2..rest_len + 2],
                                         k.unwrap().get_channels()
                                     );*/
-                                }
-                                else {
+                                } else {
                                     let k = LinkStatistics::read_from(&cmdbuf[3..rest_len + 1]);
                                     info!("{}", k.unwrap());
                                 }

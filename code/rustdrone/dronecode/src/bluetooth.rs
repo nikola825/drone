@@ -37,7 +37,7 @@ pub fn make_bluetooth_uart<T: Instance>(
 #[embassy_executor::task]
 pub async fn bluetooth_receiver_task(
     uart: UartRx<'static, Async>,
-    sender: Sender<'static, ThreadModeRawMutex, CommandPacket, 10>
+    sender: Sender<'static, ThreadModeRawMutex, CommandPacket, 10>,
 ) {
     let mut ring_buffer = [0u8; 256];
     let mut uart = uart.into_ring_buffered(&mut ring_buffer);

@@ -1,6 +1,11 @@
 use defmt::{error, info};
 use embassy_stm32::{
-    gpio::Output, interrupt, mode::{Async, Blocking}, spi::{self, Instance, MisoPin, MosiPin, RxDma, SckPin, Spi, TxDma}, time::Hertz, Peripheral, Peripherals
+    gpio::Output,
+    interrupt,
+    mode::{Async, Blocking},
+    spi::{self, Instance, MisoPin, MosiPin, RxDma, SckPin, Spi, TxDma},
+    time::Hertz,
+    Peripheral, Peripherals,
 };
 use embedded_hal::spi::MODE_3;
 use zerocopy::{big_endian, little_endian, FromBytes, FromZeroes, Unaligned};
@@ -8,7 +13,7 @@ use zerocopy::{big_endian, little_endian, FromBytes, FromZeroes, Unaligned};
 pub struct ICM42688 {
     spi: Spi<'static, Async>,
     ss: Output<'static>,
-    gyro_range: GyroRange
+    gyro_range: GyroRange,
 }
 
 mod icm_constants {
@@ -16,7 +21,7 @@ mod icm_constants {
 }
 
 pub enum GyroRange {
-    GYRO_CONFIG_FS_SEL_250 = 0<<3
+    GYRO_CONFIG_FS_SEL_250 = 0 << 3,
 }
 
 mod icm_registers {
@@ -33,13 +38,13 @@ mod icm_registers {
 struct GyroOutputPack {
     x_out: little_endian::I16,
     y_out: little_endian::I16,
-    z_out: little_endian::I16
+    z_out: little_endian::I16,
 }
 
 impl GyroOutputPack {
     fn get_ypr_deg(&self, range: &GyroRange) -> (f32, f32, f32) {
         let divisor = match range {
-            GyroRange::GYRO_CONFIG_FS_SEL_250 => 114.28571428571428f32
+            GyroRange::GYRO_CONFIG_FS_SEL_250 => 114.28571428571428f32,
         };
 
         let yaw = (self.z_out.get() as f32) / divisor;
@@ -58,14 +63,26 @@ impl ICM42688 {
         miso_pin: impl Peripheral<P = impl MisoPin<T>> + 'static,
         tx_dma: impl Peripheral<P = impl TxDma<T>> + 'static,
         rx_dma: impl Peripheral<P = impl RxDma<T>> + 'static,
-        ss: Output<'static>
+        ss: Output<'static>,
     ) -> ICM42688 {
         let mut spi_config = spi::Config::default();
         spi_config.frequency = Hertz(10_000_000);
         spi_config.mode = MODE_3;
-        let spi = spi::Spi::new(spi_controller,sck_pin, mosi_pin, miso_pin, tx_dma, rx_dma, spi_config);
+        let spi = spi::Spi::new(
+            spi_controller,
+            sck_pin,
+            mosi_pin,
+            miso_pin,
+            tx_dma,
+            rx_dma,
+            spi_config,
+        );
 
-        ICM42688 { spi: spi, gyro_range: GyroRange::GYRO_CONFIG_FS_SEL_250, ss:ss }
+        ICM42688 {
+            spi: spi,
+            gyro_range: GyroRange::GYRO_CONFIG_FS_SEL_250,
+            ss: ss,
+        }
     }
 
     pub fn read_registers(&mut self, address: u8, output: &mut [u8]) {
@@ -90,11 +107,11 @@ impl ICM42688 {
         self.ss.set_high();
     }
 
-    pub fn test_connection(&mut self) -> bool{
+    pub fn test_connection(&mut self) -> bool {
         let mut data = [0u8];
         self.read_registers(icm_registers::WHO_AM_I, &mut data);
 
-        return data[0]==icm_constants::DEVICE_ID;
+        return data[0] == icm_constants::DEVICE_ID;
     }
 
     /*async fn write_reg_byte(&mut self, reg_addr: u8, reg_data: u8) {
@@ -105,14 +122,16 @@ impl ICM42688 {
         self.i2c.write_read(mpu_constants::MPU_ADDRESS, &[reg_addr], reg_data).await.unwrap();
     }*/
 
-    pub fn init(&mut self, gyro_range:GyroRange){
+    pub fn init(&mut self, gyro_range: GyroRange) {
         self.write_registers(0x20u8, &[0xffu8]);
     }
-    
+
     pub fn get_ypr_deg(&mut self) -> (f32, f32, f32) {
-        let mut data = [0u8;6];
+        let mut data = [0u8; 6];
         self.read_registers(icm_registers::GYRO_REGISTERS, &mut data);
 
-        GyroOutputPack::ref_from(&data).unwrap().get_ypr_deg(&self.gyro_range)
+        GyroOutputPack::ref_from(&data)
+            .unwrap()
+            .get_ypr_deg(&self.gyro_range)
     }
 }

@@ -6,7 +6,7 @@ pub struct Store {
 
 #[derive(Clone, Default)]
 pub struct StoreState {
-    pub variables: StoredVariables
+    pub variables: StoredVariables,
 }
 
 impl Store {
