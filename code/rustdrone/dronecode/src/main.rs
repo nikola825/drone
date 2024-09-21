@@ -24,10 +24,11 @@ use embassy_sync::lazy_lock::LazyLock;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Duration, Instant, Ticker, Timer};
 use embedded_hal::spi::{Polarity, MODE_0, MODE_1, MODE_2, MODE_3};
+use embedded_io::Write;
 use embedded_io_async::Read;
 use mpu6050::MPU6050;
 use storage::Store;
-use zerocopy::{AsBytes, FromBytes, FromZeroes, Unaligned};
+use zerocopy::{big_endian, AsBytes, FromBytes, FromZeroes, Unaligned};
 use {defmt_rtt as _, panic_probe as _};
 
 mod bluetooth;
@@ -76,6 +77,44 @@ impl defmt::Format for LinkStatistics {
             self.UplinkSuccessRate,
             self.UplinkRssiAnt1
         );
+    }
+}
+
+#[derive(AsBytes, FromBytes, FromZeroes, Unaligned, Default)]
+#[repr(C)]
+struct BatteryInfo {
+    pub voltage: big_endian::I16,
+    pub data:[u8;6]
+}
+
+#[derive(AsBytes, FromBytes, FromZeroes, Unaligned, Default)]
+#[repr(C)]
+struct BatPacket {
+    sync:u8,
+    len:u8,
+    typ:u8,
+    payload:[u8;8],
+    crc8:u8
+}
+
+impl BatPacket{
+    pub fn new(b:&BatteryInfo)->Self {
+        let mut payload = [0u8;8];
+        b.write_to(&mut payload).unwrap();
+        let mut packet = BatPacket{
+            sync:0xc8u8,
+            len: (payload.len()+2) as u8,
+            typ:0x08u8,
+            payload:payload,
+            crc8: 0u8
+        };
+
+        let buffer = packet.as_bytes_mut();
+        let crc = crccalc(&buffer[2..buffer.len()-1]);
+        buffer[buffer.len()-1]=crc;
+        info!("SENDCRC {}", crc);
+
+        return packet;
     }
 }
 
@@ -158,21 +197,27 @@ async fn main(_spawner: Spawner) {
     let peripherals = embassy_stm32::init(config);
     let mut x = [0u8; 1];
 
-    let mut bt_rx = bluetooth::make_bluetooth_uart(
+    let mut uart = bluetooth::make_bluetooth_uart(
         GPIOA,
         3,
         peripherals.USART2,
         peripherals.PA3,
         peripherals.PA2,
+        peripherals.DMA1_CH6,
         peripherals.DMA1_CH7,
         Irqs,
     );
 
+    let mut adc = Adc::new(peripherals.ADC1);
+    adc.set_resolution(embassy_stm32::adc::Resolution::BITS10);
+    let mut apin = peripherals.PA5;
+
+
     let mut ring_buffer = [0u8; 256];
-    let mut uart = bt_rx.into_ring_buffered(&mut ring_buffer);
+    //let mut uartrx = bt_rx.into_ring_buffered(&mut ring_buffer);
     let mut cmdbuf = [0u8; 64];
     loop {
-        if let Ok(_) = uart.read_exact(&mut cmdbuf[0..1]).await {
+        /*if let Ok(_) = uart.read_exact(&mut cmdbuf[0..1]).await {
             if cmdbuf[0] == 0xc8u8 {
                 if let Ok(_) = uart.read_exact(&mut cmdbuf[1..2]).await {
                     let rest_len: usize = cmdbuf[1].into();
@@ -196,17 +241,23 @@ async fn main(_spawner: Spawner) {
                     }
                 }
             }
-        }
+        }*/
+        let x = adc.blocking_read(&mut apin) as f32;
+        let vltg = x/1024f32*3.3f32;
+        let r1=1.15f32;
+        let r2=9.7f32;
+        let vltg = vltg/r1*(r1+r2);
+        info!("Analog {}", vltg);
+        let v = (vltg*10f32) as i16;
+        let mut bi = BatteryInfo::default();
+        bi.voltage = v.into();
+        let pack = BatPacket::new(&bi);
+        let packbuf = pack.as_bytes();
+        info!("SENDC {}", packbuf);
+        uart.write(packbuf).await.unwrap();
     }
 
-    /*let mut adc = Adc::new(peripherals.ADC1);
-    adc.set_resolution(embassy_stm32::adc::Resolution::BITS10);
-    let mut apin = peripherals.PA5;
-
-
-    let x = adc.blocking_read(&mut apin) as f32;
-    let vltg = x/1024f32*3.3f32;
-    info!("Analog {}", vltg);
+    /*
     Timer::after_millis(100).await;
 
 

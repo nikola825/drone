@@ -2,7 +2,7 @@ use common::command::CommandPacket;
 use defmt::{error, info};
 use embassy_stm32::interrupt;
 use embassy_stm32::mode::Async;
-use embassy_stm32::usart::{InterruptHandler, RxDma, StopBits, TxPin, UartRx};
+use embassy_stm32::usart::{InterruptHandler, RxDma, StopBits, TxDma, TxPin, Uart, UartRx};
 use embassy_stm32::{
     pac::gpio::{vals, Gpio},
     usart::{Instance, Parity, RxPin},
@@ -19,19 +19,21 @@ pub fn make_bluetooth_uart<T: Instance>(
     uart_peripheral: impl Peripheral<P = T> + 'static,
     rx_pin: impl Peripheral<P = impl RxPin<T>> + 'static,
     tx_pin: impl Peripheral<P = impl TxPin<T>> + 'static,
+    tx_dma: impl Peripheral<P = impl TxDma<T>> + 'static,
     rx_dma: impl Peripheral<P = impl RxDma<T>> + 'static,
     irqs: impl interrupt::typelevel::Binding<T::Interrupt, InterruptHandler<T>> + 'static,
-) -> UartRx<'static, Async> {
+) -> Uart<'static, Async> {
     let mut uart_config = embassy_stm32::usart::Config::default();
     uart_config.baudrate = 420000;
     uart_config.parity = Parity::ParityNone;
     uart_config.stop_bits = StopBits::STOP1;
 
-    let rx = UartRx::new(uart_peripheral, irqs, rx_pin, rx_dma, uart_config).unwrap();
+    let uart = Uart::new(uart_peripheral, rx_pin, tx_pin, irqs, tx_dma, rx_dma, uart_config).unwrap();
+
     gpio.pupdr()
         .modify(|w| w.set_pupdr(rx_pin_number, vals::Pupdr::PULLUP));
 
-    return rx;
+    return uart;
 }
 
 #[embassy_executor::task]
