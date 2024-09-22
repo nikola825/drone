@@ -1,18 +1,17 @@
 import socket
 import time
 import struct
-import math
 
 from commands_gen import *
 from storage_gen import *
 from typing import Callable
-from threading import Thread, Lock
+from threading import Thread, Lock, RLock
 
 # DRONE_ADDR = "00:22:05:00:31:56"
 DRONE_ADDR = "00:22:05:00:31:68"
 
-COMMAND_INPUT_MAX = 50
-COMMAND_INPUT = 10
+COMMAND_INPUT_MAX = 90
+COMMAND_INPUT = 40
 THRUST_MAX = 3000
 
 ANGLE_INPUT_MAX = 225
@@ -23,18 +22,19 @@ YAW_VARIABLE_NAME = "yaw"
 ROLL_VARIABLE_NAME = "roll"
 
 ziegler_coefficients = [
-    [0.5,  0.0,  0.0],
+    [0.5, 0.0, 0.0],
     [0.45, 0.54, 0.0],
-    [0.8,  0.0,  0.1],
-    [0.6,  1.2,  0.075],
-    [0.7,  1.75, 0.105],
-    [1/3,  2/3,  1/9],
-    [0.2,  0.4,  3/20]
+    [0.8, 0.0, 0.1],
+    [0.6, 1.2, 0.075],
+    [0.7, 1.75, 0.105],
+    [1 / 3, 2 / 3, 1 / 9],
+    [0.2, 0.4, 3 / 20]
 ]
 
 
 def ziegler_calc(ku, tu, cs):
-    return int(round(ziegler_coefficients[cs][0]*ku)), int(round(ziegler_coefficients[cs][1]*ku/tu)), int(round(ziegler_coefficients[cs][2]*ku*tu))
+    return int(round(ziegler_coefficients[cs][0] * ku)), int(round(ziegler_coefficients[cs][1] * ku / tu)), int(
+        round(ziegler_coefficients[cs][2] * ku * tu))
 
 
 YAW_KU = 6000
@@ -59,7 +59,7 @@ def dummy_setter(*args, **kwargs):
 class DroneVariable:
     # owner: Drone
     name: str
-    reset_trim: int
+    reset_trim: int | None
     input_step: int
     trim_step: int
     min_value: int
@@ -69,13 +69,13 @@ class DroneVariable:
 
     trim_value: int
     input_sign: int
-    last_applied_value: int
+    last_applied_value: int | None
 
     def __init__(self,
                  owner,  #: Drone
                  name: str,
                  initial_trim: int,
-                 reset_trim: int,
+                 reset_trim: int | None,
                  input_step: int,
                  trim_step: int,
                  min_value: int,
@@ -89,6 +89,7 @@ class DroneVariable:
         self.min_value = min_value
         self.max_value = max_value
         self.setter = setter
+        self.lock = RLock()
 
         self.trim_value = initial_trim
         self.input_sign = 0
@@ -96,49 +97,80 @@ class DroneVariable:
         self.analog = 0
 
     def trim_increment(self, sign):
-        old_value = self.trim_value
-        new_trim = self.trim_value + self.trim_step * sign
-        new_value = new_trim + self.input_sign * self.input_step
-        if self.min_value <= new_value <= self.max_value:
-            self.trim_value = new_trim
-            self.apply_value()
-        return old_value, self.trim_value
+        try:
+            self.lock.acquire()
+            old_value = self.trim_value
+            new_trim = self.trim_value + self.trim_step * sign
+            new_value = new_trim + self.input_sign * self.input_step
+            if self.min_value <= new_value <= self.max_value:
+                self.trim_value = new_trim
+                self.apply_value()
+            return old_value, self.trim_value
+        finally:
+            self.lock.release()
 
-    def trim_set(self, new_trim):
-        old_value = self.trim_value
-        new_value = new_trim + self.input_sign * self.input_step
-        if self.min_value <= new_value <= self.max_value:
-            self.trim_value = new_trim
-            self.apply_value()
-        return old_value, self.trim_value
+    def trim_set(self, new_trim, apply=True):
+        try:
+            self.lock.acquire()
+            old_value = self.trim_value
+            new_value = new_trim + self.input_sign * self.input_step
+            if self.min_value <= new_value <= self.max_value:
+                self.trim_value = new_trim
+                self.apply_value()
+            return old_value, self.trim_value
+        finally:
+            self.lock.release()
 
     def set_input(self, sign):
-        self.input_sign = sign
-        self.apply_value()
+        try:
+            self.lock.acquire()
+            self.input_sign = sign
+            self.apply_value()
+        finally:
+            self.lock.release()
 
     def set_analog(self, analog):
-        self.analog = analog
-        self.apply_value()
+        try:
+            self.lock.acquire()
+            self.analog = analog
+        finally:
+            self.lock.release()
 
     def reset(self):
-        self.last_applied_value = None
-        if self.reset_trim is not None:
-            self.trim_value = self.reset_trim
-        self.input_sign = 0
+        try:
+            self.lock.acquire()
+            self.last_applied_value = None
+            if self.reset_trim is not None:
+                self.trim_value = self.reset_trim
+            self.input_sign = 0
+        finally:
+            self.lock.release()
 
     def get_cumulative_value(self):
-        return min(self.max_value, max(self.min_value, self.trim_value + self.input_sign * self.input_step + self.analog))
+        try:
+            self.lock.acquire()
+            return min(self.max_value,
+                       max(self.min_value, self.trim_value + self.input_sign * self.input_step + self.analog))
+        finally:
+            self.lock.release()
 
     def apply_value(self):
         if self.owner.is_connected():
             new_value = self.get_cumulative_value()
-            if self.last_applied_value is None or new_value != self.last_applied_value:
+            try:
+                self.owner.command_lock.acquire()
                 self.setter(self.owner.connection, new_value)
-            self.last_applied_value = new_value
+                self.last_applied_value = new_value
+            finally:
+                self.owner.command_lock.release()
+
+
+def dummy_callback(*args):
+    pass
 
 
 class Drone:
-    connection: socket.socket
+    connection: socket.socket | None
     variables: dict[str, DroneVariable]
 
     telemetry_thread: Thread
@@ -146,8 +178,10 @@ class Drone:
     telemetry_buffer: bytes
     telemetry_values: dict
     telemetry_lock: Lock
+    command_lock: RLock
+    heartbeat_enable: Callable[[], bool]
 
-    def __init__(self):
+    def __init__(self, heartbeat_enable: Callable[[], bool]):
         self.connection = None
         self.variables = {}
         self.reset_variables()
@@ -159,7 +193,9 @@ class Drone:
         self.telemetry_values = {}
         self.frequency_log = []
         self.telemetry_lock = Lock()
+        self.command_lock = RLock()
         self.sensor_logging_started = False
+        self.heartbeat_enable = heartbeat_enable
 
     def reconnect(self):
         try:
@@ -231,9 +267,13 @@ class Drone:
 
     def stop(self):
         if self.is_connected():
-            stop_command(self.connection)
-            self.variables[THRUST_VARIABLE_NAME].reset()
-            self.variables[THRUST_VARIABLE_NAME].apply_value()
+            try:
+                self.command_lock.acquire()
+                stop_command(self.connection)
+                self.variables[THRUST_VARIABLE_NAME].reset()
+                self.variables[THRUST_VARIABLE_NAME].apply_value()
+            finally:
+                self.command_lock.release()
 
     def sensor_dump(self):
         if self.is_connected():
@@ -256,15 +296,23 @@ class Drone:
 
     def start(self):
         if self.is_connected():
-            start_command(self.connection)
-            self.variables[THRUST_VARIABLE_NAME].reset()
-            self.variables[THRUST_VARIABLE_NAME].apply_value()
+            try:
+                self.command_lock.acquire()
+                start_command(self.connection)
+                self.variables[THRUST_VARIABLE_NAME].reset()
+                self.variables[THRUST_VARIABLE_NAME].apply_value()
+            finally:
+                self.command_lock.release()
 
     def apply_all_variables(self):
         if self.is_connected():
-            for variable in self.variables.values():
-                variable.apply_value()
-                time.sleep(0.05)
+            try:
+                self.command_lock.acquire()
+                for variable in self.variables.values():
+                    variable.apply_value()
+                    time.sleep(0.05)
+            finally:
+                self.command_lock.release()
 
     def receiver_thread_body(self):
         print("Receiver thread start")
@@ -334,8 +382,16 @@ class Drone:
                 self.frequency_log.append(var_val)
 
     def heartbeat(self):
-        if self.is_connected():
-            heartbeat_command(self.connection)
+        if self.is_connected() and self.heartbeat_enable():
+            try:
+                self.command_lock.acquire()
+                # heartbeat_command(self.connection)
+                self.variables[YAW_VARIABLE_NAME].apply_value()
+                self.variables[PITCH_VARIABLE_NAME].apply_value()
+                self.variables[ROLL_VARIABLE_NAME].apply_value()
+                self.variables[THRUST_VARIABLE_NAME].apply_value()
+            finally:
+                self.command_lock.release()
 
     def heartbeat_thread_body(self):
         print("Heartbeat thread start")

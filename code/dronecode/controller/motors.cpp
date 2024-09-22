@@ -169,7 +169,12 @@ void dshot_bitbang_d7(uint8_t high, uint8_t low)
 
 uint16_t dshot_crc(uint16_t command)
 {
+    bool enable_telemetry = command > 0 && command < 48;
     command <<= 1;
+    if (enable_telemetry)
+    {
+        command |= 1;
+    }
     uint16_t crc = (((command >> 0) & 0x0f) ^ ((command >> 4) & 0x0f) ^ ((command >> 8) & 0x0f)) & 0x0f;
     command = (command << 4) | crc;
     return command;
@@ -227,6 +232,10 @@ void init_motors()
 void stop_motors()
 {
     DBG_PRINTLN(1, "Stopping motors");
+    if (!motors_enabled)
+    {
+        return;
+    }
     motors_enabled = false;
 
     uint32_t thrust_target = motor_thrust / 4;
@@ -298,5 +307,5 @@ void drive_motors()
     uint16_t rear_left = (motor_thrust + motor_roll - motor_pitch - motor_yaw) / 4;
     uint16_t rear_right = (motor_thrust - motor_roll - motor_pitch + motor_yaw) / 4;
 
-    send_thrustq(front_right, rear_left, front_left, rear_right);
+    send_thrustq(rear_left, rear_right, front_right, front_left);
 }

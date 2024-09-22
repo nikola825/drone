@@ -3,10 +3,10 @@ from functools import partial
 from PySide6 import QtCore
 from PySide6 import Qt
 from PySide6.QtGui import QIntValidator, QKeyEvent
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QSizePolicy, \
-    QLabel, QSpinBox, QCheckBox, QDial, QSlider, QLCDNumber, QProgressBar, QLineEdit, QPlainTextEdit, QComboBox
-from PySide6.QtCore import Qt, QTimer, Slot, Signal, QObject, QEvent
-from threading import Thread, Lock
+from PySide6.QtWidgets import QApplication, QWidget, QHBoxLayout, QGridLayout, QPushButton, QSizePolicy, \
+    QLabel, QCheckBox, QDial, QLCDNumber, QProgressBar, QLineEdit, QPlainTextEdit, QComboBox
+from PySide6.QtCore import Qt, QTimer, Slot
+from threading import Thread
 import evdev
 from evdev import ecodes
 import matplotlib.pyplot as plt
@@ -21,14 +21,15 @@ PLOTTED_VALUE_ID = 1
 plot_enabled = False
 
 bandwidths = ["DLPF_BW_256",
-            "DLPF_BW_188",
-            "DLPF_BW_98",
-            "DLPF_BW_42",
-            "DLPF_BW_20",
-            "DLPF_BW_10",
-            "DLPF_BW_5"]
+              "DLPF_BW_188",
+              "DLPF_BW_98",
+              "DLPF_BW_42",
+              "DLPF_BW_20",
+              "DLPF_BW_10",
+              "DLPF_BW_5"]
 
 rates = ["0", "1", "2", "3", "4"]
+
 
 class MainWindow(QWidget):
     line_edits: dict[str, QLineEdit]
@@ -41,9 +42,8 @@ class MainWindow(QWidget):
     status_box: QPlainTextEdit
     rewrite_status_checkbox: QCheckBox
 
-    joystick: evdev.InputDevice
+    joystick: evdev.InputDevice | None
     joystick_thread: Thread
-    joystick_lock: Lock
 
     logged_data: list[list[tuple]]
 
@@ -53,7 +53,7 @@ class MainWindow(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.drone = Drone()
+        self.drone = Drone(self.heartbeat_enabled)
         self.setup_timer()
         self.pressed_trims = {}
         self.line_edits = {}
@@ -65,6 +65,7 @@ class MainWindow(QWidget):
         self.fig = None
         self.plotted_values = []
         self.line = None
+        self.joystick = None
 
         self.yaw_variable = self.drone.variables[YAW_VARIABLE_NAME]
         self.pitch_variable = self.drone.variables[PITCH_VARIABLE_NAME]
@@ -77,9 +78,8 @@ class MainWindow(QWidget):
         for device in evdev.list_devices():
             device = evdev.InputDevice(device)
             print(device.name)
-            if "EdgeTX RM TX16S Joystick":
+            if "ExpressLRS Joystick" in device.name:
                 self.joystick = device
-                self.joystick_lock = Lock()
                 self.joystick_thread = Thread(target=self.joystick_listener, daemon=True)
                 self.joystick_thread.start()
 
@@ -96,8 +96,7 @@ class MainWindow(QWidget):
 
         super().keyPressEvent(event)
 
-    def key_press_release_handler(self, key: int|str, press:bool):
-        print(key)
+    def key_press_release_handler(self, key: int | str, press: bool):
         if press:
             self.handle_command_press(key)
             self.handle_trim_press(key)
@@ -110,37 +109,40 @@ class MainWindow(QWidget):
         self.drone_stop()
         self.start_motors()
 
+    def heartbeat_enabled(self):
+        if self.joystick is not None:
+            try:
+                switch_pos = self.joystick.absinfo(ecodes.ABS_RUDDER)
+                return (18000 > switch_pos.value > 15000) and self.heartbeat_checkbox.isChecked()
+            except:
+                return False
+        else:
+            return self.heartbeat_checkbox.isChecked()
+
     def joystick_listener(self):
-        joy_to_key_map = {
-            (ecodes.EV_ABS, ecodes.ABS_RZ, 2047): (["THRUST_LOW"], False),
-        }
         joy_to_function_map = {
-            (ecodes.EV_ABS, ecodes.ABS_RZ, 0): (self.drone_stop, []),
-            (ecodes.EV_ABS, ecodes.ABS_RZ, 1024): ( self.halt, []),
-            (ecodes.EV_ABS, ecodes.ABS_THROTTLE, 2047): ( self.bt_connect, []),
+            (ecodes.EV_ABS, ecodes.ABS_RUDDER, 19): (self.drone_stop, []),
+            (ecodes.EV_ABS, ecodes.ABS_RUDDER, 16393): (self.halt, []),
+            (ecodes.EV_ABS, ecodes.ABS_THROTTLE, 32767): (self.bt_connect, []),
         }
         analogs = {
-            ecodes.ABS_Z: (0, 2048, 0, 500, THRUST_VARIABLE_NAME),
-            ecodes.ABS_Y: (0, 2048, -90, 90, ROLL_VARIABLE_NAME),
-            ecodes.ABS_X: (0, 2048, 90, -90 , PITCH_VARIABLE_NAME),
-            ecodes.ABS_RX: (0, 2048, 90, -90, YAW_VARIABLE_NAME),
+            ecodes.ABS_RX: (0, 32768, 0, 2000, THRUST_VARIABLE_NAME),
+            ecodes.ABS_X: (0, 32768, -90, 90, ROLL_VARIABLE_NAME),
+            ecodes.ABS_Y: (0, 32768, 90, -90, PITCH_VARIABLE_NAME),
+            ecodes.ABS_RY: (0, 32768, 90, -90, YAW_VARIABLE_NAME),
         }
 
         for event in self.joystick.read_loop():
+            # print(evdev.categorize(event), event.value)
             if event.type == ecodes.EV_ABS:
                 if event.code in analogs:
                     in_range_low, in_range_high, out_range_low, out_range_high, variable_name = analogs[event.code]
-                    var_val = int((event.value-in_range_low)/(in_range_high-in_range_low)*(out_range_high-out_range_low)+out_range_low)
+                    var_val = int((event.value - in_range_low) / (in_range_high - in_range_low) * (
+                            out_range_high - out_range_low) + out_range_low)
                     self.drone.variables[variable_name].set_analog(var_val)
-            if (event.type, event.code, event.value) in joy_to_key_map:
-                keys, press = joy_to_key_map[(event.type, event.code, event.value)]
-                for k in keys:
-                    self.key_press_release_handler(k, press)
             if (event.type, event.code, event.value) in joy_to_function_map:
                 f, a = joy_to_function_map[(event.type, event.code, event.value)]
                 f(*a)
-
-            print(evdev.categorize(event), event.value)
 
     def setup_keymap(self):
         self.command_inputs = {
@@ -150,16 +152,11 @@ class MainWindow(QWidget):
             Qt.Key.Key_S: (PITCH_VARIABLE_NAME, 1),
             Qt.Key.Key_Q: (YAW_VARIABLE_NAME, 1),
             Qt.Key.Key_E: (YAW_VARIABLE_NAME, -1),
-            "JOY_TR": (YAW_VARIABLE_NAME, -1),
-            "JOY_TL": (YAW_VARIABLE_NAME, 1),
         }
 
         self.trim_inputs = {
             Qt.Key.Key_P: (THRUST_VARIABLE_NAME, 1),
             Qt.Key.Key_L: (THRUST_VARIABLE_NAME, -1),
-            "JOY_UP": (THRUST_VARIABLE_NAME, 1),
-            "JOY_DOWN": (THRUST_VARIABLE_NAME, -1)
-
         }
 
         self.setter_inputs = {
@@ -181,13 +178,13 @@ class MainWindow(QWidget):
             self.drone.variables[variable_name].set_input(0)
             self.draw_status()
 
-    def handle_trim_press(self, *args: str|int):
+    def handle_trim_press(self, *args: str | int):
         for key in args:
             if key in self.trim_inputs:
                 variable_name, sign = self.trim_inputs[key]
                 self.pressed_trims[variable_name] = sign
 
-    def handle_trim_release(self, *args: str|int):
+    def handle_trim_release(self, *args: str | int):
         for key in args:
             if key in self.trim_inputs:
                 variable_name, sign = self.trim_inputs[key]
@@ -245,18 +242,23 @@ class MainWindow(QWidget):
                 button.clicked.connect(callback)
             self.top_menu.addWidget(button)
 
-        bw_dropdown=QComboBox()
+        bw_dropdown = QComboBox()
         bw_dropdown.addItems(bandwidths)
         bw_dropdown.setCurrentIndex(3)
         bw_dropdown.currentIndexChanged.connect(self.select_bandwidth)
         self.top_menu.addWidget(bw_dropdown)
 
-        self.rate_dropdown=QComboBox()
+        self.rate_dropdown = QComboBox()
         self.rate_dropdown.addItems(rates)
         self.rate_dropdown.setCurrentIndex(0)
         self.rate_dropdown.currentIndexChanged.connect(self.select_rate)
         self.rate_dropdown.setEditable(False)
         self.top_menu.addWidget(self.rate_dropdown)
+
+        self.heartbeat_checkbox = QCheckBox()
+        self.heartbeat_checkbox.setChecked(True)
+        self.heartbeat_checkbox.setText("Heartbeat")
+        self.top_menu.addWidget(self.heartbeat_checkbox)
 
     def select_bandwidth(self, bandwidth_index):
         self.drone.set_bandwidth(bandwidth_index)
@@ -383,7 +385,7 @@ class MainWindow(QWidget):
     def timer_tick(self):
         self.update_variables()
         self.draw_status()
-        #self.update_telemetry(self.drone.get_telemetry_snapshot())
+        # self.update_telemetry(self.drone.get_telemetry_snapshot())
 
     def update_telemetry(self, snapshot: dict):
         # if not self.rewrite_status_checkbox.isChecked() and self.thrust_variable.trim_value < 1000:
@@ -392,7 +394,6 @@ class MainWindow(QWidget):
         values_list.sort(key=lambda x: x[0])
 
         text_line = []
-
 
         timestamp = datetime.datetime.now()
 
@@ -453,7 +454,7 @@ class MainWindow(QWidget):
         time_start = 0
         if timestamps:
             time_start = timestamps[0]
-            timestamps = [(x-time_start).total_seconds() for x in timestamps]
+            timestamps = [(x - time_start).total_seconds() for x in timestamps]
 
         values = [x[1] for x in self.plotted_values]
         min_value = 0
@@ -480,11 +481,11 @@ class MainWindow(QWidget):
         self.drone.sensor_dump()
 
     def frequency_plot(self):
-        p=self.drone.get_frequency_log()
+        p = self.drone.get_frequency_log()
         if self.ax is None:
             plt.ion()
             self.fig, self.ax = plt.subplots()
-        self.ax.magnitude_spectrum(p[:-1], Fs=1/p[-1])
+        self.ax.magnitude_spectrum(p[:-1], Fs=1 / p[-1])
         print(p)
         print(len(p))
 
