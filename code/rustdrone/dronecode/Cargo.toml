@@ -37,7 +37,6 @@ usbd-hid = "0.8.1"
 static_cell = "2"
 chrono = { version = "^0.4", default-features = false}
 zerocopy = {version="0.7.35", features=["derive", "byteorder"]}
-common = {path = "../common"}
 
 [profile.release]
 debug = 2

@@ -4,9 +4,7 @@
 use core::arch::asm;
 use core::cmp::min;
 
-use bluetooth::bluetooth_receiver_task;
-use commands::commands_task;
-use common::command::CommandPacket;
+use crsf::{bluetooth_receiver_task, crsf_receiver_task};
 use defmt::{error, info, println};
 use dshot::dshot_send;
 use embassy_executor::Spawner;
@@ -31,8 +29,7 @@ use storage::Store;
 use zerocopy::{big_endian, AsBytes, FromBytes, FromZeroes, Unaligned};
 use {defmt_rtt as _, panic_probe as _};
 
-mod bluetooth;
-mod commands;
+mod crsf;
 mod dshot;
 mod icm42688;
 mod mpu6050;
@@ -45,7 +42,7 @@ bind_interrupts!(struct Irqs {
     I2C1_ER => i2c::ErrorInterruptHandler<peripherals::I2C1>;
 });
 
-static COMMANDS_CHANNEL: Channel<ThreadModeRawMutex, CommandPacket, 10> = Channel::new();
+/*static COMMANDS_CHANNEL: Channel<ThreadModeRawMutex, CommandPacket, 10> = Channel::new();
 
 #[derive(AsBytes, FromBytes, FromZeroes, Unaligned, Default)]
 #[repr(C)]
@@ -148,31 +145,13 @@ impl Channels {
         return chanels;
     }
 }
+*/
 
-fn crc_process_byte(mut current: u8, byt: u8) -> u8 {
-    current = current ^ byt;
-    for _ in 0..8 {
-        if current & 0x80 != 0 {
-            current = (current << 1) ^ 0xD5;
-        } else {
-            current = current << 1;
-        }
-    }
-
-    return current;
-}
-
-fn crccalc(buf: &[u8]) -> u8 {
-    let mut crc = 0u8;
-    for b in buf {
-        crc = crc_process_byte(crc, *b);
-    }
-
-    return crc;
-}
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
+    static STORE: LazyLock<Store> = LazyLock::new(|| {Store::new()});
+
     let mut config = Config::default();
     {
         use embassy_stm32::rcc::*;
@@ -195,9 +174,8 @@ async fn main(_spawner: Spawner) {
     }
 
     let peripherals = embassy_stm32::init(config);
-    let mut x = [0u8; 1];
 
-    let mut uart = bluetooth::make_bluetooth_uart(
+    let (mut crsf_rx, mut crsf_tx) = crsf::make_uart_pair(
         GPIOA,
         3,
         peripherals.USART2,
@@ -208,16 +186,18 @@ async fn main(_spawner: Spawner) {
         Irqs,
     );
 
-    let mut adc = Adc::new(peripherals.ADC1);
+
+    _spawner
+            .spawn(crsf_receiver_task(crsf_rx, STORE.get()))
+            .unwrap();
+    /*let mut adc = Adc::new(peripherals.ADC1);
     adc.set_resolution(embassy_stm32::adc::Resolution::BITS10);
     let mut apin = peripherals.PA5;
 
-
-    let mut ring_buffer = [0u8; 256];
     //let mut uartrx = bt_rx.into_ring_buffered(&mut ring_buffer);
     let mut cmdbuf = [0u8; 64];
     loop {
-        /*if let Ok(_) = uart.read_exact(&mut cmdbuf[0..1]).await {
+        if let Ok(_) = uart.read_exact(&mut cmdbuf[0..1]).await {
             if cmdbuf[0] == 0xc8u8 {
                 if let Ok(_) = uart.read_exact(&mut cmdbuf[1..2]).await {
                     let rest_len: usize = cmdbuf[1].into();
@@ -241,7 +221,7 @@ async fn main(_spawner: Spawner) {
                     }
                 }
             }
-        }*/
+        }
         let x = adc.blocking_read(&mut apin) as f32;
         let vltg = x/1024f32*3.3f32;
         let r1=1.15f32;
@@ -254,7 +234,7 @@ async fn main(_spawner: Spawner) {
         let pack = BatPacket::new(&bi);
         let packbuf = pack.as_bytes();
         info!("SENDC {}", packbuf);
-        uart.write(packbuf).await.unwrap();
+        tx.write(packbuf).await.unwrap();
     }
 
     /*
@@ -348,7 +328,7 @@ async fn main(_spawner: Spawner) {
 
     }*/
 
-    /*static STORE: LazyLock<Store> = LazyLock::new(|| {Store::new()});
+    /*
 
     info!("MPUSTATUS {}", mpu.test_connection());
     mpu.init(mpu6050::GyroRange::GYRO_CONFIG_FS_SEL_250).await;
@@ -363,7 +343,7 @@ async fn main(_spawner: Spawner) {
 
     _spawner.spawn(tick_task(led, STORE.get(), mpu)).unwrap();*/
 
-    */
+    */*/
 }
 
 #[embassy_executor::task]

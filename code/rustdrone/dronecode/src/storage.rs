@@ -1,12 +1,13 @@
-use common::storedvars::StoredVariables;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
+
+use crate::crsf::CRSFChannels;
 pub struct Store {
     pub state: Mutex<ThreadModeRawMutex, StoreState>,
 }
 
 #[derive(Clone, Default)]
 pub struct StoreState {
-    pub variables: StoredVariables,
+    pub channels: CRSFChannels,
 }
 
 impl Store {
@@ -20,4 +21,10 @@ impl Store {
         let guard = self.state.lock().await;
         guard.clone()
     }
+
+    pub async fn update_channels(&self, channels: CRSFChannels) {
+        let mut guard = self.state.lock().await;
+        guard.channels = channels;
+    }
 }
+
