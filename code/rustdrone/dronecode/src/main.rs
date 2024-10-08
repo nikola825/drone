@@ -4,13 +4,15 @@
 use core::arch::asm;
 use core::cmp::min;
 
-use crsf::{bluetooth_receiver_task, crsf_receiver_task};
+use crsf::{crsf_receiver_task, crsf_telemetry_task};
 use defmt::{error, info, println};
 use dshot::dshot_send;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::Adc;
+use embassy_stm32::gpio::Pin;
 use embassy_stm32::pac::usart::Uart;
-use embassy_stm32::pac::GPIOB;
+use embassy_stm32::pac::{GPIO, GPIOB};
+use embassy_stm32::spi::BitOrder;
 use embassy_stm32::time::Hertz;
 use embassy_stm32::{bind_interrupts, i2c, peripherals, spi, Config};
 use embassy_stm32::{
@@ -24,6 +26,8 @@ use embassy_time::{Duration, Instant, Ticker, Timer};
 use embedded_hal::spi::{Polarity, MODE_0, MODE_1, MODE_2, MODE_3};
 use embedded_io::Write;
 use embedded_io_async::Read;
+use icm42688::ICM42688;
+use motors::Motor;
 use mpu6050::MPU6050;
 use storage::Store;
 use zerocopy::{big_endian, AsBytes, FromBytes, FromZeroes, Unaligned};
@@ -35,6 +39,7 @@ mod icm42688;
 mod mpu6050;
 mod nopdelays;
 mod storage;
+mod motors;
 
 bind_interrupts!(struct Irqs {
     USART2 => usart::InterruptHandler<peripherals::USART2>;
@@ -147,23 +152,22 @@ impl Channels {
 }
 */
 
-
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
-    static STORE: LazyLock<Store> = LazyLock::new(|| {Store::new()});
+    static STORE: LazyLock<Store> = LazyLock::new(|| Store::new());
 
     let mut config = Config::default();
     {
         use embassy_stm32::rcc::*;
         config.rcc.hse = Some(Hse {
-            freq: Hertz(25_000_000),
+            freq: Hertz(20_000_000),
             mode: HseMode::Oscillator,
         });
         config.rcc.pll_src = PllSource::HSE;
         config.rcc.pll = Some(Pll {
-            prediv: PllPreDiv::DIV25,
+            prediv: PllPreDiv::DIV20,
             mul: PllMul::MUL400,
-            divp: Some(PllPDiv::DIV4), // 25hz / 4 * 336 / 2 = 180Mhz.
+            divp: Some(PllPDiv::DIV4), // 20MHz / 20 * 400 / 4 = 100Mhz.
             divq: Some(PllQDiv::DIV4),
             divr: None,
         });
@@ -175,7 +179,98 @@ async fn main(_spawner: Spawner) {
 
     let peripherals = embassy_stm32::init(config);
 
-    let (mut crsf_rx, mut crsf_tx) = crsf::make_uart_pair(
+    let mut blue: Output = Output::new(peripherals.PA11, Level::Low, Speed::VeryHigh);
+    let mut green: Output = Output::new(peripherals.PA4, Level::Low, Speed::VeryHigh);
+    let mut yellow : Output = Output::new(peripherals.PA12, Level::Low, Speed::VeryHigh);
+
+    let mut adc = Adc::new(peripherals.ADC1);
+    adc.set_resolution(embassy_stm32::adc::Resolution::BITS10);
+    let mut apin = peripherals.PA5;
+
+    let mut spic = spi::Config::default();
+    spic.frequency = Hertz(20_000_000);
+    spic.mode = MODE_3;
+    spic.bit_order = BitOrder::MsbFirst;
+
+    let cs : Output = Output::new(peripherals.PB9, Level::Low, Speed::VeryHigh);
+
+    let mut imu = ICM42688::new(peripherals.SPI3, peripherals.PB3, peripherals.PB5, peripherals.PB4, peripherals.DMA1_CH5, peripherals.DMA1_CH0, cs);
+    let mut life_signal = Output::new(peripherals.PA2, Level::Low, Speed::VeryHigh);
+    
+    let motor0=Motor::new(peripherals.PB0);
+    let motor1 = Motor::new(peripherals.PB1);
+    let motor2=Motor::new(peripherals.PA6);
+    let motor3 = Motor::new(peripherals.PA7);
+
+    Timer::after_millis(10).await;
+
+    let mut cnt = 0;
+    let mut mcnt = 0;
+    let mut motorv = 0;
+    let mut multiplier = 12;
+    let mut ticker = Ticker::every(Duration::from_micros(1000));
+    loop {
+        /*blue.set_high();
+        yellow.set_low();
+        green.set_low();
+        Timer::after_millis(200).await;
+        blue.set_low();
+        green.set_high();
+        yellow.set_high();
+        Timer::after_millis(200).await;
+        let x = adc.blocking_read(&mut apin) as f32;
+        let vltg = x/1024f32*3.3f32*11f32;
+        info!("Hello {}", vltg);
+
+        //cs.set_low();
+        /*let addr = 128u8 | 0x75u8;
+        sp.blocking_write(&[addr]).unwrap();
+        let mut rddt = [0u8];
+        sp.blocking_read(&mut rddt).unwrap();*/
+        info!("SPIR {}", imu.test_connection());
+        let (y,p,r) = imu.get_ypr_deg();
+        info!("{} {} {}", y, p, r);
+        //cs.set_high();;*/
+
+        life_signal.set_high();
+        let (y,p,r) = imu.get_ypr_deg();
+        cnt +=1;
+        if cnt == 100 {
+            cnt = 0;
+            life_signal.set_low();
+            info!("{} {}", y, motorv);
+        }
+        else {
+            life_signal.set_low();
+        }
+
+        mcnt+=1;
+        if(mcnt == 2000)
+        {
+            mcnt=0;
+            if motorv == 0 {
+                motorv = 70;
+            }
+            else {
+                motorv=motorv*multiplier/10;
+                if motorv <= 48 {
+                    motorv = 0;
+                    multiplier = 12;
+                }
+                else if motorv > 400 {
+                    multiplier = 8;
+                }
+            }
+        }
+        
+        motor0.send_value(motorv);
+        motor1.send_value(motorv);
+        motor2.send_value(motorv);
+        motor3.send_value(motorv);
+        
+        ticker.next().await;
+    }
+    /*let (mut crsf_rx, mut crsf_tx) = crsf::make_uart_pair(
         GPIOA,
         3,
         peripherals.USART2,
@@ -186,10 +281,9 @@ async fn main(_spawner: Spawner) {
         Irqs,
     );
 
-
     _spawner
-            .spawn(crsf_receiver_task(crsf_rx, STORE.get()))
-            .unwrap();
+        .spawn(crsf_receiver_task(crsf_rx, STORE.get()))
+        .unwrap();
     /*let mut adc = Adc::new(peripherals.ADC1);
     adc.set_resolution(embassy_stm32::adc::Resolution::BITS10);
     let mut apin = peripherals.PA5;
@@ -341,42 +435,27 @@ async fn main(_spawner: Spawner) {
         .spawn(bluetooth_receiver_task(bt_rx, COMMANDS_CHANNEL.sender()))
         .unwrap();
 
-    _spawner.spawn(tick_task(led, STORE.get(), mpu)).unwrap();*/
 
-    */*/
+
+    */*/*/
+    _spawner.spawn(tick_task(led, STORE.get())).unwrap();
+    _spawner.spawn(crsf_telemetry_task(crsf_tx, STORE.get())).unwrap();*/
 }
 
 #[embassy_executor::task]
-async fn tick_task(mut led: Output<'static>, store: &'static Store, mut mpu: MPU6050) {
-    let mut ticker = Ticker::every(Duration::from_micros(500));
-    let mut up = false;
-    let mut xp = 0f32;
+async fn tick_task(mut led: Output<'static>, store: &'static Store) {
+    let mut ticker = Ticker::every(Duration::from_micros(125));
 
-    let mut y = 0f32;
-    let mut p = 0f32;
-    let mut r = 0f32;
-
+    let mut x = 0;
     loop {
-        let t1 = embassy_time::Instant::now();
-        let ticks: f32 = t1.as_ticks() as f32;
-        let t2 = ticks / 1000.0;
-        let t3 = t2 as i32;
-        let t4 = t2 - (t3 as f32);
-        let x = store.snapshot().await.variables.Yaw_Kp();
-        if x != xp {
-            if t4 > 0.5 {
-                info!("AAAAAAAAAAA {}", x);
-            } else {
-                info!("BBBBBBBBBB {}", x);
-            }
-            xp = x;
-        } else {
-        }
-
         led.set_high();
-        (y, p, r) = mpu.get_ypr_deg().await;
+        let snapshot = store.snapshot().await;
+        x = x + 1;
         led.set_low();
-        info!("GYRO {}", (y, p, r));
+        if x > 800 {
+            x = 0;
+            info!("TICK {}", snapshot.channels.unpacked_channels);
+        }
         ticker.next().await;
     }
 }

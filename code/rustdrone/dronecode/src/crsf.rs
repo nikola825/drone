@@ -11,15 +11,53 @@ use embassy_stm32::{
     usart::{Instance, Parity, RxPin},
     Peripheral,
 };
+use embassy_time::{Duration, Ticker};
 use embedded_io::ReadExactError;
-use embedded_io_async::Read;
-use zerocopy::{FromBytes, FromZeroes};
+use embedded_io_async::{Read, Write};
+use zerocopy::{big_endian, AsBytes, FromBytes, FromZeroes};
 
 use crate::storage::Store;
 
 const CRSF_FRAME_MAX_SIZE: usize = 64;
 const CRSF_FRAME_SYNC_BYTE: u8 = 0xc8;
 const CRSF_FRAME_TYPE_RC_CHANNELS_PACKED: u8 = 0x16;
+
+#[derive(AsBytes, Default)]
+#[repr(C)]
+struct BatteryInfo {
+    pub voltage: big_endian::I16,
+    pub other_data: [u8; 6],
+}
+
+#[derive(AsBytes, Default)]
+#[repr(C)]
+struct BatPacket {
+    sync: u8,
+    len: u8,
+    typ: u8,
+    info: BatteryInfo,
+    crc8: u8,
+}
+
+impl BatPacket {
+    pub fn new(voltage: f32) -> Self {
+        let mut packet = BatPacket {
+            sync: 0xc8u8,
+            len: (size_of::<BatteryInfo>() + 2) as u8,
+            typ: 0x08u8,
+            info: BatteryInfo {
+                voltage: big_endian::I16::new((voltage * 10.0f32) as i16),
+                other_data: Default::default(),
+            },
+            crc8: 0u8,
+        };
+
+        let buffer = packet.as_bytes();
+        let crc = crc8_calculate(&buffer[2..buffer.len() - 1]);
+        packet.crc8 = crc;
+        return packet;
+    }
+}
 
 #[derive(FromBytes, FromZeroes, Default)]
 #[repr(C)]
@@ -126,7 +164,7 @@ pub fn make_uart_pair<T: Instance>(
 pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, storage: &'static Store) {
     let mut ring_buffer = [0u8; 256];
     let mut rx = rx.into_ring_buffered(&mut ring_buffer);
-    info!("BT receiver start");
+    info!("CRSF receiver start");
 
     loop {
         {
@@ -162,11 +200,30 @@ async fn read_next_command<'a>(
             if crc == command_buffer[total_len - 1] {
                 let msg_type = command_buffer[2];
                 if msg_type == CRSF_FRAME_TYPE_RC_CHANNELS_PACKED {
-                    let packed = CRSFFramePackedChannels::read_from(&command_buffer).unwrap();
+                    let packed =
+                        CRSFFramePackedChannels::read_from(&command_buffer[0..total_len]).unwrap();
                     return Ok(Some(packed.unpack()));
                 }
             }
         }
     }
     Ok(None)
+}
+
+#[embassy_executor::task]
+pub async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, storage: &'static Store) {
+    info!("CRSF telemetry start");
+    let mut ticker = Ticker::every(Duration::from_millis(200));
+
+    loop {
+        let snapshot = storage.snapshot().await;
+        let q = snapshot.channels.unpacked_channels[2] - 174u16;
+        let packet = BatPacket::new(12.6f32 - (q as f32)/1000.0f32);
+
+        match tx.write_all(packet.as_bytes()).await.unwrap() {
+            _ => {}
+        }
+
+        ticker.next().await;
+    }
 }
