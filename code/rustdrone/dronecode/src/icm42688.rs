@@ -1,15 +1,15 @@
-use defmt::{error, info};
 use embassy_stm32::{
-    gpio::Output,
-    interrupt,
-    mode::{Async, Blocking},
+    gpio::{Output, Pin},
+    mode::Async,
     spi::{self, BitOrder, Instance, MisoPin, MosiPin, RxDma, SckPin, Spi, TxDma},
     time::Hertz,
-    Peripheral, Peripherals,
+    Peripheral,
 };
+use embassy_time::Timer;
 use embedded_hal::spi::MODE_3;
-use zerocopy::{big_endian, little_endian, FromBytes, FromZeroes, Unaligned};
+use zerocopy::{big_endian, FromBytes, FromZeroes};
 
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 enum GyroFSRange {
     Dps2000 = 0b000 << 5,
@@ -22,6 +22,7 @@ enum GyroFSRange {
     Dps15 = 0b111 << 5,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 enum GyroOutputDataRate {
     Odr1KHz = 0b0110,
@@ -30,17 +31,19 @@ enum GyroOutputDataRate {
 
 pub struct ICM42688 {
     spi: Spi<'static, Async>,
-    ss: Output<'static>,
+    cs_pin: Output<'static>,
     gyro_fs_range: GyroFSRange,
     gyro_output_rate: GyroOutputDataRate,
 }
 
+#[allow(dead_code)]
 mod icm_constants {
     pub const DEVICE_ID: u8 = 0x47;
     pub const PWR_MGMT0_ACCEL_LN: u8 = 0x03;
     pub const PWR_MGMT0_GYRO_LN: u8 = 0x0c;
 }
 
+#[allow(dead_code, non_camel_case_types)]
 enum ICM42688Register {
     WHO_AM_I = 0x75,
     PWR_MGMT0 = 0x4e,
@@ -79,12 +82,12 @@ impl GyroOutputPack {
 impl ICM42688 {
     pub fn new<T: Instance>(
         spi_controller: impl Peripheral<P = T> + 'static,
-        sck_pin: impl Peripheral<P = impl SckPin<T>> + 'static,
-        mosi_pin: impl Peripheral<P = impl MosiPin<T>> + 'static,
-        miso_pin: impl Peripheral<P = impl MisoPin<T>> + 'static,
-        tx_dma: impl Peripheral<P = impl TxDma<T>> + 'static,
-        rx_dma: impl Peripheral<P = impl RxDma<T>> + 'static,
-        ss: Output<'static>,
+        sck_pin: impl SckPin<T> + 'static,
+        mosi_pin: impl MosiPin<T> + 'static,
+        miso_pin: impl MisoPin<T> + 'static,
+        tx_dma: impl TxDma<T> + 'static,
+        rx_dma: impl RxDma<T> + 'static,
+        cs_pin: impl Pin + 'static,
     ) -> ICM42688 {
         let mut spi_config = spi::Config::default();
         spi_config.frequency = Hertz(20_000_000);
@@ -102,19 +105,23 @@ impl ICM42688 {
 
         ICM42688 {
             spi: spi,
-            ss: ss,
+            cs_pin: Output::new(
+                cs_pin,
+                embassy_stm32::gpio::Level::High,
+                embassy_stm32::gpio::Speed::VeryHigh,
+            ),
             gyro_output_rate: GyroOutputDataRate::Odr1KHz,
             gyro_fs_range: GyroFSRange::Dps15,
         }
     }
 
     fn read_registers(&mut self, register: ICM42688Register, output: &mut [u8]) {
-        self.ss.set_low();
+        self.cs_pin.set_low();
         let address = register as u8;
         let address: u8 = 0x80u8 | address;
         self.spi.blocking_write(&[address]).unwrap();
         self.spi.blocking_read(output).unwrap();
-        self.ss.set_high();
+        self.cs_pin.set_high();
     }
 
     pub fn test_connection(&mut self) -> bool {
@@ -125,13 +132,16 @@ impl ICM42688 {
     }
 
     fn write_register(&mut self, register: ICM42688Register, reg_data: u8) {
-        self.ss.set_low();
+        self.cs_pin.set_low();
         let address = register as u8;
         self.spi.blocking_write(&[address, reg_data]).unwrap();
-        self.ss.set_high();
+        self.cs_pin.set_high();
     }
 
-    pub fn init(&mut self) {
+    pub async fn init(&mut self) {
+        if !self.test_connection() {
+            panic!("IMU connection failed");
+        }
         let gyro_config = self.gyro_output_rate as u8 | self.gyro_fs_range as u8;
         self.write_register(ICM42688Register::GYRO_CONFIG0, gyro_config);
 
@@ -139,6 +149,8 @@ impl ICM42688 {
             ICM42688Register::PWR_MGMT0,
             icm_constants::PWR_MGMT0_GYRO_LN,
         );
+
+        Timer::after_millis(100).await;
     }
 
     pub fn get_ypr_deg(&mut self) -> (f32, f32, f32) {

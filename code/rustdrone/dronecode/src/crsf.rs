@@ -1,17 +1,22 @@
-use core::cmp::min;
+use core::cmp::{max, min};
 
 use defmt::{error, info};
+use embassy_stm32::adc::{Adc, AdcChannel};
+use embassy_stm32::gpio::Pin;
 use embassy_stm32::interrupt;
 use embassy_stm32::mode::Async;
+use embassy_stm32::pac::GPIO;
+use embassy_stm32::peripherals::ADC1;
 use embassy_stm32::usart::{
     InterruptHandler, RingBufferedUartRx, RxDma, StopBits, TxDma, TxPin, Uart, UartRx, UartTx,
 };
 use embassy_stm32::{
-    pac::gpio::{vals, Gpio},
+    pac::gpio::vals,
     usart::{Instance, Parity, RxPin},
     Peripheral,
 };
-use embassy_time::{Duration, Ticker};
+
+use embassy_time::{Duration, Instant, Ticker};
 use embedded_io::ReadExactError;
 use embedded_io_async::{Read, Write};
 use zerocopy::{big_endian, AsBytes, FromBytes, FromZeroes};
@@ -96,13 +101,79 @@ impl CRSFFramePackedChannels {
             }
         }
 
-        return CRSFChannels { unpacked_channels };
+        return CRSFChannels {
+            unpacked_channels: unpacked_channels,
+            populated: true,
+            timestamp: Instant::now(),
+        };
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct CRSFChannels {
     pub unpacked_channels: [u16; 16],
+    pub populated: bool,
+    pub timestamp: Instant,
+}
+
+impl Default for CRSFChannels {
+    fn default() -> Self {
+        Self {
+            unpacked_channels: Default::default(),
+            populated: false,
+            timestamp: Instant::MIN
+        }
+    }
+}
+
+impl CRSFChannels {
+    pub fn throttle(&self) -> u16 {
+        CRSFChannels::range_transform(self.unpacked_channels[2], 172, 1811, 0, 2000, 0, 10) as u16
+    }
+
+    pub fn armed(&self) -> bool {
+        CRSFChannels::range_transform(self.unpacked_channels[4], 172, 1811, 0, 2, 0, -1) > 0
+    }
+
+    pub fn roll(&self) -> i32 {
+        CRSFChannels::range_transform(self.unpacked_channels[0], 172, 1811, -90, 90, 0, 2)
+    }
+
+    pub fn pitch(&self) -> i32 {
+        CRSFChannels::range_transform(self.unpacked_channels[1], 172, 1811, -90, 90, 0, 2)
+    }
+
+    pub fn yaw(&self) -> i32 {
+        CRSFChannels::range_transform(self.unpacked_channels[3], 172, 1811, -90, 90, 0, 2)
+    }
+
+    pub fn aux(&self) -> u16 {
+        CRSFChannels::range_transform(self.unpacked_channels[5], 172, 1811, 0, 128, 0, -1) as u16
+    }
+
+    pub fn is_fresh(&self) -> bool {
+        let age = Instant::now() - self.timestamp;
+        self.populated && age.as_millis() < 100
+    }
+
+    fn range_transform(value: u16, in_low: u16, in_high: u16, out_low: i32, out_high: i32, out_deadpoint: i32, out_deadrange:i32) -> i32 {
+        if value < in_low {
+            return out_low;
+        } else if value > in_high {
+            return out_high;
+        } else {
+            let t1: i32 = (value - in_low) as i32;
+            let in_range: i32 = (in_high - in_low) as i32;
+            let out_range: i32 = (out_high - out_low) as i32;
+
+            let mut t1 = ((out_low) + (t1 * out_range) / in_range) as i32;
+            if (t1-out_deadpoint).abs() < out_deadrange {
+                t1 = out_deadpoint
+            }
+
+            return min(max(t1, out_low), out_high);
+        }
+    }
 }
 
 fn crc8_process_byte(mut current: u8, byte: u8) -> u8 {
@@ -128,19 +199,22 @@ fn crc8_calculate(buf: &[u8]) -> u8 {
 }
 
 pub fn make_uart_pair<T: Instance>(
-    gpio: Gpio,
-    rx_pin_number: usize,
+    //gpio: Gpio,
+    //rx_pin_number: usize,
     uart_peripheral: impl Peripheral<P = T> + 'static,
-    rx_pin: impl Peripheral<P = impl RxPin<T>> + 'static,
-    tx_pin: impl Peripheral<P = impl TxPin<T>> + 'static,
-    tx_dma: impl Peripheral<P = impl TxDma<T>> + 'static,
-    rx_dma: impl Peripheral<P = impl RxDma<T>> + 'static,
+    rx_pin: impl Pin + RxPin<T> + 'static,
+    tx_pin: impl TxPin<T> + 'static,
+    tx_dma: impl TxDma<T> + 'static,
+    rx_dma: impl RxDma<T> + 'static,
     interrupt_handlers: impl interrupt::typelevel::Binding<T::Interrupt, InterruptHandler<T>> + 'static,
 ) -> (UartRx<'static, Async>, UartTx<'static, Async>) {
     let mut uart_config = embassy_stm32::usart::Config::default();
     uart_config.baudrate = 420000;
     uart_config.parity = Parity::ParityNone;
     uart_config.stop_bits = StopBits::STOP1;
+
+    let rx_port = rx_pin.port();
+    let rx_pin_number = rx_pin.pin();
 
     let uart = Uart::new(
         uart_peripheral,
@@ -153,8 +227,9 @@ pub fn make_uart_pair<T: Instance>(
     )
     .unwrap();
 
-    gpio.pupdr()
-        .modify(|w| w.set_pupdr(rx_pin_number, vals::Pupdr::PULLUP));
+    GPIO(rx_port as usize)
+        .pupdr()
+        .modify(|w| w.set_pupdr(rx_pin_number as usize, vals::Pupdr::PULLUP));
 
     let (tx, rx) = uart.split();
     return (rx, tx);
@@ -162,7 +237,7 @@ pub fn make_uart_pair<T: Instance>(
 
 #[embassy_executor::task]
 pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, storage: &'static Store) {
-    let mut ring_buffer = [0u8; 256];
+    let mut ring_buffer = [0u8; 1024];
     let mut rx = rx.into_ring_buffered(&mut ring_buffer);
     info!("CRSF receiver start");
 
@@ -211,14 +286,19 @@ async fn read_next_command<'a>(
 }
 
 #[embassy_executor::task]
-pub async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, storage: &'static Store) {
+pub async fn crsf_telemetry_task(
+    mut adc: Adc<'static, ADC1>,
+    mut battery_pin: impl AdcChannel<ADC1> + 'static,
+    mut tx: UartTx<'static, Async>,
+) {
     info!("CRSF telemetry start");
     let mut ticker = Ticker::every(Duration::from_millis(200));
 
     loop {
-        let snapshot = storage.snapshot().await;
-        let q = snapshot.channels.unpacked_channels[2] - 174u16;
-        let packet = BatPacket::new(12.6f32 - (q as f32)/1000.0f32);
+        let voltage = adc.blocking_read(&mut battery_pin) as f32;
+        let voltage = voltage / 1024f32 * 3.3f32 * 11f32;
+
+        let packet = BatPacket::new(voltage);
 
         match tx.write_all(packet.as_bytes()).await.unwrap() {
             _ => {}

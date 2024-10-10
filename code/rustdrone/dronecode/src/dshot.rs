@@ -1,18 +1,12 @@
 use crate::nopdelays::*;
 use core::arch::asm;
-use embassy_stm32::{
-    gpio::{Input, Level, Output, Pull, Speed},
-    pac::{
-        self,
-        common::{Reg, W},
-        gpio::{regs::Bsrr, vals},
-        GPIOA, GPIOC,
-    },
-    peripherals::PC13,
-    timer,
-    usart::{Parity, Uart},
-    Peripheral,
+use embassy_stm32::pac::{
+    common::{Reg, W},
+    gpio::regs::Bsrr,
 };
+
+use cortex_m::interrupt::{free, CriticalSection};
+
 
 #[macro_export]
 macro_rules! dshot_bitbang_bit {
@@ -54,7 +48,15 @@ fn dshot_bitbang(bsrr: Reg<Bsrr, W>, bit: usize, val: u16) {
 
 #[no_mangle]
 pub fn dshot_send(bsrr: Reg<Bsrr, W>, bit: usize, val: u16) {
-    let val = val << 1;
+    let telemetry = val < 48;
+    let mut val = val << 1;
+    if telemetry {
+        val |= 1;
+    }
     let sent = (val & 0xf) ^ ((val >> 4) & 0xf) ^ ((val >> 8) & 0xf) | (val << 4);
-    dshot_bitbang(bsrr, bit, sent);
+    
+    free(|_| -> bool {
+        dshot_bitbang(bsrr, bit, sent);
+        true
+    });
 }
