@@ -1,3 +1,5 @@
+use core::cmp::min;
+
 use embassy_stm32::{
     gpio::{Level, Output, Pin},
     pac::GPIO,
@@ -131,7 +133,7 @@ fn zero_throttle(context: &MotorsContext) {
 pub async fn disarm(context: &mut DroneContext) {
     if context.motor_context.running {
         gentle_stop(
-            context.navigation_context.motor_thrust,
+            context.navigation_context.motor_thrust/4,
             &mut context.motor_context,
         )
         .await;
@@ -141,15 +143,24 @@ pub async fn disarm(context: &mut DroneContext) {
 }
 
 pub fn drive(context: &mut DroneContext) {
-    let thrust = context.navigation_context.motor_thrust;
-
     if context.armed {
         context.motor_context.running = true;
 
-        context.motor_context.front_left.set_throttle(thrust);
-        context.motor_context.front_right.set_throttle(thrust);
-        context.motor_context.rear_left.set_throttle(thrust);
-        context.motor_context.rear_right.set_throttle(thrust);
+        let thrust = context.navigation_context.motor_thrust as i16;
+
+        let yaw_input = context.navigation_context.yaw_input;
+        let pitch_input = context.navigation_context.pitch_input;
+        let roll_input = context.navigation_context.roll_input;
+
+        let front_left: i16 = (thrust + roll_input - pitch_input + yaw_input) /4;
+        let front_right: i16 = (thrust - roll_input - pitch_input - yaw_input) /4;
+        let rear_left: i16 = (thrust + roll_input + pitch_input - yaw_input) /4;
+        let rear_right: i16 = (thrust - roll_input + pitch_input + yaw_input) /4;
+
+        context.motor_context.front_left.set_throttle(min(front_left as u16, 1000));
+        context.motor_context.front_right.set_throttle(min(front_right as u16, 1000));
+        context.motor_context.rear_left.set_throttle(min(rear_left as u16, 1000));
+        context.motor_context.rear_right.set_throttle(min(rear_right as u16, 1000));
     } else {
         zero_throttle(&context.motor_context);
     }

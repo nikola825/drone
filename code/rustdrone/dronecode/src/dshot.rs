@@ -7,7 +7,6 @@ use embassy_stm32::pac::{
 
 use cortex_m::interrupt::{free, CriticalSection};
 
-
 #[macro_export]
 macro_rules! dshot_bitbang_bit {
     ($bsrr: expr, $x: expr, $val: expr, $bit: expr) => {
@@ -25,7 +24,7 @@ macro_rules! dshot_bitbang_bit {
 }
 
 #[no_mangle]
-fn dshot_bitbang(bsrr: Reg<Bsrr, W>, bit: usize, val: u16) {
+fn dshot_bitbang(_: &CriticalSection, bsrr: Reg<Bsrr, W>, bit: usize, val: u16) {
     unsafe {
         dshot_bitbang_bit!(bsrr, 32768, val, bit);
         dshot_bitbang_bit!(bsrr, 16384, val, bit);
@@ -54,9 +53,8 @@ pub fn dshot_send(bsrr: Reg<Bsrr, W>, bit: usize, val: u16) {
         val |= 1;
     }
     let sent = (val & 0xf) ^ ((val >> 4) & 0xf) ^ ((val >> 8) & 0xf) | (val << 4);
-    
-    free(|_| -> bool {
-        dshot_bitbang(bsrr, bit, sent);
-        true
+
+    free(|critical_section: &CriticalSection| {
+        dshot_bitbang(critical_section, bsrr, bit, sent);
     });
 }

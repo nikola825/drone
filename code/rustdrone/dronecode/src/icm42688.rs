@@ -9,31 +9,31 @@ use embassy_time::Timer;
 use embedded_hal::spi::MODE_3;
 use zerocopy::{big_endian, FromBytes, FromZeroes};
 
-#[allow(dead_code)]
+#[allow(non_camel_case_types, dead_code)]
 #[derive(Clone, Copy)]
-enum GyroFSRange {
-    Dps2000 = 0b000 << 5,
-    Dps1000 = 0b001 << 5,
-    Dps500 = 0b010 << 5,
-    Dps250 = 0b011 << 5,
-    Dps125 = 0b100 << 5,
-    Dps62 = 0b101 << 5,
-    Dps31 = 0b110 << 5,
-    Dps15 = 0b111 << 5,
+enum GYRO_FS_SEL {
+    DPS_2000 = 0b000 << 5,
+    DPS_1000 = 0b001 << 5,
+    DPS_500 = 0b010 << 5,
+    DPS_250 = 0b011 << 5,
+    DPS_125 = 0b100 << 5,
+    DPS_62_5 = 0b101 << 5,
+    DPS_31_25 = 0b110 << 5,
+    DPS_15_625 = 0b111 << 5,
 }
 
-#[allow(dead_code)]
+#[allow(non_camel_case_types, dead_code)]
 #[derive(Clone, Copy)]
-enum GyroOutputDataRate {
-    Odr1KHz = 0b0110,
-    Odr100Hz = 0b1000,
+enum GYRO_ODR {
+    ODR_1KHz = 0b0110,
+    ODR_100Hz = 0b1000,
 }
 
 pub struct ICM42688 {
     spi: Spi<'static, Async>,
     cs_pin: Output<'static>,
-    gyro_fs_range: GyroFSRange,
-    gyro_output_rate: GyroOutputDataRate,
+    gyro_fs_range: GYRO_FS_SEL,
+    gyro_output_rate: GYRO_ODR,
 }
 
 #[allow(dead_code)]
@@ -59,16 +59,16 @@ struct GyroOutputPack {
 }
 
 impl GyroOutputPack {
-    fn get_ypr_deg(&self, range: GyroFSRange) -> (f32, f32, f32) {
+    fn get_ypr_deg(&self, range: GYRO_FS_SEL) -> (f32, f32, f32) {
         let divisor = match range {
-            GyroFSRange::Dps2000 => 16.4f32,
-            GyroFSRange::Dps1000 => 32.8f32,
-            GyroFSRange::Dps500 => 65.5f32,
-            GyroFSRange::Dps250 => 131f32,
-            GyroFSRange::Dps125 => 262f32,
-            GyroFSRange::Dps62 => 524.3f32,
-            GyroFSRange::Dps31 => 1048.6f32,
-            GyroFSRange::Dps15 => 2097.2f32,
+            GYRO_FS_SEL::DPS_2000 => 16.4f32,
+            GYRO_FS_SEL::DPS_1000 => 32.8f32,
+            GYRO_FS_SEL::DPS_500 => 65.5f32,
+            GYRO_FS_SEL::DPS_250 => 131f32,
+            GYRO_FS_SEL::DPS_125 => 262f32,
+            GYRO_FS_SEL::DPS_62_5 => 524.3f32,
+            GYRO_FS_SEL::DPS_31_25 => 1048.6f32,
+            GYRO_FS_SEL::DPS_15_625 => 2097.2f32,
         };
 
         (
@@ -110,8 +110,8 @@ impl ICM42688 {
                 embassy_stm32::gpio::Level::High,
                 embassy_stm32::gpio::Speed::VeryHigh,
             ),
-            gyro_output_rate: GyroOutputDataRate::Odr1KHz,
-            gyro_fs_range: GyroFSRange::Dps15,
+            gyro_output_rate: GYRO_ODR::ODR_1KHz,
+            gyro_fs_range: GYRO_FS_SEL::DPS_250,
         }
     }
 

@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 
-
 use crsf::{crsf_receiver_task, crsf_telemetry_task, CRSFChannels};
 use defmt::info;
 use embassy_executor::Spawner;
@@ -13,7 +12,7 @@ use embassy_stm32::{
     usart::{self},
 };
 use embassy_sync::lazy_lock::LazyLock;
-use embassy_time::{Duration, Ticker, Timer};
+use embassy_time::{Duration, Instant, Ticker, Timer};
 use icm42688::ICM42688;
 use motors::{disarm, drive, Motor, MotorsContext};
 use navigation::{navigate, NavigationContext};
@@ -24,9 +23,9 @@ mod crsf;
 mod dshot;
 mod icm42688;
 mod motors;
+mod navigation;
 mod nopdelays;
 mod storage;
-mod navigation;
 
 bind_interrupts!(struct Irqs {
     USART2 => usart::InterruptHandler<peripherals::USART2>;
@@ -35,16 +34,9 @@ bind_interrupts!(struct Irqs {
 });
 
 struct DroneContext {
-    pub imu: ICM42688,
-
-    pub yellow_led: Output<'static>,
-    pub green_led: Output<'static>,
-    pub blue_led: Output<'static>,
-
     pub armed: bool,
-
     pub motor_context: MotorsContext,
-    pub navigation_context: NavigationContext
+    pub navigation_context: NavigationContext,
 }
 
 impl DroneContext {
@@ -130,60 +122,68 @@ async fn main(_spawner: Spawner) {
         .unwrap();
 
     let context = DroneContext {
-        imu: imu,
-        green_led: green,
-        blue_led: blue,
-        yellow_led: yellow,
         armed: false,
-
         motor_context: MotorsContext::new(motor3, motor1, motor0, motor2),
-        navigation_context: NavigationContext::new()
+        navigation_context: NavigationContext::new(),
     };
-    _spawner.spawn(tick_task(context, STORE.get())).unwrap();
+    _spawner
+        .spawn(tick_task(blue, green, yellow, imu, context, STORE.get()))
+        .unwrap();
 }
 
 #[embassy_executor::task]
-async fn tick_task(mut context: DroneContext, store: &'static Store) {
+async fn tick_task(
+    mut blue_led: Output<'static>,
+    mut green_led: Output<'static>,
+    mut yellow_led: Output<'static>,
+    mut imu: ICM42688,
+    mut context: DroneContext,
+    store: &'static Store,
+) {
     let mut ticker = Ticker::every(Duration::from_micros(1000));
     let mut x = 0;
 
-    context.blue_led.set_low();
-    context.green_led.set_low();
-    context.yellow_led.set_high();
+    blue_led.set_low();
+    green_led.set_low();
+    yellow_led.set_high();
 
+    let mut duration = 0f32;
     loop {
+        let t1=Instant::now();
         let snapshot = store.snapshot().await;
 
         context.update_armed(&snapshot.channels);
-        match context.armed {
-            true => {
-                context.green_led.set_high();
-                context.yellow_led.set_low();
-            }
-            false => {
-                context.green_led.set_low();
-                context.yellow_led.set_high();
-            }
-        }
 
-        match snapshot.channels.is_fresh() {
-            true => context.blue_led.set_high(),
-            false => context.blue_led.set_low(),
-        }
+        green_led.set_level(match context.armed {
+            true => Level::High,
+            false => Level::Low,
+        });
 
-        x = x + 1;
-        if x > 800 {
-            x = 0;
-            info!("TICK {}", snapshot.channels.throttle());
-        }
+        yellow_led.set_level(match context.armed {
+            true => Level::Low,
+            false => Level::High,
+        });
 
-        navigate(&mut context, snapshot.channels);
+        blue_led.set_level(match snapshot.channels.is_fresh() {
+            true => Level::High,
+            false => Level::Low,
+        });
+
+        navigate(&mut imu, &mut context, &snapshot.channels);
 
         if context.armed {
             drive(&mut context);
-        }
-        else {
+        } else {
             disarm(&mut context).await;
+        }
+
+        let t2 = Instant::now();
+
+        duration = (t2-t1).as_micros() as f32 *0.5 + duration*0.5;
+        x = x + 1;
+        if x > 800 {
+            x = 0;
+            info!("TICK {} {}", duration, context.navigation_context.yaw_input);
         }
 
         ticker.next().await;

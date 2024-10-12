@@ -121,14 +121,14 @@ impl Default for CRSFChannels {
         Self {
             unpacked_channels: Default::default(),
             populated: false,
-            timestamp: Instant::MIN
+            timestamp: Instant::MIN,
         }
     }
 }
 
 impl CRSFChannels {
     pub fn throttle(&self) -> u16 {
-        CRSFChannels::range_transform(self.unpacked_channels[2], 172, 1811, 0, 2000, 0, 10) as u16
+        CRSFChannels::range_transform(self.unpacked_channels[2], 172, 1811, 0, 4000, 0, 10) as u16
     }
 
     pub fn armed(&self) -> bool {
@@ -144,19 +144,30 @@ impl CRSFChannels {
     }
 
     pub fn yaw(&self) -> i32 {
-        CRSFChannels::range_transform(self.unpacked_channels[3], 172, 1811, -90, 90, 0, 2)
+        CRSFChannels::range_transform(self.unpacked_channels[3], 172, 1811, -90, 90, 0, 2) * -1
     }
 
+    #[allow(dead_code)]
     pub fn aux(&self) -> u16 {
         CRSFChannels::range_transform(self.unpacked_channels[5], 172, 1811, 0, 128, 0, -1) as u16
     }
 
     pub fn is_fresh(&self) -> bool {
-        let age = Instant::now() - self.timestamp;
-        self.populated && age.as_millis() < 100
+        let now = Instant::now();
+        let age = now - self.timestamp;
+
+        self.populated && now > self.timestamp && age < Duration::from_millis(100)
     }
 
-    fn range_transform(value: u16, in_low: u16, in_high: u16, out_low: i32, out_high: i32, out_deadpoint: i32, out_deadrange:i32) -> i32 {
+    fn range_transform(
+        value: u16,
+        in_low: u16,
+        in_high: u16,
+        out_low: i32,
+        out_high: i32,
+        out_deadpoint: i32,
+        out_deadrange: i32,
+    ) -> i32 {
         if value < in_low {
             return out_low;
         } else if value > in_high {
@@ -167,7 +178,7 @@ impl CRSFChannels {
             let out_range: i32 = (out_high - out_low) as i32;
 
             let mut t1 = ((out_low) + (t1 * out_range) / in_range) as i32;
-            if (t1-out_deadpoint).abs() < out_deadrange {
+            if (t1 - out_deadpoint).abs() < out_deadrange {
                 t1 = out_deadpoint
             }
 
@@ -199,8 +210,6 @@ fn crc8_calculate(buf: &[u8]) -> u8 {
 }
 
 pub fn make_uart_pair<T: Instance>(
-    //gpio: Gpio,
-    //rx_pin_number: usize,
     uart_peripheral: impl Peripheral<P = T> + 'static,
     rx_pin: impl Pin + RxPin<T> + 'static,
     tx_pin: impl TxPin<T> + 'static,
@@ -296,7 +305,9 @@ pub async fn crsf_telemetry_task(
 
     loop {
         let voltage = adc.blocking_read(&mut battery_pin) as f32;
-        let voltage = voltage / 1024f32 * 3.3f32 * 11f32;
+        info!("VLTG {}", voltage);
+        let voltage = voltage * 0.0356918239f32;
+        info!("VLTG {}", voltage);
 
         let packet = BatPacket::new(voltage);
 
