@@ -49,9 +49,7 @@ pub struct NavigationContext {
     pitch_pid: Pid,
     roll_pid: Pid,
 
-    last_pid_time: Instant,
-
-    pub yaw_measured: f32,
+    last_pid_time: Instant
 }
 
 impl NavigationContext {
@@ -65,8 +63,7 @@ impl NavigationContext {
             yaw_pid: Pid::new(),
             pitch_pid: Pid::new(),
             roll_pid: Pid::new(),
-            last_pid_time: Instant::now(),
-            yaw_measured: 0f32,
+            last_pid_time: Instant::now()
         }
     }
 
@@ -92,7 +89,14 @@ fn range_limit(value: f32, limit: f32) -> f32 {
 }
 
 pub fn navigate(imu: &mut ICM42688, context: &mut DroneContext, inputs: &CRSFChannels) {
+    const YAW_OFFSET:f32 = 0.39707747f32;
+    const PITCH_OFFSET:f32 = 0.33393875f32;
+    const ROLL_OFFSET:f32 = 0.07444308f32;
     let (yaw_measured, pitch_measured, roll_measured) = imu.get_ypr_deg();
+
+    let yaw_measured = yaw_measured - YAW_OFFSET;
+    let pitch_measured = pitch_measured - PITCH_OFFSET;
+    let roll_measured = roll_measured - ROLL_OFFSET;
 
     let roll_measured = roll_measured * -1f32;
 

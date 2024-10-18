@@ -300,16 +300,21 @@ pub async fn crsf_telemetry_task(
     mut battery_pin: impl AdcChannel<ADC1> + 'static,
     mut tx: UartTx<'static, Async>,
 ) {
+    const INTERNAL_REFERENCE_VOLTAGE: f32 = 1.21f32;
+    const RESISTOR_DIVIDER_FACTOR: f32 = 11f32;
+
     info!("CRSF telemetry start");
     let mut ticker = Ticker::every(Duration::from_millis(200));
+    let mut internal_reference = adc.enable_vrefint();
 
     loop {
-        let voltage = adc.blocking_read(&mut battery_pin) as f32;
-        info!("VLTG {}", voltage);
-        let voltage = voltage * 0.0356918239f32;
-        info!("VLTG {}", voltage);
+        let reference_measurement = adc.blocking_read(&mut internal_reference);
+        let input_measurement = adc.blocking_read(&mut battery_pin);
 
-        let packet = BatPacket::new(voltage);
+        let measured_adc_input_voltage =  (input_measurement as f32) / (reference_measurement as f32) * INTERNAL_REFERENCE_VOLTAGE;
+        let measured_battery_voltage = measured_adc_input_voltage * RESISTOR_DIVIDER_FACTOR;
+
+        let packet = BatPacket::new(measured_battery_voltage);
 
         match tx.write_all(packet.as_bytes()).await.unwrap() {
             _ => {}

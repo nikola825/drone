@@ -81,7 +81,7 @@ async fn main(_spawner: Spawner) {
     green.set_high();
 
     let mut battery_adc = Adc::new(peripherals.ADC1);
-    battery_adc.set_resolution(embassy_stm32::adc::Resolution::BITS10);
+    battery_adc.set_resolution(embassy_stm32::adc::Resolution::BITS12);
 
     let mut imu = ICM42688::new(
         peripherals.SPI3,
@@ -140,7 +140,8 @@ async fn tick_task(
     mut context: DroneContext,
     store: &'static Store,
 ) {
-    let mut ticker = Ticker::every(Duration::from_micros(1000));
+    const PID_PERIOD_US: u64 = 500;
+    let mut ticker = Ticker::every(Duration::from_micros(PID_PERIOD_US));
     let mut x = 0;
 
     blue_led.set_low();
@@ -149,7 +150,7 @@ async fn tick_task(
 
     let mut duration = 0f32;
     loop {
-        let t1=Instant::now();
+        let t1 = Instant::now();
         let snapshot = store.snapshot().await;
 
         context.update_armed(&snapshot.channels);
@@ -179,11 +180,11 @@ async fn tick_task(
 
         let t2 = Instant::now();
 
-        duration = (t2-t1).as_micros() as f32 *0.5 + duration*0.5;
+        duration = (t2 - t1).as_micros() as f32 * 0.5 + duration * 0.5;
         x = x + 1;
-        if x > 800 {
+        if x > 800 * (1000 / PID_PERIOD_US) {
             x = 0;
-            info!("TICK {} {}", duration, context.navigation_context.yaw_input);
+            info!("TICK {}", duration);
         }
 
         ticker.next().await;

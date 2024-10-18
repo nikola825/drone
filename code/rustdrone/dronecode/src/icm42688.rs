@@ -25,6 +25,7 @@ enum GYRO_FS_SEL {
 #[allow(non_camel_case_types, dead_code)]
 #[derive(Clone, Copy)]
 enum GYRO_ODR {
+    ODR_2KHz = 0b0101,
     ODR_1KHz = 0b0110,
     ODR_100Hz = 0b1000,
 }
@@ -41,6 +42,12 @@ mod icm_constants {
     pub const DEVICE_ID: u8 = 0x47;
     pub const PWR_MGMT0_ACCEL_LN: u8 = 0x03;
     pub const PWR_MGMT0_GYRO_LN: u8 = 0x0c;
+    pub const GYRO_DEC2_M2_ORD: u8 = 0b10;
+
+    pub const GYRO_UI_FILT_ORD1: u8 = 0b00<<2;
+    pub const GYRO_UI_FILT_ORD2: u8 = 0b01<<2;
+    pub const GYRO_UI_FILT_ORD3: u8 = 0b10<<2;
+
 }
 
 #[allow(dead_code, non_camel_case_types)]
@@ -49,6 +56,10 @@ enum ICM42688Register {
     PWR_MGMT0 = 0x4e,
     GYRO_START = 0x25,
     GYRO_CONFIG0 = 0x4f,
+    GYRO_CONFIG1 = 0x51,
+    GYRO_ACCEL_CONFIG0 = 0x52,
+    BANK_SEL = 0x76,
+    GYRO_CONFIG_STATIC10 = 0x13
 }
 
 #[derive(Default, FromBytes, FromZeroes)]
@@ -111,7 +122,7 @@ impl ICM42688 {
                 embassy_stm32::gpio::Speed::VeryHigh,
             ),
             gyro_output_rate: GYRO_ODR::ODR_1KHz,
-            gyro_fs_range: GYRO_FS_SEL::DPS_250,
+            gyro_fs_range: GYRO_FS_SEL::DPS_1000,
         }
     }
 
@@ -151,6 +162,22 @@ impl ICM42688 {
         );
 
         Timer::after_millis(100).await;
+        self.setup_filters();
+        Timer::after_millis(100).await;
+    }
+
+    fn setup_filters(&mut self) {
+        let filter_config = icm_constants::GYRO_UI_FILT_ORD1 | icm_constants::GYRO_DEC2_M2_ORD;
+        self.write_register(ICM42688Register::GYRO_CONFIG1, filter_config);
+
+        self.write_register(ICM42688Register::GYRO_ACCEL_CONFIG0, 0x44);
+    }
+
+    #[allow(dead_code)]
+    fn setup_notch(&mut self) {
+        self.write_register(ICM42688Register::BANK_SEL, 1u8);
+        self.write_register(ICM42688Register::GYRO_CONFIG_STATIC10, 7u8<<3);
+        self.write_register(ICM42688Register::BANK_SEL, 0u8);
     }
 
     pub fn get_ypr_deg(&mut self) -> (f32, f32, f32) {
