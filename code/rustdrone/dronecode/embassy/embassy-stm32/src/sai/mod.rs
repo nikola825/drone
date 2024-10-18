@@ -27,8 +27,14 @@ pub enum Error {
 }
 
 #[cfg(not(gpdma))]
-impl From<ringbuffer::OverrunError> for Error {
-    fn from(_: ringbuffer::OverrunError) -> Self {
+impl From<ringbuffer::Error> for Error {
+    fn from(#[allow(unused)] err: ringbuffer::Error) -> Self {
+        #[cfg(feature = "defmt")]
+        {
+            if err == ringbuffer::Error::DmaUnsynced {
+                defmt::error!("Ringbuffer broken invariants detected!");
+            }
+        }
         Self::Overrun
     }
 }
@@ -661,12 +667,12 @@ fn get_af_types(mode: Mode, tx_rx: TxRx) -> (AfType, AfType) {
         //sd is defined by tx/rx mode
         match tx_rx {
             TxRx::Transmitter => AfType::output(OutputType::PushPull, Speed::VeryHigh),
-            TxRx::Receiver => AfType::input(Pull::None),
+            TxRx::Receiver => AfType::input(Pull::Down), // Ensure mute level when no input is connected.
         },
         //clocks (mclk, sck and fs) are defined by master/slave
         match mode {
             Mode::Master => AfType::output(OutputType::PushPull, Speed::VeryHigh),
-            Mode::Slave => AfType::input(Pull::None),
+            Mode::Slave => AfType::input(Pull::Down), // Ensure no clocks when no input is connected.
         },
     )
 }
@@ -985,6 +991,21 @@ impl<'d, T: Instance, W: word::Word> Sai<'d, T, W> {
     pub fn set_mute(&mut self, value: bool) {
         let ch = T::REGS.ch(self.sub_block as usize);
         ch.cr2().modify(|w| w.set_mute(value));
+    }
+
+    /// Determine the mute state of the receiver.
+    ///
+    /// Clears the mute state flag in the status register.
+    pub fn is_muted(&self) -> Result<bool, Error> {
+        match &self.ring_buffer {
+            RingBuffer::Readable(_) => {
+                let ch = T::REGS.ch(self.sub_block as usize);
+                let mute_state = ch.sr().read().mutedet();
+                ch.clrfr().write(|w| w.set_cmutedet(true));
+                Ok(mute_state)
+            }
+            _ => Err(Error::NotAReceiver),
+        }
     }
 
     /// Write data to the SAI ringbuffer.

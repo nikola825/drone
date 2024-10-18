@@ -55,7 +55,7 @@ fn main() {
     let mut singletons: Vec<String> = Vec::new();
     for p in METADATA.peripherals {
         if let Some(r) = &p.registers {
-            if r.kind == "adccommon" || r.kind == "sai" || r.kind == "ucpd" {
+            if r.kind == "adccommon" || r.kind == "sai" || r.kind == "ucpd" || r.kind == "otg" {
                 // TODO: should we emit this for all peripherals? if so, we will need a list of all
                 // possible peripherals across all chips, so that we can declare the configs
                 // (replacing the hard-coded list of `peri_*` cfgs below)
@@ -111,6 +111,8 @@ fn main() {
         "peri_sai4",
         "peri_ucpd1",
         "peri_ucpd2",
+        "peri_usb_otg_fs",
+        "peri_usb_otg_hs",
     ]);
     cfgs.declare_all(&["mco", "mco1", "mco2"]);
 
@@ -1015,6 +1017,9 @@ fn main() {
         (("hrtim", "CHE2"), quote!(crate::hrtim::ChannelEComplementaryPin)),
         (("hrtim", "CHF1"), quote!(crate::hrtim::ChannelFPin)),
         (("hrtim", "CHF2"), quote!(crate::hrtim::ChannelFComplementaryPin)),
+        (("lptim", "CH1"), quote!(crate::lptim::Channel1Pin)),
+        (("lptim", "CH2"), quote!(crate::lptim::Channel2Pin)),
+        (("lptim", "OUT"), quote!(crate::lptim::OutputPin)),
         (("sdmmc", "CK"), quote!(crate::sdmmc::CkPin)),
         (("sdmmc", "CMD"), quote!(crate::sdmmc::CmdPin)),
         (("sdmmc", "D0"), quote!(crate::sdmmc::D0Pin)),
@@ -1049,6 +1054,30 @@ fn main() {
         (("octospi", "NCS"), quote!(crate::ospi::NSSPin)),
         (("octospi", "CLK"), quote!(crate::ospi::SckPin)),
         (("octospi", "NCLK"), quote!(crate::ospi::NckPin)),
+        (("octospim", "P1_IO0"), quote!(crate::ospi::D0Pin)),
+        (("octospim", "P1_IO1"), quote!(crate::ospi::D1Pin)),
+        (("octospim", "P1_IO2"), quote!(crate::ospi::D2Pin)),
+        (("octospim", "P1_IO3"), quote!(crate::ospi::D3Pin)),
+        (("octospim", "P1_IO4"), quote!(crate::ospi::D4Pin)),
+        (("octospim", "P1_IO5"), quote!(crate::ospi::D5Pin)),
+        (("octospim", "P1_IO6"), quote!(crate::ospi::D6Pin)),
+        (("octospim", "P1_IO7"), quote!(crate::ospi::D7Pin)),
+        (("octospim", "P1_DQS"), quote!(crate::ospi::DQSPin)),
+        (("octospim", "P1_NCS"), quote!(crate::ospi::NSSPin)),
+        (("octospim", "P1_CLK"), quote!(crate::ospi::SckPin)),
+        (("octospim", "P1_NCLK"), quote!(crate::ospi::NckPin)),
+        (("octospim", "P2_IO0"), quote!(crate::ospi::D0Pin)),
+        (("octospim", "P2_IO1"), quote!(crate::ospi::D1Pin)),
+        (("octospim", "P2_IO2"), quote!(crate::ospi::D2Pin)),
+        (("octospim", "P2_IO3"), quote!(crate::ospi::D3Pin)),
+        (("octospim", "P2_IO4"), quote!(crate::ospi::D4Pin)),
+        (("octospim", "P2_IO5"), quote!(crate::ospi::D5Pin)),
+        (("octospim", "P2_IO6"), quote!(crate::ospi::D6Pin)),
+        (("octospim", "P2_IO7"), quote!(crate::ospi::D7Pin)),
+        (("octospim", "P2_DQS"), quote!(crate::ospi::DQSPin)),
+        (("octospim", "P2_NCS"), quote!(crate::ospi::NSSPin)),
+        (("octospim", "P2_CLK"), quote!(crate::ospi::SckPin)),
+        (("octospim", "P2_NCLK"), quote!(crate::ospi::NckPin)),
         (("tsc", "G1_IO1"), quote!(crate::tsc::G1IO1Pin)),
         (("tsc", "G1_IO2"), quote!(crate::tsc::G1IO2Pin)),
         (("tsc", "G1_IO3"), quote!(crate::tsc::G1IO3Pin)),
@@ -1104,6 +1133,15 @@ fn main() {
                     // MCO is special
                     if pin.signal.starts_with("MCO") {
                         peri = format_ident!("{}", pin.signal.replace('_', ""));
+                    }
+
+                    // OCTOSPIM is special
+                    if p.name == "OCTOSPIM" {
+                        peri = format_ident!("{}", "OCTOSPI1");
+                        g.extend(quote! {
+                            pin_trait_impl!(#tr, #peri, #pin_name, #af);
+                        });
+                        peri = format_ident!("{}", "OCTOSPI2");
                     }
 
                     g.extend(quote! {
@@ -1494,6 +1532,36 @@ fn main() {
         .flat_map(|p| &p.registers)
         .any(|p| p.kind == "dmamux");
 
+    let mut dma_irqs: BTreeMap<&str, Vec<String>> = BTreeMap::new();
+
+    for p in METADATA.peripherals {
+        if let Some(r) = &p.registers {
+            if r.kind == "dma" || r.kind == "bdma" || r.kind == "gpdma" || r.kind == "lpdma" {
+                for irq in p.interrupts {
+                    let ch_name = format!("{}_{}", p.name, irq.signal);
+                    let ch = METADATA.dma_channels.iter().find(|c| c.name == ch_name).unwrap();
+
+                    // Some H7 chips have BDMA1 hardcoded for DFSDM, ie no DMAMUX. It's unsupported, skip it.
+                    if has_dmamux && ch.dmamux.is_none() {
+                        continue;
+                    }
+
+                    dma_irqs.entry(irq.interrupt).or_default().push(ch_name);
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "_dual-core")]
+    let mut dma_ch_to_irq: BTreeMap<&str, Vec<String>> = BTreeMap::new();
+
+    #[cfg(feature = "_dual-core")]
+    for (irq, channels) in &dma_irqs {
+        for channel in channels {
+            dma_ch_to_irq.entry(channel).or_default().push(irq.to_string());
+        }
+    }
+
     for (ch_idx, ch) in METADATA.dma_channels.iter().enumerate() {
         // Some H7 chips have BDMA1 hardcoded for DFSDM, ie no DMAMUX. It's unsupported, skip it.
         if has_dmamux && ch.dmamux.is_none() {
@@ -1502,6 +1570,16 @@ fn main() {
 
         let name = format_ident!("{}", ch.name);
         let idx = ch_idx as u8;
+        #[cfg(feature = "_dual-core")]
+        let irq = {
+            let irq_name = if let Some(x) = &dma_ch_to_irq.get(ch.name) {
+                format_ident!("{}", x.get(0).unwrap())
+            } else {
+                panic!("failed to find dma interrupt")
+            };
+            quote!(crate::pac::Interrupt::#irq_name)
+        };
+
         g.extend(quote!(dma_channel_impl!(#name, #idx);));
 
         let dma = format_ident!("{}", ch.dma);
@@ -1532,6 +1610,7 @@ fn main() {
             None => quote!(),
         };
 
+        #[cfg(not(feature = "_dual-core"))]
         dmas.extend(quote! {
             crate::dma::ChannelInfo {
                 dma: #dma_info,
@@ -1539,30 +1618,19 @@ fn main() {
                 #dmamux
             },
         });
+        #[cfg(feature = "_dual-core")]
+        dmas.extend(quote! {
+            crate::dma::ChannelInfo {
+                dma: #dma_info,
+                num: #ch_num,
+                irq: #irq,
+                #dmamux
+            },
+        });
     }
 
     // ========
     // Generate DMA IRQs.
-
-    let mut dma_irqs: BTreeMap<&str, Vec<String>> = BTreeMap::new();
-
-    for p in METADATA.peripherals {
-        if let Some(r) = &p.registers {
-            if r.kind == "dma" || r.kind == "bdma" || r.kind == "gpdma" {
-                for irq in p.interrupts {
-                    let ch_name = format!("{}_{}", p.name, irq.signal);
-                    let ch = METADATA.dma_channels.iter().find(|c| c.name == ch_name).unwrap();
-
-                    // Some H7 chips have BDMA1 hardcoded for DFSDM, ie no DMAMUX. It's unsupported, skip it.
-                    if has_dmamux && ch.dmamux.is_none() {
-                        continue;
-                    }
-
-                    dma_irqs.entry(irq.interrupt).or_default().push(ch_name);
-                }
-            }
-        }
-    }
 
     let dma_irqs: TokenStream = dma_irqs
         .iter()

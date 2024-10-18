@@ -1,7 +1,7 @@
 use core::cmp::{max, min};
 
 use defmt::{error, info};
-use embassy_stm32::adc::{Adc, AdcChannel};
+use embassy_stm32::adc::{Adc, AnyAdcChannel};
 use embassy_stm32::gpio::Pin;
 use embassy_stm32::interrupt;
 use embassy_stm32::mode::Async;
@@ -261,7 +261,7 @@ pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, storage: &'static St
                 Err(e) => {
                     // log the error and reset UART
                     error!("CRSF receive UART error {}", e);
-                    rx.start().unwrap();
+                    rx.start_uart();
                 }
             }
         }
@@ -297,7 +297,7 @@ async fn read_next_command<'a>(
 #[embassy_executor::task]
 pub async fn crsf_telemetry_task(
     mut adc: Adc<'static, ADC1>,
-    mut battery_pin: impl AdcChannel<ADC1> + 'static,
+    mut battery_pin: AnyAdcChannel<ADC1>,
     mut tx: UartTx<'static, Async>,
 ) {
     const INTERNAL_REFERENCE_VOLTAGE: f32 = 1.21f32;

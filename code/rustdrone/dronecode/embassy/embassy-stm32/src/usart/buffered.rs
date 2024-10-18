@@ -12,8 +12,8 @@ use embassy_sync::waitqueue::AtomicWaker;
 #[cfg(not(any(usart_v1, usart_v2)))]
 use super::DePin;
 use super::{
-    clear_interrupt_flags, configure, rdr, reconfigure, sr, tdr, Config, ConfigError, CtsPin, Error, Info, Instance,
-    Regs, RtsPin, RxPin, TxPin,
+    clear_interrupt_flags, configure, rdr, reconfigure, send_break, sr, tdr, Config, ConfigError, CtsPin, Error, Info,
+    Instance, Regs, RtsPin, RxPin, TxPin,
 };
 use crate::gpio::{AfType, AnyPin, OutputType, Pull, SealedPin as _, Speed};
 use crate::interrupt::{self, InterruptExt};
@@ -210,7 +210,7 @@ impl<'d> BufferedUart<'d> {
     ) -> Result<Self, ConfigError> {
         Self::new_inner(
             peri,
-            new_pin!(rx, AfType::input(Pull::None)),
+            new_pin!(rx, AfType::input(config.rx_pull)),
             new_pin!(tx, AfType::output(OutputType::PushPull, Speed::Medium)),
             None,
             None,
@@ -260,7 +260,7 @@ impl<'d> BufferedUart<'d> {
     ) -> Result<Self, ConfigError> {
         Self::new_inner(
             peri,
-            new_pin!(rx, AfType::input(Pull::None)),
+            new_pin!(rx, AfType::input(config.rx_pull)),
             new_pin!(tx, AfType::output(OutputType::PushPull, Speed::Medium)),
             None,
             None,
@@ -358,6 +358,11 @@ impl<'d> BufferedUart<'d> {
         });
 
         Ok(())
+    }
+
+    /// Send break character
+    pub fn send_break(&self) {
+        self.tx.send_break()
     }
 }
 
@@ -537,6 +542,11 @@ impl<'d> BufferedUartTx<'d> {
         });
 
         Ok(())
+    }
+
+    /// Send break character
+    pub fn send_break(&self) {
+        send_break(&self.info.regs);
     }
 }
 
