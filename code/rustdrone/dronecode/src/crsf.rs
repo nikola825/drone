@@ -128,7 +128,7 @@ impl Default for CRSFChannels {
 
 impl CRSFChannels {
     pub fn throttle(&self) -> u16 {
-        CRSFChannels::range_transform(self.unpacked_channels[2], 172, 1811, 0, 4000, 0, 10) as u16
+        CRSFChannels::range_transform(self.unpacked_channels[2], 172, 1811, 0, 6000, 0, 10) as u16
     }
 
     pub fn armed(&self) -> bool {
@@ -136,15 +136,15 @@ impl CRSFChannels {
     }
 
     pub fn roll(&self) -> i32 {
-        CRSFChannels::range_transform(self.unpacked_channels[0], 172, 1811, -90, 90, 0, 2)
+        CRSFChannels::range_transform(self.unpacked_channels[0], 172, 1811, -360, 360, 0, 2)
     }
 
     pub fn pitch(&self) -> i32 {
-        CRSFChannels::range_transform(self.unpacked_channels[1], 172, 1811, -90, 90, 0, 2)
+        CRSFChannels::range_transform(self.unpacked_channels[1], 172, 1811, -360, 360, 0, 2)
     }
 
     pub fn yaw(&self) -> i32 {
-        CRSFChannels::range_transform(self.unpacked_channels[3], 172, 1811, -90, 90, 0, 2) * -1
+        CRSFChannels::range_transform(self.unpacked_channels[3], 172, 1811, -360, 360, 0, 2) * -1
     }
 
     #[allow(dead_code)]
@@ -302,6 +302,9 @@ pub async fn crsf_telemetry_task(
 ) {
     const INTERNAL_REFERENCE_VOLTAGE: f32 = 1.21f32;
     const RESISTOR_DIVIDER_FACTOR: f32 = 11f32;
+    const SMOOTHING_FACTOR: f32 = 0.25f32;
+
+    let mut filtered_voltage = 0.0f32;
 
     info!("CRSF telemetry start");
     let mut ticker = Ticker::every(Duration::from_millis(200));
@@ -314,7 +317,12 @@ pub async fn crsf_telemetry_task(
         let measured_adc_input_voltage =  (input_measurement as f32) / (reference_measurement as f32) * INTERNAL_REFERENCE_VOLTAGE;
         let measured_battery_voltage = measured_adc_input_voltage * RESISTOR_DIVIDER_FACTOR;
 
-        let packet = BatPacket::new(measured_battery_voltage);
+        filtered_voltage = filtered_voltage * (1f32-SMOOTHING_FACTOR) + measured_battery_voltage * SMOOTHING_FACTOR;
+        if (filtered_voltage < 0f32) || (filtered_voltage > 20f32) {
+            filtered_voltage = 0f32;
+        }
+
+        let packet = BatPacket::new(filtered_voltage);
 
         match tx.write_all(packet.as_bytes()).await.unwrap() {
             _ => {}

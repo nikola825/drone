@@ -157,10 +157,10 @@ pub fn drive(context: &mut DroneContext) {
         let rear_left: i16 = (thrust + roll_input + pitch_input - yaw_input) /4;
         let rear_right: i16 = (thrust - roll_input + pitch_input + yaw_input) /4;
 
-        context.motor_context.front_left.set_throttle(min(front_left as u16, 1000));
-        context.motor_context.front_right.set_throttle(min(front_right as u16, 1000));
-        context.motor_context.rear_left.set_throttle(min(rear_left as u16, 1000));
-        context.motor_context.rear_right.set_throttle(min(rear_right as u16, 1000));
+        context.motor_context.front_left.set_throttle(min(front_left as u16, 1990));
+        context.motor_context.front_right.set_throttle(min(front_right as u16, 1990));
+        context.motor_context.rear_left.set_throttle(min(rear_left as u16, 1990));
+        context.motor_context.rear_right.set_throttle(min(rear_right as u16, 1990));
     } else {
         zero_throttle(&context.motor_context);
     }
