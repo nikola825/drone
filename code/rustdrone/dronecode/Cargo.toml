@@ -40,3 +40,7 @@ zerocopy = {version="0.7.35", features=["derive", "byteorder"]}
 
 [profile.release]
 debug = 2
+
+[dependencies.num-traits]
+version = "0.2"
+default-features = false

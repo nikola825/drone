@@ -1,4 +1,5 @@
 use core::cmp::{max, min};
+use num_traits::float::FloatCore;
 
 use defmt::{error, info};
 use embassy_stm32::adc::{Adc, AnyAdcChannel};
@@ -51,7 +52,7 @@ impl BatPacket {
             len: (size_of::<BatteryInfo>() + 2) as u8,
             typ: 0x08u8,
             info: BatteryInfo {
-                voltage: big_endian::I16::new((voltage * 10.0f32) as i16),
+                voltage: big_endian::I16::new((voltage * 10.0f32).round() as i16),
                 other_data: Default::default(),
             },
             crc8: 0u8,
