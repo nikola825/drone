@@ -5,6 +5,7 @@ use crsf::{crsf_receiver_task, crsf_telemetry_task, CRSFChannels};
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, AdcChannel};
+use embassy_stm32::gpio::Input;
 use embassy_stm32::time::Hertz;
 use embassy_stm32::{bind_interrupts, i2c, peripherals, Config};
 use embassy_stm32::{
@@ -73,7 +74,6 @@ async fn main(_spawner: Spawner) {
     }
 
     let peripherals = embassy_stm32::init(config);
-
     let mut blue: Output = Output::new(peripherals.PA11, Level::Low, Speed::VeryHigh);
     let mut green: Output = Output::new(peripherals.PA4, Level::Low, Speed::VeryHigh);
     let mut yellow: Output = Output::new(peripherals.PA12, Level::Low, Speed::VeryHigh);
@@ -96,10 +96,10 @@ async fn main(_spawner: Spawner) {
 
     yellow.set_high();
 
-    let motor0 = Motor::new(peripherals.PB0);
-    let motor1 = Motor::new(peripherals.PB1);
-    let motor2 = Motor::new(peripherals.PA6);
-    let motor3 = Motor::new(peripherals.PA7);
+    let front_left = Motor::new(peripherals.PB0);
+    let front_right = Motor::new(peripherals.PB1);
+    let rear_left = Motor::new(peripherals.PA7);
+    let rear_right = Motor::new(peripherals.PA6);
 
     Timer::after_millis(10).await;
 
@@ -123,7 +123,7 @@ async fn main(_spawner: Spawner) {
 
     let context = DroneContext {
         armed: false,
-        motor_context: MotorsContext::new(motor3, motor1, motor0, motor2),
+        motor_context: MotorsContext::new(front_left, front_right, rear_left, rear_right),
         navigation_context: NavigationContext::new(),
     };
     _spawner

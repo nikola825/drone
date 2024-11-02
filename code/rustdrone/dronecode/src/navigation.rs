@@ -89,9 +89,9 @@ fn range_limit(value: f32, limit: f32) -> f32 {
 }
 
 pub fn navigate(imu: &mut ICM42688, context: &mut DroneContext, inputs: &CRSFChannels) {
-    const YAW_OFFSET:f32 = 0.39707747f32;
-    const PITCH_OFFSET:f32 = 0.33393875f32;
-    const ROLL_OFFSET:f32 = 0.07444308f32;
+    const YAW_OFFSET:f32 = 0.47141057;
+    const PITCH_OFFSET:f32 = 0.3117653;
+    const ROLL_OFFSET:f32 = 0.088096835;
     let (yaw_measured, pitch_measured, roll_measured) = imu.get_ypr_deg();
 
     let yaw_measured = yaw_measured - YAW_OFFSET;
