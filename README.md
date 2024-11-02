@@ -16,5 +16,5 @@ Off the shelf parts you'll need:
 
 I couldn't be bothered to do in-detail docs, feel free to email me at (reverse the string to get my email) `moc.liamg@528alokin`
 
-Do not use for anything serious, this was made by a man who started with zero knowledge of electronics, embedded development, flight controllers and 3D print design.
+Do not use for anything serious, this was made by a man who started with zero knowledge of electronics, embedded development, rust development, flight controllers and 3D print design.
 If you need something reliable, just get off-the-shelf stuff.
