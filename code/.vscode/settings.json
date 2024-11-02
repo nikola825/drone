@@ -1,6 +1,6 @@
 {
     "rust-analyzer.linkedProjects": [
-        "./dronecode/Cargo.toml",
+        "./Cargo.toml",
     ],
     "rust-analyzer.cargo.target": "thumbv7em-none-eabihf",
     "rust-analyzer.check.allTargets": false

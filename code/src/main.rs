@@ -5,7 +5,6 @@ use crsf::{crsf_receiver_task, crsf_telemetry_task, CRSFChannels};
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, AdcChannel};
-use embassy_stm32::gpio::Input;
 use embassy_stm32::time::Hertz;
 use embassy_stm32::{bind_interrupts, i2c, peripherals, Config};
 use embassy_stm32::{
