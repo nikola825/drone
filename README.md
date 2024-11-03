@@ -13,6 +13,7 @@ Off the shelf parts you'll need:
 - motors and propellers
 - ESC
 - ELRS receiver
+- Camera and VTX if you want FPV video
 
 I couldn't be bothered to do in-detail docs, feel free to email me at (reverse the string to get my email) `moc.liamg@528alokin`
 
