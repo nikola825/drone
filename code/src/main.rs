@@ -117,7 +117,11 @@ async fn main(_spawner: Spawner) {
         .spawn(crsf_receiver_task(crsf_rx, STORE.get()))
         .unwrap();
     _spawner
-        .spawn(crsf_telemetry_task(battery_adc, peripherals.PA5.degrade_adc(), crsf_tx))
+        .spawn(crsf_telemetry_task(
+            battery_adc,
+            peripherals.PA5.degrade_adc(),
+            crsf_tx,
+        ))
         .unwrap();
 
     let context = DroneContext {
@@ -188,4 +192,21 @@ async fn tick_task(
 
         ticker.next().await;
     }
+}
+
+#[allow(dead_code)]
+async fn motor_reset(
+    front_left: &Motor,
+    front_right: &Motor,
+    rear_left: &Motor,
+    rear_right: &Motor,
+) {
+    info!("BEGINNING RESET");
+    info!("FRONT RIGHT");
+    front_left.disable_3d_mode().await;
+    front_right
+        .set_direction(motors::DshotDirection::Backward)
+        .await;
+    info!("RESET END");
+    loop {}
 }

@@ -8,6 +8,22 @@ use embassy_time::Timer;
 
 use crate::{dshot::dshot_send, DroneContext};
 
+#[derive(Clone, Copy)]
+#[allow(dead_code, non_camel_case_types)]
+enum DshotCommand {
+    DSHOT_CMD_STOP = 0,
+    DSHOT_CMD_SPIN_DIRECTION_1 = 7,
+    DSHOT_CMD_SPIN_DIRECTION_2 = 8,
+    DSHOT_CMD_3D_MODE_OFF = 9,
+    DSHOT_CMD_SAVE_SETTINGS = 12
+}
+
+#[allow(dead_code)]
+pub enum DshotDirection {
+    Forward,
+    Backward
+}
+
 pub struct Motor {
     port: u8,
     pin: u8,
@@ -50,6 +66,10 @@ impl Motor {
         dshot_send(GPIO(self.port as _).bsrr(), self.pin as _, value);
     }
 
+    fn send_command(&self, command: DshotCommand) {
+        self.send_value(command as u16);
+    }
+
     pub fn set_throttle(&self, throttle: u16) {
         if throttle > 0 {
             self.send_value(48 + throttle);
@@ -59,47 +79,53 @@ impl Motor {
     }
 
     #[allow(dead_code)]
-    pub async fn set_direction_0(&self) {
+    pub async fn set_direction(&self, direction: DshotDirection) {
         for _ in 1..100 {
-            self.send_value(0);
+            self.send_command(DshotCommand::DSHOT_CMD_STOP);
+            Timer::after_millis(10).await;
+        }
+
+        let direction_command = match direction {
+            DshotDirection::Forward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_1,
+            DshotDirection::Backward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_2
+        };
+
+        Timer::after_millis(10).await;
+        for _ in 1..100 {
+            self.send_command(direction_command);
             Timer::after_millis(10).await;
         }
         Timer::after_millis(10).await;
         for _ in 1..100 {
-            self.send_value(7);
+            self.send_command(DshotCommand::DSHOT_CMD_SAVE_SETTINGS);
             Timer::after_millis(10).await;
         }
         Timer::after_millis(10).await;
         for _ in 1..100 {
-            self.send_value(12);
-            Timer::after_millis(10).await;
-        }
-        Timer::after_millis(10).await;
-        for _ in 1..100 {
-            self.send_value(0);
+            self.send_command(DshotCommand::DSHOT_CMD_STOP);
             Timer::after_millis(10).await;
         }
     }
 
     #[allow(dead_code)]
-    pub async fn set_direction_1(&self) {
+    pub async fn disable_3d_mode(&self) {
         for _ in 1..100 {
-            self.send_value(0);
+            self.send_command(DshotCommand::DSHOT_CMD_STOP);
             Timer::after_millis(10).await;
         }
         Timer::after_millis(10).await;
         for _ in 1..100 {
-            self.send_value(8);
+            self.send_command(DshotCommand::DSHOT_CMD_STOP);
             Timer::after_millis(10).await;
         }
         Timer::after_millis(10).await;
         for _ in 1..100 {
-            self.send_value(12);
+            self.send_command(DshotCommand::DSHOT_CMD_SAVE_SETTINGS);
             Timer::after_millis(10).await;
         }
         Timer::after_millis(10).await;
         for _ in 1..100 {
-            self.send_value(0);
+            self.send_command(DshotCommand::DSHOT_CMD_STOP);
             Timer::after_millis(10).await;
         }
     }
