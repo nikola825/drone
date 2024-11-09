@@ -198,14 +198,14 @@ async fn tick_task(
 async fn motor_reset(
     front_left: &Motor,
     front_right: &Motor,
-    rear_left: &Motor,
-    rear_right: &Motor,
+    _rear_left: &Motor,
+    _rear_right: &Motor,
 ) {
     info!("BEGINNING RESET");
     info!("FRONT RIGHT");
     front_left.disable_3d_mode().await;
     front_right
-        .set_direction(motors::DshotDirection::Backward)
+        .set_direction(motors::MotorDirection::Backward)
         .await;
     info!("RESET END");
     loop {}

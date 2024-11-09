@@ -15,13 +15,13 @@ enum DshotCommand {
     DSHOT_CMD_SPIN_DIRECTION_1 = 7,
     DSHOT_CMD_SPIN_DIRECTION_2 = 8,
     DSHOT_CMD_3D_MODE_OFF = 9,
-    DSHOT_CMD_SAVE_SETTINGS = 12
+    DSHOT_CMD_SAVE_SETTINGS = 12,
 }
 
 #[allow(dead_code)]
-pub enum DshotDirection {
+pub enum MotorDirection {
     Forward,
-    Backward
+    Backward,
 }
 
 pub struct Motor {
@@ -78,28 +78,24 @@ impl Motor {
         }
     }
 
-    #[allow(dead_code)]
-    pub async fn set_direction(&self, direction: DshotDirection) {
+    async fn set_setting_and_save(&self, setting: DshotCommand) {
         for _ in 1..100 {
             self.send_command(DshotCommand::DSHOT_CMD_STOP);
             Timer::after_millis(10).await;
         }
 
-        let direction_command = match direction {
-            DshotDirection::Forward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_1,
-            DshotDirection::Backward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_2
-        };
-
         Timer::after_millis(10).await;
         for _ in 1..100 {
-            self.send_command(direction_command);
+            self.send_command(setting);
             Timer::after_millis(10).await;
         }
+
         Timer::after_millis(10).await;
         for _ in 1..100 {
             self.send_command(DshotCommand::DSHOT_CMD_SAVE_SETTINGS);
             Timer::after_millis(10).await;
         }
+
         Timer::after_millis(10).await;
         for _ in 1..100 {
             self.send_command(DshotCommand::DSHOT_CMD_STOP);
@@ -108,26 +104,18 @@ impl Motor {
     }
 
     #[allow(dead_code)]
+    pub async fn set_direction(&self, direction: MotorDirection) {
+        let direction_command = match direction {
+            MotorDirection::Forward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_1,
+            MotorDirection::Backward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_2,
+        };
+
+        self.set_setting_and_save(direction_command).await;
+    }
+
+    #[allow(dead_code)]
     pub async fn disable_3d_mode(&self) {
-        for _ in 1..100 {
-            self.send_command(DshotCommand::DSHOT_CMD_STOP);
-            Timer::after_millis(10).await;
-        }
-        Timer::after_millis(10).await;
-        for _ in 1..100 {
-            self.send_command(DshotCommand::DSHOT_CMD_STOP);
-            Timer::after_millis(10).await;
-        }
-        Timer::after_millis(10).await;
-        for _ in 1..100 {
-            self.send_command(DshotCommand::DSHOT_CMD_SAVE_SETTINGS);
-            Timer::after_millis(10).await;
-        }
-        Timer::after_millis(10).await;
-        for _ in 1..100 {
-            self.send_command(DshotCommand::DSHOT_CMD_STOP);
-            Timer::after_millis(10).await;
-        }
+        self.set_setting_and_save(DshotCommand::DSHOT_CMD_3D_MODE_OFF).await;
     }
 }
 
@@ -159,7 +147,7 @@ fn zero_throttle(context: &MotorsContext) {
 pub async fn disarm(context: &mut DroneContext) {
     if context.motor_context.running {
         gentle_stop(
-            context.navigation_context.motor_thrust/4,
+            context.navigation_context.motor_thrust / 4,
             &mut context.motor_context,
         )
         .await;
@@ -178,15 +166,27 @@ pub fn drive(context: &mut DroneContext) {
         let pitch_input = context.navigation_context.pitch_input;
         let roll_input = context.navigation_context.roll_input;
 
-        let front_left: i16 = (thrust + roll_input - pitch_input + yaw_input) /4;
-        let front_right: i16 = (thrust - roll_input - pitch_input - yaw_input) /4;
-        let rear_left: i16 = (thrust + roll_input + pitch_input - yaw_input) /4;
-        let rear_right: i16 = (thrust - roll_input + pitch_input + yaw_input) /4;
+        let front_left: i16 = (thrust + roll_input - pitch_input + yaw_input) / 4;
+        let front_right: i16 = (thrust - roll_input - pitch_input - yaw_input) / 4;
+        let rear_left: i16 = (thrust + roll_input + pitch_input - yaw_input) / 4;
+        let rear_right: i16 = (thrust - roll_input + pitch_input + yaw_input) / 4;
 
-        context.motor_context.front_left.set_throttle(min(front_left as u16, 1990));
-        context.motor_context.front_right.set_throttle(min(front_right as u16, 1990));
-        context.motor_context.rear_left.set_throttle(min(rear_left as u16, 1990));
-        context.motor_context.rear_right.set_throttle(min(rear_right as u16, 1990));
+        context
+            .motor_context
+            .front_left
+            .set_throttle(min(front_left as u16, 1990));
+        context
+            .motor_context
+            .front_right
+            .set_throttle(min(front_right as u16, 1990));
+        context
+            .motor_context
+            .rear_left
+            .set_throttle(min(rear_left as u16, 1990));
+        context
+            .motor_context
+            .rear_right
+            .set_throttle(min(rear_right as u16, 1990));
     } else {
         zero_throttle(&context.motor_context);
     }
