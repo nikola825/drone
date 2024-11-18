@@ -27,4 +27,3 @@ impl Store {
         guard.channels = channels;
     }
 }
-

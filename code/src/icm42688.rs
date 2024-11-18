@@ -44,10 +44,9 @@ mod icm_constants {
     pub const PWR_MGMT0_GYRO_LN: u8 = 0x0c;
     pub const GYRO_DEC2_M2_ORD: u8 = 0b10;
 
-    pub const GYRO_UI_FILT_ORD1: u8 = 0b00<<2;
-    pub const GYRO_UI_FILT_ORD2: u8 = 0b01<<2;
-    pub const GYRO_UI_FILT_ORD3: u8 = 0b10<<2;
-
+    pub const GYRO_UI_FILT_ORD1: u8 = 0b00 << 2;
+    pub const GYRO_UI_FILT_ORD2: u8 = 0b01 << 2;
+    pub const GYRO_UI_FILT_ORD3: u8 = 0b10 << 2;
 }
 
 #[allow(dead_code, non_camel_case_types)]
@@ -59,7 +58,7 @@ enum ICM42688Register {
     GYRO_CONFIG1 = 0x51,
     GYRO_ACCEL_CONFIG0 = 0x52,
     BANK_SEL = 0x76,
-    GYRO_CONFIG_STATIC10 = 0x13
+    GYRO_CONFIG_STATIC10 = 0x13,
 }
 
 #[derive(Default, FromBytes, FromZeroes)]
@@ -71,15 +70,16 @@ struct GyroOutputPack {
 
 impl GyroOutputPack {
     fn get_ypr_deg(&self, range: GYRO_FS_SEL) -> (f32, f32, f32) {
+        use GYRO_FS_SEL::*;
         let divisor = match range {
-            GYRO_FS_SEL::DPS_2000 => 16.4f32,
-            GYRO_FS_SEL::DPS_1000 => 32.8f32,
-            GYRO_FS_SEL::DPS_500 => 65.5f32,
-            GYRO_FS_SEL::DPS_250 => 131f32,
-            GYRO_FS_SEL::DPS_125 => 262f32,
-            GYRO_FS_SEL::DPS_62_5 => 524.3f32,
-            GYRO_FS_SEL::DPS_31_25 => 1048.6f32,
-            GYRO_FS_SEL::DPS_15_625 => 2097.2f32,
+            DPS_2000 => 16.4f32,
+            DPS_1000 => 32.8f32,
+            DPS_500 => 65.5f32,
+            DPS_250 => 131f32,
+            DPS_125 => 262f32,
+            DPS_62_5 => 524.3f32,
+            DPS_31_25 => 1048.6f32,
+            DPS_15_625 => 2097.2f32,
         };
 
         (
@@ -176,7 +176,7 @@ impl ICM42688 {
     #[allow(dead_code)]
     fn setup_notch(&mut self) {
         self.write_register(ICM42688Register::BANK_SEL, 1u8);
-        self.write_register(ICM42688Register::GYRO_CONFIG_STATIC10, 7u8<<3);
+        self.write_register(ICM42688Register::GYRO_CONFIG_STATIC10, 7u8 << 3);
         self.write_register(ICM42688Register::BANK_SEL, 0u8);
     }
 

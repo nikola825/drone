@@ -4,18 +4,45 @@ use embassy_stm32::{
     gpio::{Level, Output, Pin},
     pac::GPIO,
 };
-use embassy_time::Timer;
+use embassy_time::{Duration, Instant, Timer};
 
-use crate::{dshot::dshot_send, DroneContext};
+use crate::dshot::dshot_send;
 
 #[derive(Clone, Copy)]
 #[allow(dead_code, non_camel_case_types)]
 enum DshotCommand {
     DSHOT_CMD_STOP = 0,
+    DSHOT_CMD_BEEP1 = 1,
+    DSHOT_CMD_BEEP2 = 2,
+    DSHOT_CMD_BEEP3 = 3,
+    DSHOT_CMD_BEEP4 = 4,
+    DSHOT_CMD_BEEP5 = 5,
     DSHOT_CMD_SPIN_DIRECTION_1 = 7,
     DSHOT_CMD_SPIN_DIRECTION_2 = 8,
     DSHOT_CMD_3D_MODE_OFF = 9,
     DSHOT_CMD_SAVE_SETTINGS = 12,
+}
+
+#[derive(Clone, Copy)]
+enum BeepTone {
+    Tone1,
+    Tone2,
+    Tone3,
+    Tone4,
+    Tone5,
+}
+
+impl BeepTone {
+    fn next(self) -> Self {
+        use BeepTone::*;
+        match self {
+            Tone1 => Tone2,
+            Tone2 => Tone3,
+            Tone3 => Tone4,
+            Tone4 => Tone5,
+            Tone5 => Tone1,
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -24,18 +51,14 @@ pub enum MotorDirection {
     Backward,
 }
 
-pub struct Motor {
-    port: u8,
-    pin: u8,
-    _output: Output<'static>,
-}
-
 pub struct MotorsContext {
     front_left: Motor,
     front_right: Motor,
     rear_left: Motor,
     rear_right: Motor,
     running: bool,
+    beep_interval_start: Instant,
+    beep_tone: BeepTone,
 }
 
 impl MotorsContext {
@@ -46,8 +69,34 @@ impl MotorsContext {
             rear_left,
             rear_right,
             running: false,
+            beep_interval_start: Instant::MIN,
+            beep_tone: BeepTone::Tone1,
         }
     }
+}
+
+pub struct MotorInputs {
+    pub motor_thrust: u16,
+    pub yaw_input: i16,
+    pub roll_input: i16,
+    pub pitch_input: i16,
+}
+
+impl MotorInputs {
+    pub fn idle(motor_thrust: u16) -> Self {
+        MotorInputs {
+            motor_thrust: motor_thrust,
+            yaw_input: 0,
+            roll_input: 0,
+            pitch_input: 0,
+        }
+    }
+}
+
+pub struct Motor {
+    port: u8,
+    pin: u8,
+    _output: Output<'static>,
 }
 
 impl Motor {
@@ -70,7 +119,7 @@ impl Motor {
         self.send_value(command as u16);
     }
 
-    pub fn set_throttle(&self, throttle: u16) {
+    fn set_throttle(&self, throttle: u16) {
         if throttle > 0 {
             self.send_value(48 + throttle);
         } else {
@@ -78,6 +127,22 @@ impl Motor {
         }
     }
 
+    fn beep(&self, tone: BeepTone) {
+        use BeepTone::*;
+        use DshotCommand::*;
+
+        let command = match tone {
+            Tone1 => DSHOT_CMD_BEEP1,
+            Tone2 => DSHOT_CMD_BEEP2,
+            Tone3 => DSHOT_CMD_BEEP3,
+            Tone4 => DSHOT_CMD_BEEP4,
+            Tone5 => DSHOT_CMD_BEEP5,
+        };
+
+        self.send_command(command);
+    }
+
+    #[allow(dead_code)]
     async fn set_setting_and_save(&self, setting: DshotCommand) {
         for _ in 1..100 {
             self.send_command(DshotCommand::DSHOT_CMD_STOP);
@@ -115,7 +180,8 @@ impl Motor {
 
     #[allow(dead_code)]
     pub async fn disable_3d_mode(&self) {
-        self.set_setting_and_save(DshotCommand::DSHOT_CMD_3D_MODE_OFF).await;
+        self.set_setting_and_save(DshotCommand::DSHOT_CMD_3D_MODE_OFF)
+            .await;
     }
 }
 
@@ -144,27 +210,45 @@ fn zero_throttle(context: &MotorsContext) {
     context.rear_right.set_throttle(0);
 }
 
-pub async fn disarm(context: &mut DroneContext) {
-    if context.motor_context.running {
-        gentle_stop(
-            context.navigation_context.motor_thrust / 4,
-            &mut context.motor_context,
-        )
-        .await;
+fn beep_motors(context: &mut MotorsContext) {
+    const BEEP_INTERVAL: Duration = Duration::from_millis(500);
+    const BEEP_DUTY: Duration = Duration::from_millis(100);
+
+    let now = Instant::now();
+    let delta_t = now - context.beep_interval_start;
+
+    if delta_t > BEEP_INTERVAL {
+        context.beep_tone = context.beep_tone.next();
+        context.beep_interval_start = now;
+        zero_throttle(context);
+    } else if delta_t > BEEP_DUTY {
+        zero_throttle(context);
     } else {
-        zero_throttle(&context.motor_context);
+        context.front_left.beep(context.beep_tone);
+        context.front_right.beep(context.beep_tone);
+        context.rear_left.beep(context.beep_tone);
+        context.rear_right.beep(context.beep_tone);
     }
 }
 
-pub fn drive(context: &mut DroneContext) {
-    if context.armed {
-        context.motor_context.running = true;
+pub async fn disarm(context: &mut MotorsContext, inputs: &MotorInputs, beep: bool) {
+    if context.running {
+        gentle_stop(inputs.motor_thrust / 4, context).await;
+    } else if beep {
+        beep_motors(context);
+    } else {
+        zero_throttle(&context);
+    }
+}
 
-        let thrust = context.navigation_context.motor_thrust as i16;
+pub fn drive(context: &mut MotorsContext, inputs: &MotorInputs) {
+    context.running = true;
+    if inputs.motor_thrust > 0 {
+        let thrust = inputs.motor_thrust as i16;
 
-        let yaw_input = context.navigation_context.yaw_input;
-        let pitch_input = context.navigation_context.pitch_input;
-        let roll_input = context.navigation_context.roll_input;
+        let yaw_input = inputs.yaw_input;
+        let pitch_input = inputs.pitch_input;
+        let roll_input = inputs.roll_input;
 
         let front_left: i16 = (thrust + roll_input - pitch_input + yaw_input) / 4;
         let front_right: i16 = (thrust - roll_input - pitch_input - yaw_input) / 4;
@@ -172,22 +256,16 @@ pub fn drive(context: &mut DroneContext) {
         let rear_right: i16 = (thrust - roll_input + pitch_input + yaw_input) / 4;
 
         context
-            .motor_context
             .front_left
             .set_throttle(min(front_left as u16, 1990));
         context
-            .motor_context
             .front_right
             .set_throttle(min(front_right as u16, 1990));
+        context.rear_left.set_throttle(min(rear_left as u16, 1990));
         context
-            .motor_context
-            .rear_left
-            .set_throttle(min(rear_left as u16, 1990));
-        context
-            .motor_context
             .rear_right
             .set_throttle(min(rear_right as u16, 1990));
     } else {
-        zero_throttle(&context.motor_context);
+        zero_throttle(&context);
     }
 }

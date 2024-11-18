@@ -31,8 +31,8 @@ const CRSF_FRAME_TYPE_RC_CHANNELS_PACKED: u8 = 0x16;
 #[derive(AsBytes, Default)]
 #[repr(C)]
 struct BatteryInfo {
-    pub voltage: big_endian::I16,
-    pub other_data: [u8; 6],
+    voltage: big_endian::I16,
+    other_data: [u8; 6],
 }
 
 #[derive(AsBytes, Default)]
@@ -46,7 +46,7 @@ struct BatPacket {
 }
 
 impl BatPacket {
-    pub fn new(voltage: f32) -> Self {
+    fn new(voltage: f32) -> Self {
         let mut packet = BatPacket {
             sync: 0xc8u8,
             len: (size_of::<BatteryInfo>() + 2) as u8,
@@ -67,7 +67,7 @@ impl BatPacket {
 
 #[derive(FromBytes, FromZeroes, Default)]
 #[repr(C)]
-pub struct CRSFFramePackedChannels {
+struct CRSFFramePackedChannels {
     sync: u8,
     length: u8,
     frame_type: u8,
@@ -76,7 +76,7 @@ pub struct CRSFFramePackedChannels {
 }
 
 impl CRSFFramePackedChannels {
-    pub fn unpack(&self) -> CRSFChannels {
+    fn unpack(&self) -> CRSFChannels {
         let mut unpacked_channels = [0u16; 16];
         let mut src_idx = 0;
         let mut dst_idx = 0;
@@ -112,9 +112,9 @@ impl CRSFFramePackedChannels {
 
 #[derive(Clone)]
 pub struct CRSFChannels {
-    pub unpacked_channels: [u16; 16],
-    pub populated: bool,
-    pub timestamp: Instant,
+    unpacked_channels: [u16; 16],
+    populated: bool,
+    timestamp: Instant,
 }
 
 impl Default for CRSFChannels {
@@ -149,8 +149,18 @@ impl CRSFChannels {
     }
 
     #[allow(dead_code)]
-    pub fn aux(&self) -> u16 {
+    pub fn aux1(&self) -> u16 {
         CRSFChannels::range_transform(self.unpacked_channels[5], 172, 1811, 0, 128, 0, -1) as u16
+    }
+
+    #[allow(dead_code)]
+    pub fn aux2(&self) -> u16 {
+        CRSFChannels::range_transform(self.unpacked_channels[6], 172, 1811, 0, 128, 0, -1) as u16
+    }
+
+    #[allow(dead_code)]
+    pub fn beep(&self) -> bool {
+        CRSFChannels::range_transform(self.unpacked_channels[7], 172, 1811, 0, 2, 0, -1) > 0
     }
 
     pub fn is_fresh(&self) -> bool {
@@ -315,10 +325,13 @@ pub async fn crsf_telemetry_task(
         let reference_measurement = adc.blocking_read(&mut internal_reference);
         let input_measurement = adc.blocking_read(&mut battery_pin);
 
-        let measured_adc_input_voltage =  (input_measurement as f32) / (reference_measurement as f32) * INTERNAL_REFERENCE_VOLTAGE;
+        let measured_adc_input_voltage = (input_measurement as f32)
+            / (reference_measurement as f32)
+            * INTERNAL_REFERENCE_VOLTAGE;
         let measured_battery_voltage = measured_adc_input_voltage * RESISTOR_DIVIDER_FACTOR;
 
-        filtered_voltage = filtered_voltage * (1f32-SMOOTHING_FACTOR) + measured_battery_voltage * SMOOTHING_FACTOR;
+        filtered_voltage = filtered_voltage * (1f32 - SMOOTHING_FACTOR)
+            + measured_battery_voltage * SMOOTHING_FACTOR;
         if (filtered_voltage < 0f32) || (filtered_voltage > 20f32) {
             filtered_voltage = 0f32;
         }

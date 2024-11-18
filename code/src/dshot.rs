@@ -9,17 +9,49 @@ use cortex_m::interrupt::{free, CriticalSection};
 
 #[macro_export]
 macro_rules! dshot_bitbang_bit {
-    ($bsrr: expr, $x: expr, $val: expr, $bit: expr) => {
+    ($bsrr: ident, $x: expr, $val: expr, $bit: ident) => {
         ($bsrr).write(|w| w.set_bs(($bit), true));
         if ($val) & ($x) == ($x) {
-            nop112!();
-            ($bsrr).write(|w| w.set_br(($bit), true));
-            nop38!();
+            dshot_bitbang_bit!(1, 1200, $bsrr, $bit);
         } else {
-            nop58!();
-            ($bsrr).write(|w| w.set_br(($bit), true));
-            nop93!();
+            dshot_bitbang_bit!(0, 1200, $bsrr, $bit);
         }
+    };
+
+    (1, 600, $bsrr: ident, $bit: ident) => {
+        nop112!();
+        ($bsrr).write(|w| w.set_br(($bit), true));
+        nop38!();
+    };
+
+    (0, 600, $bsrr: ident, $bit: ident) => {
+        nop58!();
+        ($bsrr).write(|w| w.set_br(($bit), true));
+        nop93!();
+    };
+
+    (1, 1200, $bsrr: ident, $bit: ident) => {
+        nop56!();
+        ($bsrr).write(|w| w.set_br(($bit), true));
+        nop19!();
+    };
+
+    (0, 1200, $bsrr: ident, $bit: ident) => {
+        nop29!();
+        ($bsrr).write(|w| w.set_br(($bit), true));
+        nop47!();
+    };
+
+    (1, 2400, $bsrr: ident, $bit: ident) => {
+        nop28!();
+        ($bsrr).write(|w| w.set_br(($bit), true));
+        nop9!();
+    };
+
+    (0, 2400, $bsrr: ident, $bit: ident) => {
+        nop15!();
+        ($bsrr).write(|w| w.set_br(($bit), true));
+        nop24!();
     };
 }
 

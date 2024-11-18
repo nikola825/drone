@@ -34,13 +34,13 @@ bind_interrupts!(struct Irqs {
 });
 
 struct DroneContext {
-    pub armed: bool,
-    pub motor_context: MotorsContext,
-    pub navigation_context: NavigationContext,
+    armed: bool,
+    motor_context: MotorsContext,
+    navigation_context: NavigationContext,
 }
 
 impl DroneContext {
-    pub fn update_armed(&mut self, commands: &CRSFChannels) {
+    fn update_armed(&mut self, commands: &CRSFChannels) {
         let stay_armed = self.armed & commands.armed();
         let arm_at_zero = commands.armed() && commands.throttle() < 10;
         self.armed = commands.is_fresh() && (stay_armed || arm_at_zero);
@@ -55,21 +55,21 @@ async fn main(_spawner: Spawner) {
     {
         use embassy_stm32::rcc::*;
         config.rcc.hse = Some(Hse {
-            freq: Hertz(20_000_000),
+            freq: Hertz(20_000_000), // 20 MHz HSE
             mode: HseMode::Oscillator,
         });
         config.rcc.pll_src = PllSource::HSE;
         config.rcc.pll = Some(Pll {
-            prediv: PllPreDiv::DIV20,
-            mul: PllMul::MUL400,
-            divp: Some(PllPDiv::DIV4), // 20MHz / 20 * 400 / 4 = 100Mhz.
-            divq: Some(PllQDiv::DIV4),
+            prediv: PllPreDiv::DIV20,  // 20 MHz / 20 = 1MHz
+            mul: PllMul::MUL400,       // 1MHz * 400 = 400 MHz
+            divp: Some(PllPDiv::DIV4), // P = 400 MHz / 4 = 100 MHz
+            divq: Some(PllQDiv::DIV4), // Q = 400 MHz / 4 = 100 MHz
             divr: None,
         });
-        config.rcc.ahb_pre = AHBPrescaler::DIV1;
-        config.rcc.apb1_pre = APBPrescaler::DIV2;
-        config.rcc.apb2_pre = APBPrescaler::DIV2;
-        config.rcc.sys = Sysclk::PLL1_P;
+        config.rcc.ahb_pre = AHBPrescaler::DIV1; // AHB = 100 MHz / 1 = 100 MHz
+        config.rcc.apb1_pre = APBPrescaler::DIV2; // APB1 = 100 MHz / 2 = 50 MHz
+        config.rcc.apb2_pre = APBPrescaler::DIV2; // APB2 = 100 MHz / 2 = 50 MHz
+        config.rcc.sys = Sysclk::PLL1_P; // sysclk = P = 100 MHz
     }
 
     let peripherals = embassy_stm32::init(config);
@@ -92,6 +92,7 @@ async fn main(_spawner: Spawner) {
         peripherals.PB9,
     );
     imu.init().await;
+    Timer::after_millis(10).await;
 
     yellow.set_high();
 
@@ -99,8 +100,6 @@ async fn main(_spawner: Spawner) {
     let front_right = Motor::new(peripherals.PB1);
     let rear_left = Motor::new(peripherals.PA7);
     let rear_right = Motor::new(peripherals.PA6);
-
-    Timer::after_millis(10).await;
 
     let (crsf_rx, crsf_tx) = crsf::make_uart_pair(
         peripherals.USART2,
@@ -145,7 +144,8 @@ async fn tick_task(
 ) {
     const PID_PERIOD_US: u64 = 500;
     let mut ticker = Ticker::every(Duration::from_micros(PID_PERIOD_US));
-    let mut x = 0;
+
+    let mut print_counter = 0;
 
     blue_led.set_low();
     green_led.set_low();
@@ -155,8 +155,9 @@ async fn tick_task(
     loop {
         let t1 = Instant::now();
         let snapshot = store.snapshot().await;
+        let command_inputs = &snapshot.channels;
 
-        context.update_armed(&snapshot.channels);
+        context.update_armed(command_inputs);
 
         green_led.set_level(match context.armed {
             true => Level::High,
@@ -173,20 +174,25 @@ async fn tick_task(
             false => Level::Low,
         });
 
-        navigate(&mut imu, &mut context, &snapshot.channels);
+        let motor_inputs = navigate(&mut imu, &mut context.navigation_context, command_inputs);
 
         if context.armed {
-            drive(&mut context);
+            drive(&mut context.motor_context, &motor_inputs);
         } else {
-            disarm(&mut context).await;
+            disarm(
+                &mut context.motor_context,
+                &motor_inputs,
+                command_inputs.beep(),
+            )
+            .await;
         }
 
         let t2 = Instant::now();
 
         duration = (t2 - t1).as_micros() as f32 * 0.5 + duration * 0.5;
-        x = x + 1;
-        if x > 800 * (1000 / PID_PERIOD_US) {
-            x = 0;
+        print_counter += 1;
+        if print_counter > 800 * (1000 / PID_PERIOD_US) {
+            print_counter = 0;
             info!("TICK {}", duration);
         }
 
@@ -196,14 +202,14 @@ async fn tick_task(
 
 #[allow(dead_code)]
 async fn motor_reset(
-    front_left: &Motor,
+    _front_left: &Motor,
     front_right: &Motor,
     _rear_left: &Motor,
     _rear_right: &Motor,
 ) {
     info!("BEGINNING RESET");
     info!("FRONT RIGHT");
-    front_left.disable_3d_mode().await;
+    front_right.disable_3d_mode().await;
     front_right
         .set_direction(motors::MotorDirection::Backward)
         .await;
