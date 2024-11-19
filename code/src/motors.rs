@@ -85,7 +85,7 @@ pub struct MotorInputs {
 impl MotorInputs {
     pub fn idle(motor_thrust: u16) -> Self {
         MotorInputs {
-            motor_thrust: motor_thrust,
+            motor_thrust,
             yaw_input: 0,
             roll_input: 0,
             pitch_input: 0,
@@ -105,7 +105,7 @@ impl Motor {
         let pin_number = pin.pin();
         let output = Output::new(pin, Level::Low, embassy_stm32::gpio::Speed::VeryHigh);
         Motor {
-            port: port,
+            port,
             pin: pin_number,
             _output: output,
         }
@@ -199,7 +199,7 @@ async fn gentle_stop(current_thrust: u16, context: &mut MotorsContext) {
         thrust_target = thrust_target * 70 / 100;
     }
 
-    zero_throttle(&context);
+    zero_throttle(context);
     context.running = false;
 }
 
@@ -237,7 +237,7 @@ pub async fn disarm(context: &mut MotorsContext, inputs: &MotorInputs, beep: boo
     } else if beep {
         beep_motors(context);
     } else {
-        zero_throttle(&context);
+        zero_throttle(context);
     }
 }
 
@@ -266,6 +266,6 @@ pub fn drive(context: &mut MotorsContext, inputs: &MotorInputs) {
             .rear_right
             .set_throttle(min(rear_right as u16, 1990));
     } else {
-        zero_throttle(&context);
+        zero_throttle(context);
     }
 }

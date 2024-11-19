@@ -1,9 +1,9 @@
 use core::cmp::{max, min};
+use core::ops::RangeInclusive;
 use num_traits::float::FloatCore;
 
 use defmt::{error, info};
 use embassy_stm32::adc::{Adc, AnyAdcChannel};
-use embassy_stm32::gpio::Pin;
 use embassy_stm32::interrupt;
 use embassy_stm32::mode::Async;
 use embassy_stm32::pac::GPIO;
@@ -61,7 +61,7 @@ impl BatPacket {
         let buffer = packet.as_bytes();
         let crc = crc8_calculate(&buffer[2..buffer.len() - 1]);
         packet.crc8 = crc;
-        return packet;
+        packet
     }
 }
 
@@ -102,11 +102,11 @@ impl CRSFFramePackedChannels {
             }
         }
 
-        return CRSFChannels {
-            unpacked_channels: unpacked_channels,
+        CRSFChannels {
+            unpacked_channels,
             populated: true,
             timestamp: Instant::now(),
-        };
+        }
     }
 }
 
@@ -145,7 +145,7 @@ impl CRSFChannels {
     }
 
     pub fn yaw(&self) -> i32 {
-        CRSFChannels::range_transform(self.unpacked_channels[3], 172, 1811, -360, 360, 0, 2) * -1
+        -CRSFChannels::range_transform(self.unpacked_channels[3], 172, 1811, -360, 360, 0, 2)
     }
 
     #[allow(dead_code)]
@@ -180,35 +180,35 @@ impl CRSFChannels {
         out_deadrange: i32,
     ) -> i32 {
         if value < in_low {
-            return out_low;
+            out_low
         } else if value > in_high {
-            return out_high;
+            out_high
         } else {
             let t1: i32 = (value - in_low) as i32;
             let in_range: i32 = (in_high - in_low) as i32;
-            let out_range: i32 = (out_high - out_low) as i32;
+            let out_range: i32 = out_high - out_low;
 
-            let mut t1 = ((out_low) + (t1 * out_range) / in_range) as i32;
+            let mut t1 = (out_low) + (t1 * out_range) / in_range;
             if (t1 - out_deadpoint).abs() < out_deadrange {
                 t1 = out_deadpoint
             }
 
-            return min(max(t1, out_low), out_high);
+            min(max(t1, out_low), out_high)
         }
     }
 }
 
 fn crc8_process_byte(mut current: u8, byte: u8) -> u8 {
-    current = current ^ byte;
+    current ^= byte;
     for _ in 0..8 {
         if current & 0x80 != 0 {
             current = (current << 1) ^ 0xD5;
         } else {
-            current = current << 1;
+            current <<= 1;
         }
     }
 
-    return current;
+    current
 }
 
 fn crc8_calculate(buf: &[u8]) -> u8 {
@@ -217,12 +217,12 @@ fn crc8_calculate(buf: &[u8]) -> u8 {
         crc = crc8_process_byte(crc, *b);
     }
 
-    return crc;
+    crc
 }
 
 pub fn make_uart_pair<T: Instance>(
     uart_peripheral: impl Peripheral<P = T> + 'static,
-    rx_pin: impl Pin + RxPin<T> + 'static,
+    rx_pin: impl RxPin<T> + 'static,
     tx_pin: impl TxPin<T> + 'static,
     tx_dma: impl TxDma<T> + 'static,
     rx_dma: impl RxDma<T> + 'static,
@@ -252,7 +252,8 @@ pub fn make_uart_pair<T: Instance>(
         .modify(|w| w.set_pupdr(rx_pin_number as usize, vals::Pupdr::PULLUP));
 
     let (tx, rx) = uart.split();
-    return (rx, tx);
+
+    (rx, tx)
 }
 
 #[embassy_executor::task]
@@ -314,6 +315,7 @@ pub async fn crsf_telemetry_task(
     const INTERNAL_REFERENCE_VOLTAGE: f32 = 1.21f32;
     const RESISTOR_DIVIDER_FACTOR: f32 = 11f32;
     const SMOOTHING_FACTOR: f32 = 0.25f32;
+    const ACCEPTABLE_VOLTAGE_RANGE: RangeInclusive<f32> = 0f32..=20f32;
 
     let mut filtered_voltage = 0.0f32;
 
@@ -330,17 +332,16 @@ pub async fn crsf_telemetry_task(
             * INTERNAL_REFERENCE_VOLTAGE;
         let measured_battery_voltage = measured_adc_input_voltage * RESISTOR_DIVIDER_FACTOR;
 
-        filtered_voltage = filtered_voltage * (1f32 - SMOOTHING_FACTOR)
-            + measured_battery_voltage * SMOOTHING_FACTOR;
-        if (filtered_voltage < 0f32) || (filtered_voltage > 20f32) {
+        if ACCEPTABLE_VOLTAGE_RANGE.contains(&measured_battery_voltage) {
+            filtered_voltage = filtered_voltage * (1f32 - SMOOTHING_FACTOR)
+                + measured_battery_voltage * SMOOTHING_FACTOR;
+        } else {
             filtered_voltage = 0f32;
         }
 
         let packet = BatPacket::new(filtered_voltage);
 
-        match tx.write_all(packet.as_bytes()).await.unwrap() {
-            _ => {}
-        }
+        let _ = tx.write_all(packet.as_bytes()).await;
 
         ticker.next().await;
     }

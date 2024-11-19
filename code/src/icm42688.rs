@@ -22,7 +22,7 @@ enum GYRO_FS_SEL {
     DPS_15_625 = 0b111 << 5,
 }
 
-#[allow(non_camel_case_types, dead_code)]
+#[allow(non_camel_case_types, dead_code, clippy::enum_variant_names)]
 #[derive(Clone, Copy)]
 enum GYRO_ODR {
     ODR_2KHz = 0b0101,
@@ -115,7 +115,7 @@ impl ICM42688 {
         );
 
         ICM42688 {
-            spi: spi,
+            spi,
             cs_pin: Output::new(
                 cs_pin,
                 embassy_stm32::gpio::Level::High,
@@ -139,7 +139,7 @@ impl ICM42688 {
         let mut data = [0u8];
         self.read_registers(ICM42688Register::WHO_AM_I, &mut data);
 
-        return data[0] == icm_constants::DEVICE_ID;
+        data[0] == icm_constants::DEVICE_ID
     }
 
     fn write_register(&mut self, register: ICM42688Register, reg_data: u8) {

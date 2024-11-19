@@ -49,7 +49,7 @@ impl DroneContext {
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
-    static STORE: LazyLock<Store> = LazyLock::new(|| Store::new());
+    static STORE: LazyLock<Store> = LazyLock::new(Store::new);
 
     let mut config = Config::default();
     {
@@ -214,5 +214,7 @@ async fn motor_reset(
         .set_direction(motors::MotorDirection::Backward)
         .await;
     info!("RESET END");
+
+    #[allow(clippy::empty_loop)]
     loop {}
 }

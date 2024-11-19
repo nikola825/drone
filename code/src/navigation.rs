@@ -29,7 +29,7 @@ impl Pid {
         let result = kp * error + self.i + (error - self.last_error) * kd / dt;
         self.last_error = error;
 
-        return result;
+        result
     }
 
     fn reset(&mut self) {
@@ -110,7 +110,7 @@ pub fn navigate(
     if motor_thrust < 200 {
         context.reset();
 
-        return MotorInputs::idle(motor_thrust);
+        MotorInputs::idle(motor_thrust)
     } else {
         let yaw_input =
             context
@@ -139,11 +139,11 @@ pub fn navigate(
         );
         let roll_input = range_limit(roll_input, command_limit) as i16;
 
-        return MotorInputs {
-            motor_thrust: motor_thrust,
-            yaw_input: yaw_input,
-            pitch_input: pitch_input,
-            roll_input: roll_input,
-        };
+        MotorInputs {
+            motor_thrust,
+            yaw_input,
+            pitch_input,
+            roll_input,
+        }
     }
 }

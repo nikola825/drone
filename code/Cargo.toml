@@ -2,15 +2,44 @@
 edition = "2021"
 name = "rustdrone"
 version = "0.1.0"
-license = "MIT OR Apache-2.0"
+license = "MIT"
+
+[[bin]]
+name = "rustdrone"
+test = false
+doctest = false
+bench = false
 
 [dependencies]
-# Change stm32f429zi to your chip name, if necessary.
-embassy-stm32 = { version = "0.1.0", path = "./embassy/embassy-stm32", features = ["defmt", "stm32f411ce", "unstable-pac", "memory-x", "time-driver-any", "exti", "chrono"] }
-embassy-sync = { version = "0.6.0", path = "./embassy/embassy-sync", features = ["defmt"] }
-embassy-executor = { version = "0.6.0", path = "./embassy/embassy-executor", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt", "defmt", "integrated-timers"] }
-embassy-futures = { version = "0.1.0", path = "./embassy/embassy-futures" }
-embassy-time = { version = "0.3.2", path = "./embassy/embassy-time", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-1_000_000"] }
+embassy-stm32 = { version = "0.1.0", path = "./embassy-vendored/embassy-stm32", features = [
+    "defmt",
+    "stm32f411ce",
+    "unstable-pac",
+    "memory-x",
+    "time-driver-any",
+    "exti",
+    "chrono",
+] }
+
+embassy-sync = { version = "0.6.0", path = "./embassy-vendored/embassy-sync", features = [
+    "defmt",
+] }
+
+embassy-executor = { version = "0.6.0", path = "./embassy-vendored/embassy-executor", features = [
+    "task-arena-size-32768",
+    "arch-cortex-m",
+    "executor-thread",
+    "executor-interrupt",
+    "defmt",
+    "integrated-timers",
+] }
+
+embassy-futures = { version = "0.1.0", path = "./embassy-vendored/embassy-futures" }
+embassy-time = { version = "0.3.2", path = "./embassy-vendored/embassy-time", features = [
+    "defmt",
+    "defmt-timestamp-uptime",
+    "tick-hz-1_000_000",
+] }
 
 #embassy-time = { version = "0.3.2", path = ".././embassy-time", features = ["defmt", "defmt-timestamp-uptime", "tick-hz-1_000_000"] }
 #embassy-usb = { version = "0.3.0", path = ".././embassy-usb", features = ["defmt" ] }
@@ -21,7 +50,10 @@ embassy-time = { version = "0.3.2", path = "./embassy/embassy-time", features = 
 defmt = "0.3"
 defmt-rtt = "0.4"
 
-cortex-m = { version = "0.7.6", features = ["inline-asm", "critical-section-single-core"] }
+cortex-m = { version = "0.7.6", features = [
+    "inline-asm",
+    "critical-section-single-core",
+] }
 cortex-m-rt = "0.7.0"
 embedded-hal = "0.2.6"
 embedded-hal-bus = { version = "0.2", features = ["async"] }
@@ -35,8 +67,8 @@ embedded-storage = "0.3.1"
 micromath = "2.0.0"
 usbd-hid = "0.8.1"
 static_cell = "2"
-chrono = { version = "^0.4", default-features = false}
-zerocopy = {version="0.7.35", features=["derive", "byteorder"]}
+chrono = { version = "^0.4", default-features = false }
+zerocopy = { version = "0.7.35", features = ["derive", "byteorder"] }
 
 [profile.release]
 debug = 2
