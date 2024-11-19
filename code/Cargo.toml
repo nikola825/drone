@@ -72,6 +72,9 @@ zerocopy = { version = "0.7.35", features = ["derive", "byteorder"] }
 
 [profile.release]
 debug = 2
+lto = true
+codegen-units = 1
+opt-level = 3
 
 [dependencies.num-traits]
 version = "0.2"
