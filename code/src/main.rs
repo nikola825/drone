@@ -202,17 +202,36 @@ async fn tick_task(
 
 #[allow(dead_code)]
 async fn motor_reset(
-    _front_left: &Motor,
+    front_left: &Motor,
     front_right: &Motor,
-    _rear_left: &Motor,
-    _rear_right: &Motor,
+    rear_left: &Motor,
+    rear_right: &Motor,
 ) {
     info!("BEGINNING RESET");
-    info!("FRONT RIGHT");
+    info!("Front left");
+    front_left.disable_3d_mode().await;
+    front_left
+        .set_direction(motors::MotorDirection::Forward)
+        .await;
+
+    info!("Front right");
     front_right.disable_3d_mode().await;
     front_right
         .set_direction(motors::MotorDirection::Backward)
         .await;
+
+    info!("Rear left");
+    rear_left.disable_3d_mode().await;
+    rear_left
+        .set_direction(motors::MotorDirection::Forward)
+        .await;
+
+    info!("Rear right");
+    rear_right.disable_3d_mode().await;
+    rear_right
+        .set_direction(motors::MotorDirection::Forward)
+        .await;
+
     info!("RESET END");
 
     #[allow(clippy::empty_loop)]
