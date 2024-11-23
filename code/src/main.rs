@@ -73,9 +73,9 @@ async fn main(_spawner: Spawner) {
     }
 
     let peripherals = embassy_stm32::init(config);
-    let mut blue: Output = Output::new(peripherals.PA11, Level::Low, Speed::VeryHigh);
+    let mut blue: Output = Output::new(peripherals.PA14, Level::Low, Speed::VeryHigh);
     let mut green: Output = Output::new(peripherals.PA4, Level::Low, Speed::VeryHigh);
-    let mut yellow: Output = Output::new(peripherals.PA12, Level::Low, Speed::VeryHigh);
+    let mut yellow: Output = Output::new(peripherals.PA13, Level::Low, Speed::VeryHigh);
 
     green.set_high();
 
