@@ -1288,7 +1288,7 @@
 		(descr "tactile push button, 6x3.5mm, https://www.apem.com/idec-apem/en_US/PCB-switches/Tactile-Switches/MJTP-6mm-through-hole/c/MJTP_6mm_through%20hole?page=1")
 		(tags "PHAP3362 6mm tact sw THT")
 		(property "Reference" "SW2"
-			(at 3.42 -2.7 360)
+			(at 3.42 -2.7 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(uuid "2a4f374b-dac3-4e05-86a1-71b018f0bc2b")
@@ -1300,7 +1300,7 @@
 			)
 		)
 		(property "Value" "SW_Push"
-			(at 4.4 3.7 360)
+			(at 4.4 3.7 0)
 			(layer "F.Fab")
 			(uuid "11633d19-759f-4758-a76e-3d9980f7559b")
 			(effects
@@ -1586,7 +1586,7 @@
 			(uuid "d502bdba-5195-428a-9265-385a0f5688db")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 3 0 360)
+			(at 3 0 0)
 			(layer "F.Fab")
 			(uuid "47cc4b9c-5666-42db-973c-1121aa04c02f")
 			(effects
@@ -8725,7 +8725,7 @@
 		(descr "Resistor SMD 0402 (1005 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "resistor")
 		(property "Reference" "R9"
-			(at -1.9 0.05 360)
+			(at -1.9 0.05 0)
 			(layer "F.SilkS")
 			(uuid "8435febe-2985-45ff-b90c-c934a157c253")
 			(effects
@@ -8736,7 +8736,7 @@
 			)
 		)
 		(property "Value" "10K"
-			(at 0 1.17 360)
+			(at 0 1.17 0)
 			(layer "F.Fab")
 			(uuid "984f1a56-3836-4dea-aac1-a8ba066610d3")
 			(effects
@@ -8891,7 +8891,7 @@
 			(uuid "eeed9919-16fb-4e9f-9a0c-ea9f08422979")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 0 0 360)
+			(at 0 0 0)
 			(layer "F.Fab")
 			(uuid "11811b30-87f4-4d61-9cff-cde8dc153036")
 			(effects
@@ -9938,7 +9938,7 @@
 		(descr "tactile push button, 6x3.5mm, https://www.apem.com/idec-apem/en_US/PCB-switches/Tactile-Switches/MJTP-6mm-through-hole/c/MJTP_6mm_through%20hole?page=1")
 		(tags "PHAP3362 6mm tact sw THT")
 		(property "Reference" "SW1"
-			(at 3.42 -2.7 360)
+			(at 3.42 -2.7 0)
 			(layer "F.SilkS")
 			(hide yes)
 			(uuid "93c9fd7a-462e-4de0-a020-0dee65d0bfc6")
@@ -9950,7 +9950,7 @@
 			)
 		)
 		(property "Value" "SW_Push"
-			(at 4.4 3.7 360)
+			(at 4.4 3.7 0)
 			(layer "F.Fab")
 			(uuid "37cc439a-48ea-4a26-8db6-f1ca5ff11d2d")
 			(effects
@@ -10236,7 +10236,7 @@
 			(uuid "a92c49db-1196-456a-b93b-bea6979ccb64")
 		)
 		(fp_text user "${REFERENCE}"
-			(at 3 0 360)
+			(at 3 0 0)
 			(layer "F.Fab")
 			(uuid "3a876980-5948-4914-b0ad-4c9ad61b084e")
 			(effects
