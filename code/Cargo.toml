@@ -13,7 +13,7 @@ bench = false
 [dependencies]
 embassy-stm32 = { version = "0.1.0", path = "./embassy-vendored/embassy-stm32", features = [
     "defmt",
-    "stm32f411ce",
+    "stm32h723ve",
     "unstable-pac",
     "memory-x",
     "time-driver-any",

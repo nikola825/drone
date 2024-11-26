@@ -58,7 +58,7 @@ async fn main(_spawner: Spawner) {
             freq: Hertz(20_000_000), // 20 MHz HSE
             mode: HseMode::Oscillator,
         });
-        config.rcc.pll_src = PllSource::HSE;
+        config.rcc. = PllSource::HSE;
         config.rcc.pll = Some(Pll {
             prediv: PllPreDiv::DIV20,  // 20 MHz / 20 = 1MHz
             mul: PllMul::MUL400,       // 1MHz * 400 = 400 MHz
@@ -83,10 +83,10 @@ async fn main(_spawner: Spawner) {
     battery_adc.set_resolution(embassy_stm32::adc::Resolution::BITS12);
 
     let mut imu = ICM42688::new(
-        peripherals.SPI3,
-        peripherals.PB3,
-        peripherals.PB5,
-        peripherals.PB4,
+        peripherals.SPI4,
+        peripherals.PE2,
+        peripherals.PE6,
+        peripherals.PE5,
         peripherals.DMA1_CH5,
         peripherals.DMA1_CH0,
         peripherals.PB9,
