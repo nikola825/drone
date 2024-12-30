@@ -66,5 +66,5 @@ default-features = false
 
 [features]
 default = ["usb-logging"]
-rtt-logging = ["dep:defmt-rtt", "dep:defmt"]
-usb-logging = ["dep:embassy-usb", "dep:embassy-usb-logger", "dep:log"]
+rtt-logging = ["dep:defmt-rtt", "dep:defmt", "embassy-stm32/defmt"]
+usb-logging = ["dep:embassy-usb", "dep:embassy-usb-logger", "dep:log", "embassy-stm32/log"]

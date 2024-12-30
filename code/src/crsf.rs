@@ -270,9 +270,9 @@ pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, storage: &'static St
                         storage.update_channels(channels).await;
                     }
                 }
-                Err(_) => {
+                Err(e) => {
                     // log the error and reset UART
-                    error!("CRSF receive UART error");
+                    error!("CRSF receive UART error {}", e);
                     rx.start_uart();
                 }
             }
