@@ -17,6 +17,17 @@ bind_interrupts!(struct Irqs {
     OTG_FS => usb::InterruptHandler<USB_OTG_FS>;
 });
 
+const USB_DEVICE_MANUFACTURER: &str = "nikola825";
+const USB_DEVICE_PRODUCT: &str = "STM32F4 flight controller";
+const USB_DEVICE_SERIAL: &str = "12345678";
+
+const USB_DEVICE_VID: u16 = 0xdead;
+const USB_DEVICE_PID: u16 = 0xbeef;
+
+const DEVICE_CLASS_MISCELANEOUS: u8 = 0xEF;
+const DEVICE_SUBCLASS_INTERFACE_ASSOCIATION_DESCRIPTOR: u8 = 0x02;
+const DEVICE_PROTOCOL_INTERFACE_ASSOCIATION_DESCRIPTOR: u8 = 0x01;
+
 #[panic_handler]
 fn custom_panic(_: &PanicInfo) -> ! {
     loop {}
@@ -38,14 +49,14 @@ async fn usb_task(peripheral: USB_OTG_FS, dp_pin: PA12, dm_pin: PA11) {
     let mut usb_buffer = [0u8; 256];
     let driver = Driver::new_fs(peripheral, Irqs, dp_pin, dm_pin, &mut usb_buffer, config);
 
-    let mut config = embassy_usb::Config::new(0xc0de, 0xcafe);
-    config.manufacturer = Some("Nikola");
-    config.product = Some("STM32F4 flight controller");
-    config.serial_number = Some("12345678");
+    let mut config = embassy_usb::Config::new(USB_DEVICE_VID, USB_DEVICE_PID);
+    config.manufacturer = Some(USB_DEVICE_MANUFACTURER);
+    config.product = Some(USB_DEVICE_PRODUCT);
+    config.serial_number = Some(USB_DEVICE_SERIAL);
 
-    config.device_class = 0xEF;
-    config.device_sub_class = 0x02;
-    config.device_protocol = 0x01;
+    config.device_class = DEVICE_CLASS_MISCELANEOUS;
+    config.device_sub_class = DEVICE_SUBCLASS_INTERFACE_ASSOCIATION_DESCRIPTOR;
+    config.device_protocol = DEVICE_PROTOCOL_INTERFACE_ASSOCIATION_DESCRIPTOR;
     config.composite_with_iads = true;
 
     // Create embassy-usb DeviceBuilder using the driver and config.
