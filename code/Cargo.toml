@@ -12,7 +12,6 @@ bench = false
 
 [dependencies]
 embassy-stm32 = { version = "0.1.0", path = "./embassy-vendored/embassy-stm32", features = [
-    "defmt",
     "stm32f411ce",
     "unstable-pac",
     "memory-x",
@@ -21,28 +20,28 @@ embassy-stm32 = { version = "0.1.0", path = "./embassy-vendored/embassy-stm32", 
     "chrono",
 ] }
 
-embassy-sync = { version = "0.6.0", path = "./embassy-vendored/embassy-sync", features = [
-    "defmt",
-] }
+embassy-sync = { version = "0.6.0", path = "./embassy-vendored/embassy-sync" }
 
 embassy-executor = { version = "0.6.0", path = "./embassy-vendored/embassy-executor", features = [
     "task-arena-size-32768",
     "arch-cortex-m",
     "executor-thread",
     "executor-interrupt",
-    "defmt",
     "integrated-timers",
 ] }
 
 embassy-futures = { version = "0.1.0", path = "./embassy-vendored/embassy-futures" }
 embassy-time = { version = "0.3.2", path = "./embassy-vendored/embassy-time", features = [
-    "defmt",
-    "defmt-timestamp-uptime",
     "tick-hz-1_000_000",
 ] }
+embassy-usb = { version = "0.3.0", path = "./embassy-vendored/embassy-usb", features = [
+], optional = true }
+embassy-usb-logger = { version = "0.2.0", path = "./embassy-vendored/embassy-usb-logger", features = [
+], optional = true }
+log = { version = "0.4", optional = true }
 
-defmt = "0.3"
-defmt-rtt = "0.4"
+defmt = { version = "0.3", optional = true }
+defmt-rtt = { version = "0.4", optional = true }
 
 cortex-m = { version = "0.7.6", features = [
     "inline-asm",
@@ -64,3 +63,8 @@ opt-level = 3
 [dependencies.num-traits]
 version = "0.2"
 default-features = false
+
+[features]
+default = ["usb-logging"]
+rtt-logging = ["dep:defmt-rtt", "dep:defmt"]
+usb-logging = ["dep:embassy-usb", "dep:embassy-usb-logger", "dep:log"]

@@ -2,7 +2,6 @@
 #![no_main]
 
 use crsf::{crsf_receiver_task, crsf_telemetry_task, CRSFChannels};
-use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, AdcChannel};
 use embassy_stm32::time::Hertz;
@@ -14,14 +13,15 @@ use embassy_stm32::{
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Instant, Ticker, Timer};
 use icm42688::ICM42688;
+use logging::info;
 use motors::{disarm, drive, Motor, MotorsContext};
 use navigation::{navigate, NavigationContext};
 use storage::Store;
-use {defmt_rtt as _, panic_probe as _};
 
 mod crsf;
 mod dshot;
 mod icm42688;
+mod logging;
 mod motors;
 mod navigation;
 mod nopdelays;
@@ -61,21 +61,36 @@ async fn main(_spawner: Spawner) {
         config.rcc.pll_src = PllSource::HSE;
         config.rcc.pll = Some(Pll {
             prediv: PllPreDiv::DIV20,  // 20 MHz / 20 = 1MHz
-            mul: PllMul::MUL400,       // 1MHz * 400 = 400 MHz
-            divp: Some(PllPDiv::DIV4), // P = 400 MHz / 4 = 100 MHz
-            divq: Some(PllQDiv::DIV4), // Q = 400 MHz / 4 = 100 MHz
+            mul: PllMul::MUL384,       // 1MHz * 384 = 384 MHz
+            divp: Some(PllPDiv::DIV4), // P = 384 MHz / 4 = 96 MHz
+            divq: Some(PllQDiv::DIV8), // Q = 384 MHz / 8 = 48 MHz
             divr: None,
         });
-        config.rcc.ahb_pre = AHBPrescaler::DIV1; // AHB = 100 MHz / 1 = 100 MHz
-        config.rcc.apb1_pre = APBPrescaler::DIV2; // APB1 = 100 MHz / 2 = 50 MHz
-        config.rcc.apb2_pre = APBPrescaler::DIV2; // APB2 = 100 MHz / 2 = 50 MHz
-        config.rcc.sys = Sysclk::PLL1_P; // sysclk = P = 100 MHz
+        config.rcc.ahb_pre = AHBPrescaler::DIV1; // AHB = 96 MHz / 1 = 96 MHz
+        config.rcc.apb1_pre = APBPrescaler::DIV2; // APB1 = 96 MHz / 2 = 48 MHz
+        config.rcc.apb2_pre = APBPrescaler::DIV1; // APB2 = 96 MHz / 2 = 48 MHz
+        config.rcc.sys = Sysclk::PLL1_P; // sysclk = P = 96 MHz
+        config.rcc.mux.clk48sel = mux::Clk48sel::PLL1_Q
     }
 
     let peripherals = embassy_stm32::init(config);
-    let mut blue: Output = Output::new(peripherals.PA11, Level::Low, Speed::VeryHigh);
+    let mut blue: Output = Output::new(peripherals.PA14, Level::Low, Speed::VeryHigh);
     let mut green: Output = Output::new(peripherals.PA4, Level::Low, Speed::VeryHigh);
-    let mut yellow: Output = Output::new(peripherals.PA12, Level::Low, Speed::VeryHigh);
+    let mut yellow: Output = Output::new(peripherals.PA13, Level::Low, Speed::VeryHigh);
+
+    #[cfg(feature = "usb-logging")]
+    {
+        use logging::init_usb_logging;
+        init_usb_logging(
+            peripherals.USB_OTG_FS,
+            peripherals.PA12,
+            peripherals.PA11,
+            &_spawner,
+        )
+        .await;
+    }
+    #[cfg(feature = "rtt-logging")]
+    {}
 
     green.set_high();
 

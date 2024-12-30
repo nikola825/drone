@@ -2,7 +2,7 @@ use core::cmp::{max, min};
 use core::ops::RangeInclusive;
 use num_traits::float::FloatCore;
 
-use defmt::{error, info};
+use crate::logging::{error, info};
 use embassy_stm32::adc::{Adc, AnyAdcChannel};
 use embassy_stm32::interrupt;
 use embassy_stm32::mode::Async;
@@ -270,9 +270,9 @@ pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, storage: &'static St
                         storage.update_channels(channels).await;
                     }
                 }
-                Err(e) => {
+                Err(_) => {
                     // log the error and reset UART
-                    error!("CRSF receive UART error {}", e);
+                    error!("CRSF receive UART error");
                     rx.start_uart();
                 }
             }
