@@ -1,21 +1,17 @@
 use core::panic::PanicInfo;
 
+use crate::hw_select::{Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
 use embassy_stm32::{
-    bind_interrupts,
-    peripherals::{PA11, PA12, USB_OTG_FS},
-    usb::{self, Driver},
+    peripherals::{PA11, PA12},
+    usb::Driver,
 };
 use embassy_usb::{
     class::cdc_acm::{CdcAcmClass, State},
     Builder,
 };
 pub use log::{error, info};
-
-bind_interrupts!(struct Irqs {
-    OTG_FS => usb::InterruptHandler<USB_OTG_FS>;
-});
 
 const USB_DEVICE_MANUFACTURER: &str = "nikola825";
 const USB_DEVICE_PRODUCT: &str = "STM32F4 flight controller";
@@ -34,7 +30,7 @@ fn custom_panic(_: &PanicInfo) -> ! {
 }
 
 pub async fn init_usb_logging(
-    peripheral: USB_OTG_FS,
+    peripheral: USB_PERIPHERAL,
     dp_pin: PA12,
     dm_pin: PA11,
     spawner: &Spawner,
@@ -43,7 +39,7 @@ pub async fn init_usb_logging(
 }
 
 #[embassy_executor::task]
-async fn usb_task(peripheral: USB_OTG_FS, dp_pin: PA12, dm_pin: PA11) {
+async fn usb_task(peripheral: USB_PERIPHERAL, dp_pin: USB_DP, dm_pin: USB_DM) {
     let mut config = embassy_stm32::usb::Config::default();
     config.vbus_detection = false;
     let mut usb_buffer = [0u8; 256];

@@ -12,7 +12,6 @@ bench = false
 
 [dependencies]
 embassy-stm32 = { version = "0.1.0", path = "./embassy-vendored/embassy-stm32", features = [
-    "stm32f411ce",
     "unstable-pac",
     "memory-x",
     "time-driver-any",
@@ -65,6 +64,8 @@ version = "0.2"
 default-features = false
 
 [features]
-default = ["usb-logging"]
+default = ["usb-logging", "stm32h723"]
+stm32f411 = ["embassy-stm32/stm32f411ce"]
+stm32h723 = ["embassy-stm32/stm32h723vg"]
 rtt-logging = ["dep:defmt-rtt", "dep:defmt", "embassy-stm32/defmt"]
 usb-logging = ["dep:embassy-usb", "dep:embassy-usb-logger", "dep:log", "embassy-stm32/log"]

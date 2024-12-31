@@ -4,34 +4,25 @@
 use crsf::{crsf_receiver_task, crsf_telemetry_task, CRSFChannels};
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, AdcChannel};
-use embassy_stm32::time::Hertz;
-use embassy_stm32::{bind_interrupts, i2c, peripherals, Config};
-use embassy_stm32::{
-    gpio::{Level, Output, Speed},
-    usart::{self},
-};
+use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Instant, Ticker, Timer};
+use hw_select::Irqs;
 use icm42688::ICM42688;
-use logging::info;
+use logging::{info, init_logging};
 use motors::{disarm, drive, Motor, MotorsContext};
 use navigation::{navigate, NavigationContext};
 use storage::Store;
 
 mod crsf;
 mod dshot;
+mod hw_select;
 mod icm42688;
 mod logging;
 mod motors;
 mod navigation;
 mod nopdelays;
 mod storage;
-
-bind_interrupts!(struct Irqs {
-    USART2 => usart::InterruptHandler<peripherals::USART2>;
-    I2C1_EV => i2c::EventInterruptHandler<peripherals::I2C1>;
-    I2C1_ER => i2c::ErrorInterruptHandler<peripherals::I2C1>;
-});
 
 struct DroneContext {
     armed: bool,
@@ -51,77 +42,44 @@ impl DroneContext {
 async fn main(_spawner: Spawner) {
     static STORE: LazyLock<Store> = LazyLock::new(Store::new);
 
-    let mut config = Config::default();
-    {
-        use embassy_stm32::rcc::*;
-        config.rcc.hse = Some(Hse {
-            freq: Hertz(20_000_000), // 20 MHz HSE
-            mode: HseMode::Oscillator,
-        });
-        config.rcc.pll_src = PllSource::HSE;
-        config.rcc.pll = Some(Pll {
-            prediv: PllPreDiv::DIV20,  // 20 MHz / 20 = 1MHz
-            mul: PllMul::MUL384,       // 1MHz * 384 = 384 MHz
-            divp: Some(PllPDiv::DIV4), // P = 384 MHz / 4 = 96 MHz
-            divq: Some(PllQDiv::DIV8), // Q = 384 MHz / 8 = 48 MHz
-            divr: None,
-        });
-        config.rcc.ahb_pre = AHBPrescaler::DIV1; // AHB = 96 MHz / 1 = 96 MHz
-        config.rcc.apb1_pre = APBPrescaler::DIV2; // APB1 = 96 MHz / 2 = 48 MHz
-        config.rcc.apb2_pre = APBPrescaler::DIV1; // APB2 = 96 MHz / 2 = 48 MHz
-        config.rcc.sys = Sysclk::PLL1_P; // sysclk = P = 96 MHz
-        config.rcc.mux.clk48sel = mux::Clk48sel::PLL1_Q
-    }
+    let hardware = get_hardware!();
 
-    let peripherals = embassy_stm32::init(config);
-    let mut blue: Output = Output::new(peripherals.PA14, Level::Low, Speed::VeryHigh);
-    let mut green: Output = Output::new(peripherals.PA4, Level::Low, Speed::VeryHigh);
-    let mut yellow: Output = Output::new(peripherals.PA13, Level::Low, Speed::VeryHigh);
+    let mut blue = Output::new(hardware.blue_pin, Level::Low, Speed::VeryHigh);
+    let mut green = Output::new(hardware.green_pin, Level::Low, Speed::VeryHigh);
+    let mut yellow = Output::new(hardware.yellow_pin, Level::Low, Speed::VeryHigh);
 
-    #[cfg(feature = "usb-logging")]
-    {
-        use logging::init_usb_logging;
-        init_usb_logging(
-            peripherals.USB_OTG_FS,
-            peripherals.PA12,
-            peripherals.PA11,
-            &_spawner,
-        )
-        .await;
-    }
-    #[cfg(feature = "rtt-logging")]
-    {}
+    init_logging!(hardware, _spawner);
 
     green.set_high();
 
-    let mut battery_adc = Adc::new(peripherals.ADC1);
+    let mut battery_adc = Adc::new(hardware.bat_adc);
     battery_adc.set_resolution(embassy_stm32::adc::Resolution::BITS12);
 
     let mut imu = ICM42688::new(
-        peripherals.SPI3,
-        peripherals.PB3,
-        peripherals.PB5,
-        peripherals.PB4,
-        peripherals.DMA1_CH5,
-        peripherals.DMA1_CH0,
-        peripherals.PB9,
+        hardware.imu_spi,
+        hardware.imu_sck,
+        hardware.imu_mosi,
+        hardware.imu_miso,
+        hardware.imu_tx_dma,
+        hardware.imu_rx_dma,
+        hardware.imu_cs_pin,
     );
     imu.init().await;
     Timer::after_millis(10).await;
 
     yellow.set_high();
 
-    let front_left = Motor::new(peripherals.PB0);
-    let front_right = Motor::new(peripherals.PB1);
-    let rear_left = Motor::new(peripherals.PA7);
-    let rear_right = Motor::new(peripherals.PA6);
+    let front_left = Motor::new(hardware.motor1_pin);
+    let front_right = Motor::new(hardware.motor0_pin);
+    let rear_left = Motor::new(hardware.motor2_pin);
+    let rear_right = Motor::new(hardware.motor3_pin);
 
     let (crsf_rx, crsf_tx) = crsf::make_uart_pair(
-        peripherals.USART2,
-        peripherals.PA3,
-        peripherals.PA2,
-        peripherals.DMA1_CH6,
-        peripherals.DMA1_CH7,
+        hardware.radio_uart.peripheral,
+        hardware.radio_uart.rx_pin,
+        hardware.radio_uart.tx_pin,
+        hardware.radio_uart.tx_dma,
+        hardware.radio_uart.rx_dma,
         Irqs,
     );
 
@@ -133,7 +91,7 @@ async fn main(_spawner: Spawner) {
     _spawner
         .spawn(crsf_telemetry_task(
             battery_adc,
-            peripherals.PA5.degrade_adc(),
+            hardware.bat_adc_pin,
             crsf_tx,
         ))
         .unwrap();
