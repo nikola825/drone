@@ -4,7 +4,6 @@
 *.bin
 *.3mf
 cmake-build-*
-*.step
 *.gcode
 gerber/
 __pycache__/

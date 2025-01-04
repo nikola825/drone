@@ -4,7 +4,7 @@ use embassy_stm32::{
     time::Hertz,
     usart::{self},
     usb::{self},
-    Config,
+    Config, Peripherals,
 };
 
 pub use embassy_stm32::peripherals::PA11 as USB_DM;
@@ -26,7 +26,7 @@ pub struct ExtraHardware {
     pub uart7: UartHardware<UART7, embassy_stm32::peripherals::UART7, PE7, PE8, DMA1_CH6, DMA1_CH7>,
 }
 
-pub fn make_clock_config() -> Config {
+fn make_config() -> Config {
     let mut config = Config::default();
 
     {
@@ -72,7 +72,7 @@ pub fn make_clock_config() -> Config {
 
         config.rcc.mux.usbsel = mux::Usbsel::PLL3_Q; // USB CLK = PLL3.Q = 48 MHz
         config.rcc.mux.adcsel = mux::Adcsel::PLL3_R; // USB CLK = PLL3.R = 160 MHz
-        config.rcc.mux.spi45sel = mux::Spi45sel::PLL2_Q; // SPI45 CLK = PLL2.Q = 250MHz;
+        config.rcc.mux.spi123sel = mux::Saisel::PLL2_P; // SPI123 CLK = PLL2.P = 250MHz;
         config.rcc.mux.usart234578sel = mux::Usart234578sel::PCLK1;
         /*config.rcc.hsi48 = Some(Hsi48Config {
             sync_from_usb: true,
@@ -81,14 +81,19 @@ pub fn make_clock_config() -> Config {
 
     return config;
 }
+pub fn make_peripherals() -> Peripherals {
+    
+    let config = make_config();
+    let peripherals = embassy_stm32::init(config);
+    return peripherals;
+}
 
 #[macro_export]
 macro_rules! get_hardware {
     () => {{
         use crate::hw_select::stm32h723::*;
         use crate::hw_select::*;
-        let config = make_clock_config();
-        let peripherals = embassy_stm32::init(config);
+        let peripherals = make_peripherals();
 
         Hardware {
             blue_pin: peripherals.PC0,
@@ -99,13 +104,13 @@ macro_rules! get_hardware {
             usb_dp: peripherals.PA12,
             usb_peripheral: peripherals.USB_OTG_HS,
 
-            imu_sck: peripherals.PE2,
-            imu_miso: peripherals.PE5,
-            imu_mosi: peripherals.PE6,
-            imu_spi: peripherals.SPI4,
+            imu_sck: peripherals.PB3,
+            imu_miso: peripherals.PB4,
+            imu_mosi: peripherals.PB5,
+            imu_spi: peripherals.SPI1,
             imu_rx_dma: peripherals.DMA1_CH0,
             imu_tx_dma: peripherals.DMA1_CH1,
-            imu_cs_pin: peripherals.PC14,
+            imu_cs_pin: peripherals.PB7,
 
             bat_adc: peripherals.ADC1,
             bat_adc_pin: peripherals.PA4.degrade_adc(),
