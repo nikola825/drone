@@ -1,7 +1,5 @@
 use embassy_stm32::{
-    bind_interrupts,
-    usart::{self},
-    usb::{self},
+    bind_interrupts, time::Hertz, usart::{self}, usb::{self}, Config, Peripherals
 };
 
 pub use embassy_stm32::peripherals::PA11 as USB_DM;
@@ -15,34 +13,46 @@ bind_interrupts!(pub struct Irqs {
 
 pub struct ExtraHardware {}
 
+fn make_config() -> Config {
+    let mut config = Config::default();
+    {
+        use embassy_stm32::rcc::*;
+        config.rcc.hse = Some(Hse {
+            freq: Hertz(20_000_000), // 20 MHz HSE
+            mode: HseMode::Oscillator,
+        });
+        config.rcc.pll_src = PllSource::HSE;
+        config.rcc.pll = Some(Pll {
+            prediv: PllPreDiv::DIV20,  // 20 MHz / 20 = 1MHz
+            mul: PllMul::MUL384,       // 1MHz * 384 = 384 MHz
+            divp: Some(PllPDiv::DIV4), // P = 384 MHz / 4 = 96 MHz
+            divq: Some(PllQDiv::DIV8), // Q = 384 MHz / 8 = 48 MHz
+            divr: None,
+        });
+        config.rcc.ahb_pre = AHBPrescaler::DIV1; // AHB = 96 MHz / 1 = 96 MHz
+        config.rcc.apb1_pre = APBPrescaler::DIV2; // APB1 = 96 MHz / 2 = 48 MHz
+        config.rcc.apb2_pre = APBPrescaler::DIV1; // APB2 = 96 MHz / 2 = 48 MHz
+        config.rcc.sys = Sysclk::PLL1_P; // sysclk = P = 96 MHz
+        config.rcc.mux.clk48sel = mux::Clk48sel::PLL1_Q;
+    }
+
+    return config;
+}
+
+pub fn make_peripherals() -> Peripherals{
+    let config = make_config();
+    let peripherals = embassy_stm32::init(config);
+    return peripherals;
+}
+
 #[macro_export]
 macro_rules! get_hardware {
     () => {{
         use crate::hw_select::stm32f411::*;
         use crate::hw_select::*;
-        let mut config = Config::default();
-        {
-            use embassy_stm32::rcc::*;
-            config.rcc.hse = Some(Hse {
-                freq: Hertz(20_000_000), // 20 MHz HSE
-                mode: HseMode::Oscillator,
-            });
-            config.rcc.pll_src = PllSource::HSE;
-            config.rcc.pll = Some(Pll {
-                prediv: PllPreDiv::DIV20,  // 20 MHz / 20 = 1MHz
-                mul: PllMul::MUL384,       // 1MHz * 384 = 384 MHz
-                divp: Some(PllPDiv::DIV4), // P = 384 MHz / 4 = 96 MHz
-                divq: Some(PllQDiv::DIV8), // Q = 384 MHz / 8 = 48 MHz
-                divr: None,
-            });
-            config.rcc.ahb_pre = AHBPrescaler::DIV1; // AHB = 96 MHz / 1 = 96 MHz
-            config.rcc.apb1_pre = APBPrescaler::DIV2; // APB1 = 96 MHz / 2 = 48 MHz
-            config.rcc.apb2_pre = APBPrescaler::DIV1; // APB2 = 96 MHz / 2 = 48 MHz
-            config.rcc.sys = Sysclk::PLL1_P; // sysclk = P = 96 MHz
-            config.rcc.mux.clk48sel = mux::Clk48sel::PLL1_Q
-        }
-
-        let peripherals = embassy_stm32::init(config);
+        
+        let peripherals = make_peripherals();
+        
         Hardware {
             blue_pin: peripherals.PA14,
             green_pin: peripherals.PA4,
