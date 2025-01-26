@@ -1,5 +1,13 @@
+use core::ops::RangeInclusive;
+
 use embassy_stm32::{
-    bind_interrupts, time::Hertz, usart::{self}, usb::{self}, Config, Peripherals
+    adc::{Adc, AnyAdcChannel},
+    bind_interrupts,
+    peripherals::ADC1,
+    time::Hertz,
+    usart::{self},
+    usb::{self},
+    Config, Peripherals,
 };
 
 pub use embassy_stm32::peripherals::PA11 as USB_DM;
@@ -10,6 +18,48 @@ bind_interrupts!(pub struct Irqs {
     USART2 => usart::InterruptHandler<embassy_stm32::peripherals::USART2>;
     OTG_FS => usb::InterruptHandler<USB_PERIPHERAL>;
 });
+
+pub struct AdcReader {
+    adc: Adc<'static, ADC1>,
+    bat_pin: AnyAdcChannel<ADC1>,
+    adc_range_max: u16,
+    resistor_divider_factor: f32,
+    acceptable_voltage_range: RangeInclusive<f32>,
+    voltage_reference: f32,
+}
+
+impl AdcReader {
+    pub fn new(bat_pin: AnyAdcChannel<ADC1>, adc1: ADC1) -> Self {
+        let mut adc1 = Adc::new(adc1);
+
+        adc1.set_sample_time(embassy_stm32::adc::SampleTime::CYCLES28);
+
+        adc1.set_resolution(embassy_stm32::adc::Resolution::BITS12);
+
+        AdcReader {
+            adc: adc1,
+            bat_pin,
+            adc_range_max: 4096u16,
+            resistor_divider_factor: 11f32,
+            acceptable_voltage_range: 0f32..=20f32,
+            voltage_reference: 3.3f32,
+        }
+    }
+
+    pub fn get_bat(&mut self) -> f32 {
+        let measurement = self.adc.blocking_read(&mut self.bat_pin);
+
+        let measured_voltage = ((measurement as f32) * self.voltage_reference)
+            / (self.adc_range_max as f32)
+            * self.resistor_divider_factor;
+
+        if self.acceptable_voltage_range.contains(&measured_voltage) {
+            measured_voltage
+        } else {
+            0f32
+        }
+    }
+}
 
 pub struct ExtraHardware {}
 
@@ -36,23 +86,23 @@ fn make_config() -> Config {
         config.rcc.mux.clk48sel = mux::Clk48sel::PLL1_Q;
     }
 
-    return config;
+    config
 }
 
-pub fn make_peripherals() -> Peripherals{
+pub fn make_peripherals() -> Peripherals {
     let config = make_config();
-    let peripherals = embassy_stm32::init(config);
-    return peripherals;
+
+    embassy_stm32::init(config)
 }
 
 #[macro_export]
 macro_rules! get_hardware {
     () => {{
-        use crate::hw_select::stm32f411::*;
-        use crate::hw_select::*;
-        
+        use $crate::hw_select::stm32f411::*;
+        use $crate::hw_select::*;
+
         let peripherals = make_peripherals();
-        
+
         Hardware {
             blue_pin: peripherals.PA14,
             green_pin: peripherals.PA4,
@@ -62,8 +112,7 @@ macro_rules! get_hardware {
             usb_dp: peripherals.PA12,
             usb_peripheral: peripherals.USB_OTG_FS,
 
-            bat_adc: peripherals.ADC1,
-            bat_adc_pin: peripherals.PA5.degrade_adc(),
+            adc_reader: AdcReader::new(peripherals.PA5.degrade_adc(), peripherals.ADC1),
 
             imu_sck: peripherals.PB3,
             imu_mosi: peripherals.PB5,

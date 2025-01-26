@@ -1,13 +1,11 @@
 use core::cmp::{max, min};
-use core::ops::RangeInclusive;
 use num_traits::float::FloatCore;
 
+use crate::hw_select::AdcReader;
 use crate::logging::{error, info};
-use embassy_stm32::adc::{Adc, AnyAdcChannel};
 use embassy_stm32::interrupt;
 use embassy_stm32::mode::Async;
 use embassy_stm32::pac::GPIO;
-use embassy_stm32::peripherals::ADC1;
 use embassy_stm32::usart::{
     InterruptHandler, RingBufferedUartRx, RxDma, StopBits, TxDma, TxPin, Uart, UartRx, UartTx,
 };
@@ -307,39 +305,14 @@ async fn read_next_command<'a>(
 }
 
 #[embassy_executor::task]
-pub async fn crsf_telemetry_task(
-    mut adc: Adc<'static, ADC1>,
-    mut battery_pin: AnyAdcChannel<ADC1>,
-    mut tx: UartTx<'static, Async>,
-) {
-    const INTERNAL_REFERENCE_VOLTAGE: f32 = 1.21f32;
-    const RESISTOR_DIVIDER_FACTOR: f32 = 11f32;
-    const SMOOTHING_FACTOR: f32 = 0.25f32;
-    const ACCEPTABLE_VOLTAGE_RANGE: RangeInclusive<f32> = 0f32..=20f32;
-
-    let mut filtered_voltage = 0.0f32;
-
+pub async fn crsf_telemetry_task(mut adc_reader: AdcReader, mut tx: UartTx<'static, Async>) {
     info!("CRSF telemetry start");
     let mut ticker = Ticker::every(Duration::from_millis(200));
-    let mut internal_reference = adc.enable_vrefint();
 
     loop {
-        let reference_measurement = adc.blocking_read(&mut internal_reference);
-        let input_measurement = adc.blocking_read(&mut battery_pin);
+        let measured_battery_voltage = adc_reader.get_bat();
 
-        let measured_adc_input_voltage = (input_measurement as f32)
-            / (reference_measurement as f32)
-            * INTERNAL_REFERENCE_VOLTAGE;
-        let measured_battery_voltage = measured_adc_input_voltage * RESISTOR_DIVIDER_FACTOR;
-
-        if ACCEPTABLE_VOLTAGE_RANGE.contains(&measured_battery_voltage) {
-            filtered_voltage = filtered_voltage * (1f32 - SMOOTHING_FACTOR)
-                + measured_battery_voltage * SMOOTHING_FACTOR;
-        } else {
-            filtered_voltage = 0f32;
-        }
-
-        let packet = BatPacket::new(filtered_voltage);
+        let packet = BatPacket::new(measured_battery_voltage);
 
         let _ = tx.write_all(packet.as_bytes()).await;
 

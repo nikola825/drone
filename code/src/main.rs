@@ -3,7 +3,7 @@
 
 use crsf::{crsf_receiver_task, crsf_telemetry_task, CRSFChannels};
 use embassy_executor::Spawner;
-use embassy_stm32::adc::{Adc, AdcChannel};
+use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Instant, Ticker, Timer};
@@ -52,9 +52,6 @@ async fn main(_spawner: Spawner) {
 
     green.set_high();
 
-    let mut battery_adc = Adc::new(hardware.bat_adc);
-    battery_adc.set_resolution(embassy_stm32::adc::Resolution::BITS12);
-
     let mut imu = ICM42688::new(
         hardware.imu_spi,
         hardware.imu_sck,
@@ -89,11 +86,7 @@ async fn main(_spawner: Spawner) {
         .spawn(crsf_receiver_task(crsf_rx, STORE.get()))
         .unwrap();
     _spawner
-        .spawn(crsf_telemetry_task(
-            battery_adc,
-            hardware.bat_adc_pin,
-            crsf_tx,
-        ))
+        .spawn(crsf_telemetry_task(hardware.adc_reader, crsf_tx))
         .unwrap();
 
     let context = DroneContext {
