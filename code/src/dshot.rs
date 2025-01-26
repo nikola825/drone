@@ -7,6 +7,7 @@ use embassy_stm32::pac::{
 
 use cortex_m::interrupt::{free, CriticalSection};
 
+#[cfg(feature = "stm32f411")]
 #[macro_export]
 macro_rules! dshot_bitbang_bit {
     ($bsrr: ident, $x: expr, $val: expr, $bit: ident) => {
@@ -52,6 +53,31 @@ macro_rules! dshot_bitbang_bit {
         nop15!();
         ($bsrr).write(|w| w.set_br(($bit), true));
         nop24!();
+    };
+}
+
+#[cfg(feature = "stm32h723")]
+#[macro_export]
+macro_rules! dshot_bitbang_bit {
+    ($bsrr: ident, $x: expr, $val: expr, $bit: ident) => {
+        ($bsrr).write(|w| w.set_bs(($bit), true));
+        if ($val) & ($x) == ($x) {
+            dshot_bitbang_bit!(1, 1200, $bsrr, $bit);
+        } else {
+            dshot_bitbang_bit!(0, 1200, $bsrr, $bit);
+        }
+    };
+
+    (1, 1200, $bsrr: ident, $bit: ident) => {
+        nop255!();
+        ($bsrr).write(|w| w.set_br(($bit), true));
+        nop75!();
+    };
+
+    (0, 1200, $bsrr: ident, $bit: ident) => {
+        nop127!();
+        ($bsrr).write(|w| w.set_br(($bit), true));
+        nop197!();
     };
 }
 

@@ -1,7 +1,5 @@
 use embassy_stm32::{
-    adc::AnyAdcChannel,
     gpio::Pin,
-    peripherals::ADC1,
     spi::{MisoPin, MosiPin, SckPin},
     usb::{DmPin, DpPin},
     Peripheral,
@@ -10,12 +8,12 @@ use embassy_stm32::{
 #[cfg(feature = "stm32h723")]
 pub mod stm32h723;
 #[cfg(feature = "stm32h723")]
-pub use stm32h723::{ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
+pub use stm32h723::{AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
 
 #[cfg(feature = "stm32f411")]
 pub mod stm32f411;
 #[cfg(feature = "stm32f411")]
-pub use stm32f411::{ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
+pub use stm32f411::{AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
 
 pub struct UartHardware<
     UartType: embassy_stm32::usart::Instance,
@@ -65,8 +63,7 @@ pub struct Hardware<
     pub usb_dp: UsbDp,
     pub usb_dm: UsbDm,
 
-    pub bat_adc: ADC1,
-    pub bat_adc_pin: AnyAdcChannel<ADC1>,
+    pub adc_reader: AdcReader,
 
     pub imu_spi: IMUSpi,
     pub imu_sck: IMUSck,
