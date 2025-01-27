@@ -165,22 +165,22 @@
 				)
 			)
 		)
-		(symbol "Connector:Conn_01x01_Pin"
+		(symbol "Connector:Conn_01x03_Pin"
 			(pin_names
 				(offset 1.016) hide)
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
 			(property "Reference" "J"
-				(at 0 2.54 0)
+				(at 0 5.08 0)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
 				)
 			)
-			(property "Value" "Conn_01x01_Pin"
-				(at 0 -2.54 0)
+			(property "Value" "Conn_01x03_Pin"
+				(at 0 -5.08 0)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -205,7 +205,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" "Generic connector, single row, 01x01, script generated"
+			(property "Description" "Generic connector, single row, 01x03, script generated"
 				(at 0 0 0)
 				(effects
 					(font
@@ -240,7 +240,19 @@
 					(hide yes)
 				)
 			)
-			(symbol "Conn_01x01_Pin_1_1"
+			(symbol "Conn_01x03_Pin_1_1"
+				(polyline
+					(pts
+						(xy 1.27 -2.54) (xy 0.8636 -2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
 				(polyline
 					(pts
 						(xy 1.27 0) (xy 0.8636 0)
@@ -251,6 +263,29 @@
 					)
 					(fill
 						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 2.54) (xy 0.8636 2.54)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 0.8636 -2.413)
+					(end 0 -2.667)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
 					)
 				)
 				(rectangle
@@ -264,8 +299,19 @@
 						(type outline)
 					)
 				)
+				(rectangle
+					(start 0.8636 2.667)
+					(end 0 2.413)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
 				(pin passive line
-					(at 5.08 0 180)
+					(at 5.08 2.54 180)
 					(length 3.81)
 					(name "Pin_1"
 						(effects
@@ -275,6 +321,42 @@
 						)
 					)
 					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 3.81)
+					(name "Pin_2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 -2.54 180)
+					(length 3.81)
+					(name "Pin_3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -1597,23 +1679,23 @@
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
-			(property "Reference" "L"
-				(at -1.27 0 90)
+			(property "Reference" "L1"
+				(at 5.08 0 90)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
 				)
 			)
-			(property "Value" "L"
-				(at 1.905 0 90)
+			(property "Value" "IFSC2020DZER4R7N01"
+				(at 2.54 0 90)
 				(effects
 					(font
 						(size 1.27 1.27)
 					)
 				)
 			)
-			(property "Footprint" ""
+			(property "Footprint" "Inductor_SMD:L_Vishay_IHLP-2020"
 				(at 0 0 0)
 				(effects
 					(font
@@ -1727,7 +1809,7 @@
 						)
 					)
 				)
-				(pin passive line
+				(pin power_out line
 					(at 0 -3.81 90)
 					(length 1.27)
 					(name "2"
@@ -7080,6 +7162,16 @@
 	)
 	(wire
 		(pts
+			(xy 203.2 87.63) (xy 213.36 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2de7e44e-cb46-43f2-9a1c-67ddd23bf6ec")
+	)
+	(wire
+		(pts
 			(xy 114.3 105.41) (xy 135.89 105.41)
 		)
 		(stroke
@@ -7500,7 +7592,7 @@
 	)
 	(wire
 		(pts
-			(xy 173.99 96.52) (xy 184.15 96.52)
+			(xy 203.2 90.17) (xy 213.36 90.17)
 		)
 		(stroke
 			(width 0)
@@ -8150,7 +8242,7 @@
 	)
 	(wire
 		(pts
-			(xy 173.99 104.14) (xy 184.15 104.14)
+			(xy 203.2 85.09) (xy 213.36 85.09)
 		)
 		(stroke
 			(width 0)
@@ -8590,16 +8682,6 @@
 	)
 	(wire
 		(pts
-			(xy 173.99 88.9) (xy 184.15 88.9)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e1730ce5-9d71-4287-a95f-09dc258f0612")
-	)
-	(wire
-		(pts
 			(xy 59.69 74.93) (xy 63.5 74.93)
 		)
 		(stroke
@@ -8894,7 +8976,7 @@
 		(uuid "0f03f0c1-4cf1-46ee-8741-d44a1e08996d")
 	)
 	(label "GND"
-		(at 180.34 104.14 0)
+		(at 209.55 85.09 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -9389,7 +9471,7 @@
 		(uuid "aa47f256-786b-4cb1-bf71-e82024578ca0")
 	)
 	(label "SWDIO"
-		(at 179.07 88.9 0)
+		(at 208.28 87.63 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -9422,7 +9504,7 @@
 		(uuid "b1bb1499-4852-4f35-b6e9-db05bb33428a")
 	)
 	(label "SWCLK"
-		(at 179.07 96.52 0)
+		(at 207.01 90.17 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -10201,71 +10283,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Connector:Conn_01x01_Pin")
-		(at 168.91 96.52 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "0fb8e4d4-498e-4a0d-9798-b0de660a0dd7")
-		(property "Reference" "J7"
-			(at 169.545 91.44 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "Conn_01x01_Pin"
-			(at 169.545 93.98 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_2.5x2.5mm"
-			(at 168.91 96.52 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 168.91 96.52 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Generic connector, single row, 01x01, script generated"
-			(at 168.91 96.52 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "bf59f4c8-4cae-48b8-8dda-0be74acc92ae")
-		)
-		(instances
-			(project "droneboard"
-				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
-					(reference "J7")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Connector_Generic:Conn_01x04")
 		(at 77.47 245.11 0)
 		(unit 1)
@@ -10550,71 +10567,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Connector:Conn_01x01_Pin")
-		(at 168.91 104.14 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "281b7972-cc1f-42f7-a071-d7c2e0c4bad5")
-		(property "Reference" "J9"
-			(at 169.545 99.06 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "Conn_01x01_Pin"
-			(at 169.545 101.6 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_2.5x2.5mm"
-			(at 168.91 104.14 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 168.91 104.14 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Generic connector, single row, 01x01, script generated"
-			(at 168.91 104.14 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "1569974e-4435-4bf8-a61c-bc70bc17baac")
-		)
-		(instances
-			(project "droneboard"
-				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
-					(reference "J9")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Switch:SW_Push")
 		(at 64.77 63.5 0)
 		(unit 1)
@@ -10744,71 +10696,6 @@
 			(project "droneboard"
 				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
 					(reference "R3")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Connector:Conn_01x01_Pin")
-		(at 168.91 88.9 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "39d0aeda-c257-496f-b9d9-af71ff039c26")
-		(property "Reference" "J8"
-			(at 169.545 83.82 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "Conn_01x01_Pin"
-			(at 169.545 86.36 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_2.5x2.5mm"
-			(at 168.91 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 168.91 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Generic connector, single row, 01x01, script generated"
-			(at 168.91 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "9daa96f9-4472-439c-8ae5-88e97fdd4432")
-		)
-		(instances
-			(project "droneboard"
-				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
-					(reference "J8")
 					(unit 1)
 				)
 			)
@@ -11656,6 +11543,77 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector:Conn_01x03_Pin")
+		(at 198.12 87.63 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "7a30534f-d261-4feb-8da4-3551afbe8c4c")
+		(property "Reference" "J10"
+			(at 198.755 80.01 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "Conn_01x03_Pin"
+			(at 198.755 82.55 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical"
+			(at 198.12 87.63 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 198.12 87.63 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x03, script generated"
+			(at 198.12 87.63 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "3"
+			(uuid "6fbf668a-3538-490e-9f1f-4e1fe28129ab")
+		)
+		(pin "2"
+			(uuid "94660d19-0804-4bb1-8521-a6247c31b2cf")
+		)
+		(pin "1"
+			(uuid "817f455e-832d-4910-8f81-1357b4c1f96b")
+		)
+		(instances
+			(project ""
+				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
+					(reference "J10")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Connector_Generic:Conn_01x04")
 		(at 114.3 246.38 0)
 		(unit 1)
@@ -12348,7 +12306,7 @@
 				)
 			)
 		)
-		(property "Value" "IFSC2020DZER4R7N01"
+		(property "Value" "IHLP2020CZER4R7M11"
 			(at 313.69 19.05 90)
 			(effects
 				(font
