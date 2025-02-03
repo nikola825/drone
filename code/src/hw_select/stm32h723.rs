@@ -85,19 +85,19 @@ fn make_config() -> Config {
         config.rcc.pll1 = Some(Pll {
             source: PllSource::HSE,
             prediv: PllPreDiv::DIV10, // 20 MHz / 10 = 2 MHz
-            mul: PllMul::MUL240,      // 2MHz * 275 = 550 MHz
-            divp: Some(PllDiv::DIV1), // P = 550 MHz / 1 = 550 MHz
-            divq: Some(PllDiv::DIV2), // Q = 550 MHz / 2 = 275 MHz
-            divr: Some(PllDiv::DIV2), // R = 550 MHz / 2 = 275 MHz
+            mul: PllMul::MUL240,      // 2MHz * 240 = 480 MHz
+            divp: Some(PllDiv::DIV1), // P = 480 MHz / 1 = 480 MHz
+            divq: Some(PllDiv::DIV2), // Q = 480 MHz / 2 = 240 MHz
+            divr: Some(PllDiv::DIV2), // R = 480 MHz / 2 = 240 MHz
         });
 
         config.rcc.pll2 = Some(Pll {
             source: PllSource::HSE,
             prediv: PllPreDiv::DIV2,  // 20 MHz / 2 = 10 MHz
-            mul: PllMul::MUL24,       // 10MHz * 25 = 250 MHz
-            divp: Some(PllDiv::DIV1), // P = 250 MHz / 1 = 250 MHz
-            divq: Some(PllDiv::DIV1), // Q = 250 MHz / 1 = 250 MHz
-            divr: Some(PllDiv::DIV1), // R = 250 MHz / 1 = 250 MHz
+            mul: PllMul::MUL24,       // 10MHz * 24 = 240 MHz
+            divp: Some(PllDiv::DIV1), // P = 240 MHz / 1 = 240 MHz
+            divq: Some(PllDiv::DIV2), // Q = 240 MHz / 2 = 120 MHz
+            divr: Some(PllDiv::DIV1), // R = 240 MHz / 1 = 240 MHz
         });
 
         config.rcc.pll3 = Some(Pll {
@@ -110,17 +110,17 @@ fn make_config() -> Config {
         });
 
         config.rcc.sys = Sysclk::PLL1_P; // sysclk = P = 550MHz;
-        config.rcc.d1c_pre = AHBPrescaler::DIV1; // D1C = sysclk / 1 = 550 MHZ
-        config.rcc.ahb_pre = AHBPrescaler::DIV2; // AHB = 550 MHz / 2 = 275 MHz
-        config.rcc.apb1_pre = APBPrescaler::DIV2; // APB1 = 275 MHz / 2 = 137.5 MHz
-        config.rcc.apb2_pre = APBPrescaler::DIV2; // APB2 = 275 MHz / 2 = 137.5 MHz
-        config.rcc.apb3_pre = APBPrescaler::DIV2; // APB3 = 275 MHz / 2 = 137.5 MHz
-        config.rcc.apb4_pre = APBPrescaler::DIV2; // APB4 = 275 MHz / 2 = 137.5 MHz
+        config.rcc.d1c_pre = AHBPrescaler::DIV1; // D1C = sysclk / 1 = 480 MHZ
+        config.rcc.ahb_pre = AHBPrescaler::DIV2; // AHB = 480 MHz / 2 = 240 MHz
+        config.rcc.apb1_pre = APBPrescaler::DIV2; // APB1 = 240 MHz / 2 = 120 MHz
+        config.rcc.apb2_pre = APBPrescaler::DIV2; // APB2 = 240 MHz / 2 = 120 MHz
+        config.rcc.apb3_pre = APBPrescaler::DIV2; // APB3 = 240 MHz / 2 = 120 MHz
+        config.rcc.apb4_pre = APBPrescaler::DIV2; // APB4 = 240 MHz / 2 = 120 MHz
 
         config.rcc.mux.usbsel = mux::Usbsel::HSI48; // USB CLK = PLL3.Q = 48 MHz
         config.rcc.mux.adcsel = mux::Adcsel::PLL3_R; // USB CLK = PLL3.R = 160 MHz
-        config.rcc.mux.spi123sel = mux::Saisel::PLL2_P; // SPI123 CLK = PLL2.P = 250MHz;
-        config.rcc.mux.usart234578sel = mux::Usart234578sel::PCLK1;
+        config.rcc.mux.spi123sel = mux::Saisel::PLL2_P; // SPI123 CLK = PLL2.P = 240 MHz;
+        config.rcc.mux.usart234578sel = mux::Usart234578sel::PLL2_Q; // USART234578 CLK = PLL2.Q  = 120 MHz
         config.rcc.hsi48 = Some(Hsi48Config {
             sync_from_usb: true,
         });
@@ -133,6 +133,7 @@ fn make_config() -> Config {
 pub fn make_peripherals() -> Peripherals {
     let config = make_config();
     let peripherals = embassy_stm32::init(config);
+    
     VREFBUF.csr().modify(|x| {
         x.set_envr(false);
         x.set_hiz(embassy_stm32::pac::vrefbuf::vals::Hiz::HIGHZ);
