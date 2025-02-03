@@ -159,7 +159,7 @@ async fn tick_task(
         print_counter += 1;
         if print_counter > 800 * (1000 / PID_PERIOD_US) {
             print_counter = 0;
-            info!("TICK {}", duration);
+            info!("TICK {} {:?}", duration, imu.get_ypr_deg());
         }
 
         ticker.next().await;
