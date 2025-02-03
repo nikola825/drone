@@ -723,6 +723,28 @@ macro_rules! nop69 {
 }
 
 pub(crate) use nop69;
+
+macro_rules! nop70 {
+    () => {{
+        use core::arch::asm;
+        nop35!();
+        nop35!();
+    }};
+}
+
+pub(crate) use nop70;
+
+macro_rules! nop71 {
+    () => {{
+        use core::arch::asm;
+        nop35!();
+        nop35!();
+        asm!("nop");
+    }};
+}
+
+pub(crate) use nop71;
+
 macro_rules! nop72 {
     () => {{
         use core::arch::asm;

@@ -54,6 +54,8 @@ async fn usb_task(peripheral: USB_PERIPHERAL, dp_pin: USB_DP, dm_pin: USB_DM) {
     config.device_sub_class = DEVICE_SUBCLASS_INTERFACE_ASSOCIATION_DESCRIPTOR;
     config.device_protocol = DEVICE_PROTOCOL_INTERFACE_ASSOCIATION_DESCRIPTOR;
     config.composite_with_iads = true;
+    config.self_powered = true;
+    config.max_power = 0;
 
     // Create embassy-usb DeviceBuilder using the driver and config.
     // It needs some buffers for building the descriptors.
