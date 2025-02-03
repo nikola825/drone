@@ -6,7 +6,7 @@ use embassy_stm32::{
 };
 use embassy_time::{Duration, Instant, Timer};
 
-use crate::dshot::dshot_send;
+use crate::dshot::{dshot_send, dshot_send_values};
 
 #[derive(Clone, Copy)]
 #[allow(dead_code, non_camel_case_types)]
@@ -183,6 +183,64 @@ impl Motor {
         self.set_setting_and_save(DshotCommand::DSHOT_CMD_3D_MODE_OFF)
             .await;
     }
+
+    pub fn multi_throttle(
+        motor0: &Self,
+        motor1: &Self,
+        motor2: &Self,
+        motor3: &Self,
+        mut throttle0: u16,
+        mut throttle1: u16,
+        mut throttle2: u16,
+        mut throttle3: u16,
+    ) {
+        if throttle0 > 0 {
+            throttle0 += 48;
+        }
+
+        if throttle1 > 0 {
+            throttle1 += 48;
+        }
+
+        if throttle2 > 0 {
+            throttle2 += 48;
+        }
+
+        if throttle3 > 0 {
+            throttle3 += 48;
+        }
+
+        Self::multi_send(
+            motor0, motor1, motor2, motor3, throttle0, throttle1, throttle2, throttle3,
+        );
+    }
+
+    pub fn multi_send(
+        motor0: &Self,
+        motor1: &Self,
+        motor2: &Self,
+        motor3: &Self,
+        value0: u16,
+        value1: u16,
+        value2: u16,
+        value3: u16,
+    ) {
+        dshot_send_values(
+            [
+                GPIO(motor0.port as _).bsrr(),
+                GPIO(motor1.port as _).bsrr(),
+                GPIO(motor2.port as _).bsrr(),
+                GPIO(motor3.port as _).bsrr(),
+            ],
+            [
+                motor0.pin as _,
+                motor1.pin as _,
+                motor2.pin as _,
+                motor3.pin as _,
+            ],
+            [value0, value1, value2, value3],
+        );
+    }
 }
 
 async fn gentle_stop(current_thrust: u16, context: &mut MotorsContext) {
@@ -204,10 +262,16 @@ async fn gentle_stop(current_thrust: u16, context: &mut MotorsContext) {
 }
 
 fn zero_throttle(context: &MotorsContext) {
-    context.front_left.set_throttle(0);
-    context.front_right.set_throttle(0);
-    context.rear_left.set_throttle(0);
-    context.rear_right.set_throttle(0);
+    Motor::multi_throttle(
+        &context.front_left,
+        &context.front_right,
+        &context.rear_left,
+        &context.rear_right,
+        0,
+        0,
+        0,
+        0,
+    );
 }
 
 fn beep_motors(context: &mut MotorsContext) {
