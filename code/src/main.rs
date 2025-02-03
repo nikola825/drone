@@ -157,7 +157,7 @@ async fn tick_task(
     mut context: DroneContext,
     store: &'static Store,
 ) {
-    const PID_PERIOD_US: u64 = 500;
+    const PID_PERIOD_US: u64 = 1000;
     let mut ticker = Ticker::every(Duration::from_micros(PID_PERIOD_US));
 
     let mut print_counter = 0;

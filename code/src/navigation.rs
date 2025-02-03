@@ -2,9 +2,13 @@ use embassy_time::Instant;
 
 use crate::{crsf::CRSFChannels, icm42688::ICM42688, motors::MotorInputs};
 
+// At our PID rate of 1000Hz, this gives a 3dB dropoff at around 100Hz
+const D_TERM_LPF_FACTOR: f32 = 0.457f32;
+
 struct Pid {
     i: f32,
     last_error: f32,
+    d_term_lpf: f32,
 }
 
 impl Pid {
@@ -12,6 +16,7 @@ impl Pid {
         Pid {
             i: 0f32,
             last_error: 0f32,
+            d_term_lpf: 0f32,
         }
     }
 
@@ -26,7 +31,11 @@ impl Pid {
             self.i
         };
 
-        let result = kp * error + self.i + (error - self.last_error) * kd / dt;
+        // Do basic exponential low-pass on the D term
+        let d_term = (error - self.last_error) * kd / dt;
+        self.d_term_lpf = self.d_term_lpf * (1f32 - D_TERM_LPF_FACTOR) + d_term * D_TERM_LPF_FACTOR;
+
+        let result = kp * error + self.i + self.d_term_lpf;
         self.last_error = error;
 
         result
@@ -35,6 +44,7 @@ impl Pid {
     fn reset(&mut self) {
         self.last_error = 0f32;
         self.i = 0f32;
+        self.d_term_lpf = 0f32;
     }
 }
 
@@ -105,7 +115,7 @@ pub fn navigate(
 
     let p_scale_factor = 1.0f32 + (inputs.aux1() / 2) as f32 / 8f32;
 
-    let d = (inputs.aux2() / 2) as f32 / 2.0f32;
+    let kd = (inputs.aux2() / 2) as f32 / 200.0f32;
 
     if motor_thrust < 200 {
         context.reset();
@@ -122,7 +132,7 @@ pub fn navigate(
         let pitch_input = context.pitch_pid.calculate(
             12.6f32 * p_scale_factor,
             60f32,
-            d,
+            kd,
             pitch_error,
             dt,
             command_limit,
@@ -132,7 +142,7 @@ pub fn navigate(
         let roll_input = context.roll_pid.calculate(
             12.6f32 * p_scale_factor,
             60f32,
-            d,
+            kd,
             roll_error,
             dt,
             command_limit,
