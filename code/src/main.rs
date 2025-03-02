@@ -23,6 +23,7 @@ mod motors;
 mod navigation;
 mod nopdelays;
 mod storage;
+mod msp_osd;
 
 struct DroneContext {
     armed: bool,
