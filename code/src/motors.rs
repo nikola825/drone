@@ -91,28 +91,7 @@ impl MotorInputs {
             pitch_input: 0,
         }
     }
-}
-
-pub struct Motor {
-    port: u8,
-    pin: u8,
-    _output: Output<'static>,
-}
-
-impl Motor {
-    pub fn new(pin: impl Pin + 'static) -> Self {
-        let port = pin.port();
-        let pin_number = pin.pin();
-        let output = Output::new(pin, Level::Low, embassy_stm32::gpio::Speed::VeryHigh);
-        Motor {
-            port,
-            pin: pin_number,
-            _output: output,
-        }
-    }
-
-    fn send_value(&self, value: u16) {
-        dshot_send(GPIO(self.port as _).bsrr(), self.pin as _, value);
+}100
     }
 
     fn send_command(&self, command: DshotCommand) {
@@ -146,25 +125,25 @@ impl Motor {
     async fn set_setting_and_save(&self, setting: DshotCommand) {
         for _ in 1..100 {
             self.send_command(DshotCommand::DSHOT_CMD_STOP);
-            Timer::after_millis(10).await;
+            Timer::after_millis(2).await;
         }
 
-        Timer::after_millis(10).await;
+        Timer::after_millis(2).await;
         for _ in 1..100 {
             self.send_command(setting);
-            Timer::after_millis(10).await;
+            Timer::after_millis(2).await;
         }
 
-        Timer::after_millis(10).await;
+        Timer::after_millis(2).await;
         for _ in 1..100 {
             self.send_command(DshotCommand::DSHOT_CMD_SAVE_SETTINGS);
-            Timer::after_millis(10).await;
+            Timer::after_millis(2).await;
         }
 
-        Timer::after_millis(10).await;
+        Timer::after_millis(2).await;
         for _ in 1..100 {
             self.send_command(DshotCommand::DSHOT_CMD_STOP);
-            Timer::after_millis(10).await;
+            Timer::after_millis(2).await;
         }
     }
 
@@ -319,16 +298,16 @@ pub fn drive(context: &mut MotorsContext, inputs: &MotorInputs) {
         let rear_left: i16 = (thrust + roll_input + pitch_input - yaw_input) / 4;
         let rear_right: i16 = (thrust - roll_input + pitch_input + yaw_input) / 4;
 
-        context
-            .front_left
-            .set_throttle(min(front_left as u16, 1990));
-        context
-            .front_right
-            .set_throttle(min(front_right as u16, 1990));
-        context.rear_left.set_throttle(min(rear_left as u16, 1990));
-        context
-            .rear_right
-            .set_throttle(min(rear_right as u16, 1990));
+        Motor::multi_throttle(
+            &context.front_left,
+            &context.front_right,
+            &context.rear_left,
+            &context.rear_right,
+            min(front_left as u16, 1990),
+            min(front_right as u16, 1990),
+            min(rear_left as u16, 1990),
+            min(rear_right as u16, 1990),
+        );
     } else {
         zero_throttle(context);
     }

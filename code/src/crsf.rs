@@ -1,7 +1,6 @@
 use core::cmp::{max, min};
 use num_traits::float::FloatCore;
 
-use crate::hw_select::AdcReader;
 use crate::logging::{error, info};
 use embassy_stm32::interrupt;
 use embassy_stm32::mode::Async;
@@ -278,8 +277,8 @@ pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, storage: &'static St
     }
 }
 
-async fn read_next_command<'a>(
-    rx: &mut RingBufferedUartRx<'a>,
+async fn read_next_command(
+    rx: &mut RingBufferedUartRx<'_>,
 ) -> Result<Option<CRSFChannels>, ReadExactError<embassy_stm32::usart::Error>> {
     let mut command_buffer = [0u8; CRSF_FRAME_MAX_SIZE];
     rx.read_exact(&mut command_buffer[0..1]).await?;
@@ -305,12 +304,12 @@ async fn read_next_command<'a>(
 }
 
 #[embassy_executor::task]
-pub async fn crsf_telemetry_task(mut adc_reader: AdcReader, mut tx: UartTx<'static, Async>) {
+pub async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, storage: &'static Store) {
     info!("CRSF telemetry start");
     let mut ticker = Ticker::every(Duration::from_millis(200));
 
     loop {
-        let measured_battery_voltage = adc_reader.get_bat();
+        let measured_battery_voltage = storage.get_voltage().await;
 
         let packet = BatPacket::new(measured_battery_voltage);
 

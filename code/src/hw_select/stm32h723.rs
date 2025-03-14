@@ -133,7 +133,7 @@ fn make_config() -> Config {
 pub fn make_peripherals() -> Peripherals {
     let config = make_config();
     let peripherals = embassy_stm32::init(config);
-    
+
     VREFBUF.csr().modify(|x| {
         x.set_envr(false);
         x.set_hiz(embassy_stm32::pac::vrefbuf::vals::Hiz::HIGHZ);

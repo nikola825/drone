@@ -1,11 +1,21 @@
-use core::cmp::min;
+use core::cmp::{max, min};
+use num_traits::float::FloatCore;
 
-use embassy_stm32::{mode::Async, usart::UartTx};
+use crate::{logging::info, storage::Store};
+use embassy_stm32::{
+    interrupt,
+    mode::Async,
+    usart::{
+        Instance, InterruptHandler, Parity, RxDma, RxPin, StopBits, TxDma, TxPin, Uart, UartRx,
+        UartTx,
+    },
+    Peripheral,
+};
 use embassy_time::Timer;
 
 const FC_VARIANT: &[u8] = b"BTFL";
 
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Clone, Copy)]
 enum MSPMessageType {
     FC_VARIANT = 0x02,  // 2 - FC variant string
@@ -14,7 +24,7 @@ enum MSPMessageType {
     DISPLAYPORT = 0xb6, // 182 - Display commands
 }
 
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Clone, Copy)]
 enum MSPDisplayportMessageType {
     CLEAR = 0x01,  // 1 - clear display
@@ -29,13 +39,6 @@ enum HDZeroResolution {
     SD_3016 = 0x00,
     HD_5018 = 0x01,
     HD_3016 = 0x02,
-}
-
-const fn split_number(x: u16) -> (u8, u8) {
-    let low = (x & 0xff) as u8;
-    let high = ((x >> 8) & 0xff) as u8;
-
-    (low, high)
 }
 
 async fn transmit_msp_message(
@@ -84,6 +87,13 @@ async fn transmit_sticks(
     pitch: u16,
     roll: u16,
 ) -> Result<(), embassy_stm32::usart::Error> {
+    const fn split_number(x: u16) -> (u8, u8) {
+        let low = (x & 0xff) as u8;
+        let high = ((x >> 8) & 0xff) as u8;
+
+        (low, high)
+    }
+
     let (throttle_low, throttle_high) = split_number(throttle);
     let (yaw_low, yaw_high) = split_number(yaw);
     let (pitch_low, pitch_high) = split_number(pitch);
@@ -158,24 +168,73 @@ async fn write_string(
     transmit_msp_message(tx, MSPMessageType::DISPLAYPORT, &buffer[..used_buffer_len]).await
 }
 
+pub async fn make_msp_uart_pair<T: Instance>(
+    uart_peripheral: impl Peripheral<P = T> + 'static,
+    rx_pin: impl RxPin<T> + 'static,
+    tx_pin: impl TxPin<T> + 'static,
+    tx_dma: impl TxDma<T> + 'static,
+    rx_dma: impl RxDma<T> + 'static,
+    interrupt_handlers: impl interrupt::typelevel::Binding<T::Interrupt, InterruptHandler<T>> + 'static,
+) -> (UartRx<'static, Async>, UartTx<'static, Async>) {
+    let mut uart_config = embassy_stm32::usart::Config::default();
+    uart_config.baudrate = 115200;
+    uart_config.parity = Parity::ParityNone;
+    uart_config.stop_bits = StopBits::STOP1;
+
+    let uart = Uart::new(
+        uart_peripheral,
+        rx_pin,
+        tx_pin,
+        interrupt_handlers,
+        tx_dma,
+        rx_dma,
+        uart_config,
+    )
+    .unwrap();
+
+    let (tx, rx) = uart.split();
+
+    (rx, tx)
+}
+
 async fn draw_status_osd(
     tx: &mut UartTx<'static, Async>,
+    bat_voltage: f32,
 ) -> Result<(), embassy_stm32::usart::Error> {
+    let mut bat_string = *b"00.00";
+
+    let bat_voltage = (bat_voltage * 100f32).round() as i32;
+    let bat_voltage = min(bat_voltage, 9999);
+    let mut bat_voltage = max(0, bat_voltage);
+
+    bat_string[4] = 48u8 + (bat_voltage % 10) as u8;
+    bat_voltage /= 10;
+    bat_string[3] = 48u8 + (bat_voltage % 10) as u8;
+    bat_voltage /= 10;
+    bat_string[1] = 48u8 + (bat_voltage % 10) as u8;
+    bat_voltage /= 10;
+    bat_string[0] = 48u8 + (bat_voltage % 10) as u8;
+
     clear_display(tx).await?;
-    write_string(tx, 0, 0, b"HELLO").await?;
+    write_string(tx, 0, 0, &bat_string).await?;
     write_string(tx, 1, 0, b"WORLD").await?;
     draw_display(tx).await
 }
 
 #[allow(dead_code)]
 #[embassy_executor::task]
-pub async fn osd_refresh_task(mut tx: UartTx<'static, Async>) {
+pub async fn osd_refresh_task(mut tx: UartTx<'static, Async>, store: &'static Store) {
+    info!("OSD task start");
     loop {
+        let (throttle, yaw, pitch, roll) = (1500u16, 1500u16, 1500u16, 1500u16);
+        let armed = false;
+        let battery_voltage = store.get_voltage().await;
+
         let _ = set_resolution(&mut tx, HDZeroResolution::HD_5018).await;
         let _ = transmit_fc_variant(&mut tx).await;
-        let _ = transmit_sticks(&mut tx, 1500, 1500, 1500, 1500).await;
-        let _ = transmit_status(&mut tx, false).await;
-        let _ = draw_status_osd(&mut tx).await;
+        let _ = transmit_sticks(&mut tx, throttle, yaw, pitch, roll).await;
+        let _ = transmit_status(&mut tx, armed).await;
+        let _ = draw_status_osd(&mut tx, battery_voltage).await;
         Timer::after_millis(100).await;
     }
 }

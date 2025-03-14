@@ -414,29 +414,31 @@ pub fn dshot_send(bsrr: Reg<Bsrr, W>, bit: usize, val: u16) {
 }
 
 pub fn dshot_send_values(bsrrs: [Reg<Bsrr, W>; 4], bits: [usize; 4], mut values: [u16; 4]) {
-    for i in 0..4 {
-        let telemetry = values[i] < 48;
-        let mut val = values[i] << 1;
+    for value in &mut values {
+        let telemetry = *value < 48;
+
+        let mut expanded = *value << 1;
         if telemetry {
-            val |= 1;
+            expanded |= 1;
         }
-        let sent = (val & 0xf) ^ ((val >> 4) & 0xf) ^ ((val >> 8) & 0xf) | (val << 4);
-        values[i] = sent;
+        let xor = (expanded & 0xf) ^ ((expanded >> 4) & 0xf) ^ ((expanded >> 8) & 0xf);
+        let sent = (expanded << 4) | xor;
+        *value = sent;
     }
 
-    let mut value = 0u64;
+    let mut grouped_value = 0u64;
     let mut mask = 32768u16;
     let mut cursor = 1;
     for _ in 0..16 {
-        for i in 0..4 {
-            if values[i] & mask != 0 {
-                value |= cursor;
+        for value in values {
+            if value & mask != 0 {
+                grouped_value |= cursor;
             }
             cursor <<= 1;
         }
         mask >>= 1;
     }
-    dshot_send_multi(bsrrs, bits, value);
+    dshot_send_multi(bsrrs, bits, grouped_value);
 }
 
 pub fn dshot_send_multi(bsrrs: [Reg<Bsrr, W>; 4], bits: [usize; 4], mut value: u64) {
