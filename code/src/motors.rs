@@ -91,7 +91,28 @@ impl MotorInputs {
             pitch_input: 0,
         }
     }
-}100
+}
+
+pub struct Motor {
+    port: u8,
+    pin: u8,
+    _output: Output<'static>,
+}
+
+impl Motor {
+    pub fn new(pin: impl Pin + 'static) -> Self {
+        let port = pin.port();
+        let pin_number = pin.pin();
+        let output = Output::new(pin, Level::Low, embassy_stm32::gpio::Speed::VeryHigh);
+        Motor {
+            port,
+            pin: pin_number,
+            _output: output,
+        }
+    }
+
+    fn send_value(&self, value: u16) {
+        dshot_send(GPIO(self.port as _).bsrr(), self.pin as _, value);
     }
 
     fn send_command(&self, command: DshotCommand) {
