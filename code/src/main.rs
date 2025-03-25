@@ -1,29 +1,31 @@
 #![no_std]
 #![no_main]
 
+use battery_monitor::battery_monitor_task;
 use crsf::{crsf_receiver_task, crsf_telemetry_task, CRSFChannels};
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Instant, Ticker, Timer};
-use hw_select::Irqs;
 use icm42688::ICM42688;
 use logging::{info, init_logging};
-use motors::{disarm, drive, Motor, MotorsContext};
+use motors::{disarm, drive, Motor, MotorInputs, MotorsContext};
+use msp_osd::osd_refresh_task;
 use navigation::{navigate, NavigationContext};
 use storage::Store;
 
+mod battery_monitor;
 mod crsf;
 mod dshot;
 mod hw_select;
 mod icm42688;
 mod logging;
 mod motors;
+mod msp_osd;
 mod navigation;
 mod nopdelays;
 mod storage;
-mod msp_osd;
 
 struct DroneContext {
     armed: bool,
@@ -53,33 +55,21 @@ async fn main(_spawner: Spawner) {
 
     green.set_high();
 
-    let mut imu = ICM42688::new(
-        hardware.imu_spi,
-        hardware.imu_sck,
-        hardware.imu_mosi,
-        hardware.imu_miso,
-        hardware.imu_tx_dma,
-        hardware.imu_rx_dma,
-        hardware.imu_cs_pin,
-    );
+    let mut imu = ICM42688::new(hardware.imu_spi);
     imu.init().await;
     Timer::after_millis(10).await;
 
     yellow.set_high();
 
-    let front_left = Motor::new(hardware.motor1_pin);
-    let front_right = Motor::new(hardware.motor0_pin);
+    let front_left = Motor::new(hardware.motor0_pin);
+    let front_right = Motor::new(hardware.motor3_pin);
     let rear_left = Motor::new(hardware.motor2_pin);
-    let rear_right = Motor::new(hardware.motor3_pin);
+    let rear_right = Motor::new(hardware.motor1_pin);
 
-    let (crsf_rx, crsf_tx) = crsf::make_uart_pair(
-        hardware.radio_uart.peripheral,
-        hardware.radio_uart.rx_pin,
-        hardware.radio_uart.tx_pin,
-        hardware.radio_uart.tx_dma,
-        hardware.radio_uart.rx_dma,
-        Irqs,
-    );
+    let (crsf_rx, crsf_tx) = crsf::make_uart_pair(hardware.extra.uart7);
+
+    let msp_uart = hardware.extra.uart4;
+    let (_, msp_tx) = msp_osd::make_msp_uart_pair(msp_uart).await;
 
     blue.set_high();
 
@@ -87,7 +77,13 @@ async fn main(_spawner: Spawner) {
         .spawn(crsf_receiver_task(crsf_rx, STORE.get()))
         .unwrap();
     _spawner
-        .spawn(crsf_telemetry_task(hardware.adc_reader, crsf_tx))
+        .spawn(crsf_telemetry_task(crsf_tx, STORE.get()))
+        .unwrap();
+    _spawner
+        .spawn(battery_monitor_task(hardware.adc_reader, STORE.get()))
+        .unwrap();
+    _spawner
+        .spawn(osd_refresh_task(msp_tx, STORE.get()))
         .unwrap();
 
     let context = DroneContext {
@@ -121,7 +117,7 @@ async fn tick_task(
     let mut duration = 0f32;
     loop {
         let t1 = Instant::now();
-        let snapshot = store.snapshot().await;
+        let snapshot = store.channel_snapshot().await;
         let command_inputs = &snapshot.channels;
 
         context.update_armed(command_inputs);
@@ -160,7 +156,7 @@ async fn tick_task(
         print_counter += 1;
         if print_counter > 800 * (1000 / PID_PERIOD_US) {
             print_counter = 0;
-            info!("TICK {} {:?}", duration, imu.get_ypr_deg());
+            info!("TICK {} {:?} {} {} {} {}", duration, imu.get_ypr_deg(), motor_inputs.motor_thrust, motor_inputs.pitch_input, motor_inputs.roll_input, motor_inputs.yaw_input);
         }
 
         ticker.next().await;
@@ -174,33 +170,33 @@ async fn motor_reset(
     rear_left: &Motor,
     rear_right: &Motor,
 ) {
-    info!("BEGINNING RESET");
-    info!("Front left");
-    front_left.disable_3d_mode().await;
-    front_left
-        .set_direction(motors::MotorDirection::Forward)
-        .await;
+    loop {
+        info!("BEGINNING RESET");
+        info!("Front left");
+        front_left.disable_3d_mode().await;
+        front_left
+            .set_direction(motors::MotorDirection::Forward)
+            .await;
 
-    info!("Front right");
-    front_right.disable_3d_mode().await;
-    front_right
-        .set_direction(motors::MotorDirection::Backward)
-        .await;
+        info!("Front right");
+        front_right.disable_3d_mode().await;
+        front_right
+            .set_direction(motors::MotorDirection::Backward)
+            .await;
 
-    info!("Rear left");
-    rear_left.disable_3d_mode().await;
-    rear_left
-        .set_direction(motors::MotorDirection::Forward)
-        .await;
+        info!("Rear left");
+        rear_left.disable_3d_mode().await;
+        rear_left
+            .set_direction(motors::MotorDirection::Forward)
+            .await;
 
-    info!("Rear right");
-    rear_right.disable_3d_mode().await;
-    rear_right
-        .set_direction(motors::MotorDirection::Forward)
-        .await;
+        info!("Rear right");
+        rear_right.disable_3d_mode().await;
+        rear_right
+            .set_direction(motors::MotorDirection::Forward)
+            .await;
 
-    info!("RESET END");
-
-    #[allow(clippy::empty_loop)]
-    loop {}
+        info!("RESET END");
+        Timer::after_millis(100).await;
+    }
 }

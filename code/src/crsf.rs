@@ -1,18 +1,11 @@
 use core::cmp::{max, min};
 use num_traits::float::FloatCore;
 
+use crate::hw_select::UartMaker;
 use crate::logging::{error, info};
-use embassy_stm32::interrupt;
 use embassy_stm32::mode::Async;
-use embassy_stm32::pac::GPIO;
-use embassy_stm32::usart::{
-    InterruptHandler, RingBufferedUartRx, RxDma, StopBits, TxDma, TxPin, Uart, UartRx, UartTx,
-};
-use embassy_stm32::{
-    pac::gpio::vals,
-    usart::{Instance, Parity, RxPin},
-    Peripheral,
-};
+use embassy_stm32::usart::Parity;
+use embassy_stm32::usart::{RingBufferedUartRx, StopBits, UartRx, UartTx};
 
 use embassy_time::{Duration, Instant, Ticker};
 use embedded_io::ReadExactError;
@@ -217,38 +210,10 @@ fn crc8_calculate(buf: &[u8]) -> u8 {
     crc
 }
 
-pub fn make_uart_pair<T: Instance>(
-    uart_peripheral: impl Peripheral<P = T> + 'static,
-    rx_pin: impl RxPin<T> + 'static,
-    tx_pin: impl TxPin<T> + 'static,
-    tx_dma: impl TxDma<T> + 'static,
-    rx_dma: impl RxDma<T> + 'static,
-    interrupt_handlers: impl interrupt::typelevel::Binding<T::Interrupt, InterruptHandler<T>> + 'static,
+pub fn make_uart_pair(
+    uart_maker: impl UartMaker,
 ) -> (UartRx<'static, Async>, UartTx<'static, Async>) {
-    let mut uart_config = embassy_stm32::usart::Config::default();
-    uart_config.baudrate = 420000;
-    uart_config.parity = Parity::ParityNone;
-    uart_config.stop_bits = StopBits::STOP1;
-
-    let rx_port = rx_pin.port();
-    let rx_pin_number = rx_pin.pin();
-
-    let uart = Uart::new(
-        uart_peripheral,
-        rx_pin,
-        tx_pin,
-        interrupt_handlers,
-        tx_dma,
-        rx_dma,
-        uart_config,
-    )
-    .unwrap();
-
-    GPIO(rx_port as usize)
-        .pupdr()
-        .modify(|w| w.set_pupdr(rx_pin_number as usize, vals::Pupdr::PULLUP));
-
-    let (tx, rx) = uart.split();
+    let (rx, tx) = uart_maker.make_uart(420000, Parity::ParityNone, StopBits::STOP1, false);
 
     (rx, tx)
 }

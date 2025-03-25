@@ -119,6 +119,7 @@ impl Motor {
         self.send_value(command as u16);
     }
 
+    #[allow(dead_code)]
     fn set_throttle(&self, throttle: u16) {
         if throttle > 0 {
             self.send_value(48 + throttle);
@@ -247,10 +248,16 @@ async fn gentle_stop(current_thrust: u16, context: &mut MotorsContext) {
     let mut thrust_target = current_thrust;
 
     while thrust_target > 200 {
-        context.front_left.set_throttle(thrust_target);
-        context.front_right.set_throttle(thrust_target);
-        context.rear_left.set_throttle(thrust_target);
-        context.rear_right.set_throttle(thrust_target);
+        Motor::multi_throttle(
+            &context.front_left,
+            &context.front_right,
+            &context.rear_left,
+            &context.rear_right,
+            thrust_target,
+            thrust_target,
+            thrust_target,
+            thrust_target,
+        );
 
         Timer::after_millis(100).await;
 
@@ -324,11 +331,12 @@ pub fn drive(context: &mut MotorsContext, inputs: &MotorInputs) {
             &context.front_right,
             &context.rear_left,
             &context.rear_right,
-            min(front_left as u16, 1990),
+            min(front_left as u16, 0),
             min(front_right as u16, 1990),
             min(rear_left as u16, 1990),
             min(rear_right as u16, 1990),
         );
+
     } else {
         zero_throttle(context);
     }

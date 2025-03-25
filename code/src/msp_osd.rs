@@ -1,15 +1,10 @@
 use core::cmp::{max, min};
 use num_traits::float::FloatCore;
 
-use crate::{logging::info, storage::Store};
+use crate::{hw_select::UartMaker, logging::info, storage::Store};
 use embassy_stm32::{
-    interrupt,
     mode::Async,
-    usart::{
-        Instance, InterruptHandler, Parity, RxDma, RxPin, StopBits, TxDma, TxPin, Uart, UartRx,
-        UartTx,
-    },
-    Peripheral,
+    usart::{Parity, StopBits, UartRx, UartTx},
 };
 use embassy_time::Timer;
 
@@ -168,31 +163,10 @@ async fn write_string(
     transmit_msp_message(tx, MSPMessageType::DISPLAYPORT, &buffer[..used_buffer_len]).await
 }
 
-pub async fn make_msp_uart_pair<T: Instance>(
-    uart_peripheral: impl Peripheral<P = T> + 'static,
-    rx_pin: impl RxPin<T> + 'static,
-    tx_pin: impl TxPin<T> + 'static,
-    tx_dma: impl TxDma<T> + 'static,
-    rx_dma: impl RxDma<T> + 'static,
-    interrupt_handlers: impl interrupt::typelevel::Binding<T::Interrupt, InterruptHandler<T>> + 'static,
+pub async fn make_msp_uart_pair(
+    uart_getter: impl UartMaker,
 ) -> (UartRx<'static, Async>, UartTx<'static, Async>) {
-    let mut uart_config = embassy_stm32::usart::Config::default();
-    uart_config.baudrate = 115200;
-    uart_config.parity = Parity::ParityNone;
-    uart_config.stop_bits = StopBits::STOP1;
-
-    let uart = Uart::new(
-        uart_peripheral,
-        rx_pin,
-        tx_pin,
-        interrupt_handlers,
-        tx_dma,
-        rx_dma,
-        uart_config,
-    )
-    .unwrap();
-
-    let (tx, rx) = uart.split();
+    let (rx, tx) = uart_getter.make_uart(115200, Parity::ParityNone, StopBits::STOP1, false);
 
     (rx, tx)
 }
@@ -201,19 +175,19 @@ async fn draw_status_osd(
     tx: &mut UartTx<'static, Async>,
     bat_voltage: f32,
 ) -> Result<(), embassy_stm32::usart::Error> {
-    let mut bat_string = *b"00.00";
+    let mut bat_string = *b"\x9000.00\x06";
 
     let bat_voltage = (bat_voltage * 100f32).round() as i32;
     let bat_voltage = min(bat_voltage, 9999);
     let mut bat_voltage = max(0, bat_voltage);
 
+    bat_string[5] = 48u8 + (bat_voltage % 10) as u8;
+    bat_voltage /= 10;
     bat_string[4] = 48u8 + (bat_voltage % 10) as u8;
     bat_voltage /= 10;
-    bat_string[3] = 48u8 + (bat_voltage % 10) as u8;
+    bat_string[2] = 48u8 + (bat_voltage % 10) as u8;
     bat_voltage /= 10;
     bat_string[1] = 48u8 + (bat_voltage % 10) as u8;
-    bat_voltage /= 10;
-    bat_string[0] = 48u8 + (bat_voltage % 10) as u8;
 
     clear_display(tx).await?;
     write_string(tx, 0, 0, &bat_string).await?;

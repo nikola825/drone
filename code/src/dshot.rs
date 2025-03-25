@@ -2,7 +2,7 @@ use crate::nopdelays::*;
 use core::arch::asm;
 use embassy_stm32::pac::{
     common::{Reg, W},
-    gpio::regs::Bsrr,
+    gpio::regs::Bsrr, GPIOE,
 };
 
 use cortex_m::interrupt::{free, CriticalSection};
@@ -413,6 +413,8 @@ pub fn dshot_send(bsrr: Reg<Bsrr, W>, bit: usize, val: u16) {
     });
 }
 
+#[no_mangle]
+#[inline(never)]
 pub fn dshot_send_values(bsrrs: [Reg<Bsrr, W>; 4], bits: [usize; 4], mut values: [u16; 4]) {
     for value in &mut values {
         let telemetry = *value < 48;
@@ -438,10 +440,14 @@ pub fn dshot_send_values(bsrrs: [Reg<Bsrr, W>; 4], bits: [usize; 4], mut values:
         }
         mask >>= 1;
     }
-    dshot_send_multi(bsrrs, bits, grouped_value);
+    free(|critical_section: &CriticalSection| {
+        dshot_send_multi(critical_section, bsrrs, bits, grouped_value);
+    });
 }
 
-pub fn dshot_send_multi(bsrrs: [Reg<Bsrr, W>; 4], bits: [usize; 4], mut value: u64) {
+#[no_mangle]
+#[inline(never)]
+pub fn dshot_send_multi(_: &CriticalSection, bsrrs: [Reg<Bsrr, W>; 4], bits: [usize; 4], mut value: u64) {
     unsafe {
         for _ in 0..16 {
             match value & 15 {

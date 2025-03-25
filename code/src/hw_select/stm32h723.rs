@@ -26,8 +26,10 @@ bind_interrupts!(pub struct Irqs {
 
 #[allow(dead_code)]
 pub struct ExtraHardware {
-    pub uart4: UartHardware<UART4, embassy_stm32::peripherals::UART4, PA1, PA0, DMA1_CH4, DMA1_CH5>,
-    pub uart7: UartHardware<UART7, embassy_stm32::peripherals::UART7, PE7, PE8, DMA1_CH6, DMA1_CH7>,
+    pub uart4:
+        UartHardware<UART4, embassy_stm32::peripherals::UART4, PA1, PA0, DMA1_CH4, DMA1_CH5, Irqs>,
+    pub uart7:
+        UartHardware<UART7, embassy_stm32::peripherals::UART7, PE7, PE8, DMA1_CH6, DMA1_CH7, Irqs>,
 }
 
 pub struct AdcReader {
@@ -157,13 +159,16 @@ macro_rules! get_hardware {
             usb_dp: peripherals.PA12,
             usb_peripheral: peripherals.USB_OTG_HS,
 
-            imu_sck: peripherals.PB3,
-            imu_miso: peripherals.PB4,
-            imu_mosi: peripherals.PB5,
-            imu_spi: peripherals.SPI1,
-            imu_rx_dma: peripherals.DMA1_CH0,
-            imu_tx_dma: peripherals.DMA1_CH1,
-            imu_cs_pin: peripherals.PB7,
+            imu_spi: SpiHardware {
+                peripheral: peripherals.SPI1,
+                sck_pin: peripherals.PB3,
+                miso_pin: peripherals.PB4,
+                mosi_pin: peripherals.PB5,
+
+                rx_dma: peripherals.DMA1_CH0,
+                tx_dma: peripherals.DMA1_CH1,
+                cs_pin: peripherals.PB7,
+            },
 
             adc_reader: AdcReader::new(peripherals.PA4.degrade_adc(), peripherals.ADC1),
 
@@ -178,6 +183,7 @@ macro_rules! get_hardware {
                 tx_pin: peripherals.PA2,
                 tx_dma: peripherals.DMA1_CH2,
                 rx_dma: peripherals.DMA1_CH3,
+                irqs: Irqs,
             },
 
             extra: ExtraHardware {
@@ -187,6 +193,7 @@ macro_rules! get_hardware {
                     rx_pin: peripherals.PA1,
                     rx_dma: peripherals.DMA1_CH4,
                     tx_dma: peripherals.DMA1_CH5,
+                    irqs: Irqs,
                 },
                 uart7: UartHardware {
                     peripheral: peripherals.UART7,
@@ -194,6 +201,7 @@ macro_rules! get_hardware {
                     rx_pin: peripherals.PE7,
                     rx_dma: peripherals.DMA1_CH6,
                     tx_dma: peripherals.DMA1_CH7,
+                    irqs: Irqs,
                 },
             },
         }
