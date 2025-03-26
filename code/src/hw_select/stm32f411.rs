@@ -114,13 +114,16 @@ macro_rules! get_hardware {
 
             adc_reader: AdcReader::new(peripherals.PA5.degrade_adc(), peripherals.ADC1),
 
-            imu_sck: peripherals.PB3,
-            imu_mosi: peripherals.PB5,
-            imu_miso: peripherals.PB4,
-            imu_spi: peripherals.SPI3,
-            imu_rx_dma: peripherals.DMA1_CH0,
-            imu_tx_dma: peripherals.DMA1_CH5,
-            imu_cs_pin: peripherals.PB9,
+            imu_spi: SpiHardware {
+                peripheral: peripherals.SPI3,
+                sck_pin: peripherals.PB3,
+                miso_pin: peripherals.PB4,
+                mosi_pin: peripherals.PB5,
+
+                rx_dma: peripherals.DMA1_CH0,
+                tx_dma: peripherals.DMA1_CH5,
+                cs_pin: peripherals.PB9,
+            },
 
             motor0_pin: peripherals.PB1,
             motor1_pin: peripherals.PB0,
@@ -133,9 +136,31 @@ macro_rules! get_hardware {
                 tx_pin: peripherals.PA2,
                 tx_dma: peripherals.DMA1_CH6,
                 rx_dma: peripherals.DMA1_CH7,
+                irqs: Irqs,
             },
 
             extra: ExtraHardware {},
         }
     }};
+}
+
+#[macro_export]
+macro_rules! dshot_nop_0 {
+    () => {
+        nop29!();
+    };
+}
+
+#[macro_export]
+macro_rules! dshot_nop_0_to_1 {
+    () => {
+        nop29!();
+    };
+}
+
+#[macro_export]
+macro_rules! dshot_nop_remainder {
+    () => {
+        nop19!();
+    };
 }

@@ -1,555 +1,130 @@
-use crate::nopdelays::*;
+use crate::{dshot_nop_0, dshot_nop_0_to_1, dshot_nop_remainder, nopdelays::*};
 use core::arch::asm;
 use embassy_stm32::pac::{
     common::{Reg, W},
-    gpio::regs::Bsrr, GPIOE,
+    gpio::regs::Bsrr,
 };
 
 use cortex_m::interrupt::{free, CriticalSection};
 
-#[cfg(feature = "stm32f411")]
-#[macro_export]
-macro_rules! dshot_bitbang_bit {
-    ($bsrr: ident, $x: expr, $val: expr, $bit: ident) => {
-        ($bsrr).write(|w| w.set_bs(($bit), true));
-        if ($val) & ($x) == ($x) {
-            dshot_bitbang_bit!(1, 1200, $bsrr, $bit);
-        } else {
-            dshot_bitbang_bit!(0, 1200, $bsrr, $bit);
-        }
-    };
-
-    (1, 600, $bsrr: ident, $bit: ident) => {
-        nop112!();
-        ($bsrr).write(|w| w.set_br(($bit), true));
-        nop38!();
-    };
-
-    (0, 600, $bsrr: ident, $bit: ident) => {
-        nop58!();
-        ($bsrr).write(|w| w.set_br(($bit), true));
-        nop93!();
-    };
-
-    (1, 1200, $bsrr: ident, $bit: ident) => {
-        nop56!();
-        ($bsrr).write(|w| w.set_br(($bit), true));
-        nop19!();
-    };
-
-    (0, 1200, $bsrr: ident, $bit: ident) => {
-        nop29!();
-        ($bsrr).write(|w| w.set_br(($bit), true));
-        nop47!();
-    };
-
-    (1, 2400, $bsrr: ident, $bit: ident) => {
-        nop28!();
-        ($bsrr).write(|w| w.set_br(($bit), true));
-        nop9!();
-    };
-
-    (0, 2400, $bsrr: ident, $bit: ident) => {
-        nop15!();
-        ($bsrr).write(|w| w.set_br(($bit), true));
-        nop24!();
-    };
-}
-
-#[cfg(feature = "stm32h723")]
-#[macro_export]
-macro_rules! dshot_bitbang_bit {
-    ($bsrr: ident, $x: expr, $val: expr, $bit: ident) => {
-        ($bsrr).write(|w| w.set_bs(($bit), true));
-        if ($val) & ($x) == 0 {
-            dshot_bitbang_bit!(0, 1200, $bsrr, $bit);
-        } else {
-            dshot_bitbang_bit!(1, 1200, $bsrr, $bit);
-        }
-    };
-
-    (1, 1200, $bsrr: ident, $bit: ident) => {
-        nop254!();
-        ($bsrr).write(|w| w.set_br(($bit), true));
-        nop70!();
-    };
-
-    (0, 1200, $bsrr: ident, $bit: ident) => {
-        nop127!();
-        ($bsrr).write(|w| w.set_br(($bit), true));
-        nop197!();
-    };
-}
-
-macro_rules! dshot_nop_0 {
-    () => {
-        nop105!();
-    };
-}
-
-macro_rules! dshot_nop_0_to_1 {
-    () => {
-        nop105!();
-    };
-}
-
-macro_rules! dshot_nop_remainder {
-    () => {
-        nop70!();
-    };
-}
-
-#[cfg(feature = "stm32h723")]
-#[macro_export]
-macro_rules! dshot_bitbang_bits {
-    (0, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_0_to_1!();
-
-        dshot_nop_remainder!();
-    };
-
-    (1, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (2, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (3, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (4, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (5, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (6, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (7, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (8, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (9, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (10, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (11, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (12, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (13, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (14, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-
-        dshot_nop_0_to_1!();
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_remainder!();
-    };
-
-    (15, $bsrr0: expr, $bit0: expr, $bsrr1: expr, $bit1: expr, $bsrr2: expr, $bit2: expr, $bsrr3: expr, $bit3: expr) => {
-        ($bsrr0).write(|w| w.set_bs(($bit0), true));
-        ($bsrr1).write(|w| w.set_bs(($bit1), true));
-        ($bsrr2).write(|w| w.set_bs(($bit2), true));
-        ($bsrr3).write(|w| w.set_bs(($bit3), true));
-
-        dshot_nop_0!();
-
-        dshot_nop_0_to_1!();
-        ($bsrr0).write(|w| w.set_br(($bit0), true));
-        ($bsrr1).write(|w| w.set_br(($bit1), true));
-        ($bsrr2).write(|w| w.set_br(($bit2), true));
-        ($bsrr3).write(|w| w.set_br(($bit3), true));
-
-        dshot_nop_remainder!();
-    };
-}
-
-#[no_mangle]
-#[inline(never)]
-fn dshot_bitbang(_: &CriticalSection, bsrr: Reg<Bsrr, W>, bit: usize, val: u16) {
-    unsafe {
-        dshot_bitbang_bit!(bsrr, 32768, val, bit);
-        dshot_bitbang_bit!(bsrr, 16384, val, bit);
-        dshot_bitbang_bit!(bsrr, 8192, val, bit);
-        dshot_bitbang_bit!(bsrr, 4096, val, bit);
-        dshot_bitbang_bit!(bsrr, 2048, val, bit);
-        dshot_bitbang_bit!(bsrr, 1024, val, bit);
-        dshot_bitbang_bit!(bsrr, 512, val, bit);
-        dshot_bitbang_bit!(bsrr, 256, val, bit);
-        dshot_bitbang_bit!(bsrr, 128, val, bit);
-        dshot_bitbang_bit!(bsrr, 64, val, bit);
-        dshot_bitbang_bit!(bsrr, 32, val, bit);
-        dshot_bitbang_bit!(bsrr, 16, val, bit);
-        dshot_bitbang_bit!(bsrr, 8, val, bit);
-        dshot_bitbang_bit!(bsrr, 4, val, bit);
-        dshot_bitbang_bit!(bsrr, 2, val, bit);
-        dshot_bitbang_bit!(bsrr, 1, val, bit);
-    }
-}
-
-#[no_mangle]
-#[inline(never)]
-pub fn dshot_send(bsrr: Reg<Bsrr, W>, bit: usize, val: u16) {
-    let telemetry = val < 48;
-    let mut val = val << 1;
+fn add_telemetry_bit_and_checksum(value: u16) -> u16 {
+    let telemetry = value < 48;
+
+    // Shift the value 1 place to the left and (optionally) enable the telemetry bit
+    let mut expanded = value << 1;
     if telemetry {
-        val |= 1;
+        expanded |= 1;
     }
-    let sent = (val & 0xf) ^ ((val >> 4) & 0xf) ^ ((val >> 8) & 0xf) | (val << 4);
 
-    free(|critical_section: &CriticalSection| {
-        dshot_bitbang(critical_section, bsrr, bit, sent);
-    });
+    // Calculate the xor-based checksum of the 3 nibbles
+    let xor = (expanded & 0xf) ^ ((expanded >> 4) & 0xf) ^ ((expanded >> 8) & 0xf);
+
+    // Shift the value 4 places to the left and add the xor checksum
+    (expanded << 4) | xor
 }
 
-#[no_mangle]
-#[inline(never)]
-pub fn dshot_send_values(bsrrs: [Reg<Bsrr, W>; 4], bits: [usize; 4], mut values: [u16; 4]) {
-    for value in &mut values {
-        let telemetry = *value < 48;
+/// Bit-bang given 16-bit dshot value through the given pin on the given port
+/// port_bsrr - the bsrr register of the port
+/// pin - number of the used pin on the given port
+/// val - raw value being transmitted (without checksum and telemetry bit)
+pub fn dshot_send_single(port_bsrr: Reg<Bsrr, W>, pin: usize, val: u16) {
+    let sent = add_telemetry_bit_and_checksum(val);
 
-        let mut expanded = *value << 1;
-        if telemetry {
-            expanded |= 1;
-        }
-        let xor = (expanded & 0xf) ^ ((expanded >> 4) & 0xf) ^ ((expanded >> 8) & 0xf);
-        let sent = (expanded << 4) | xor;
-        *value = sent;
-    }
+    // The initial value to write to bsrr at the start of each bit - toggle the pin to high
+    let mut start_bsrr = Bsrr(0);
+    start_bsrr.set_bs(pin, true);
 
-    let mut grouped_value = 0u64;
-    let mut mask = 32768u16;
-    let mut cursor = 1;
-    for _ in 0..16 {
-        for value in values {
-            if value & mask != 0 {
-                grouped_value |= cursor;
-            }
-            cursor <<= 1;
+    // The end value to write to bsrr at the end of each bit - toggle the pin to low
+    let mut end_bsrr = Bsrr(0);
+    end_bsrr.set_br(pin, true);
+
+    // An array of 16 bsrr register values
+    // For each bit of the value:
+    // - if it's a zero, we want to enable the reset pin in order to set the pin to low state
+    // - if the bit is one, we leave the pin high for longer time
+    let mut mid_bsrrs = [Bsrr(0); 16];
+    let mut mask: u16 = 32768;
+    for bsrr in &mut mid_bsrrs {
+        if sent & mask == 0 {
+            // If the bit is a zero, we enable the reset bit
+            bsrr.set_br(pin, true);
         }
         mask >>= 1;
     }
+
+    // Transmit the actual values
     free(|critical_section: &CriticalSection| {
-        dshot_send_multi(critical_section, bsrrs, bits, grouped_value);
+        write_dshot_series(critical_section, port_bsrr, start_bsrr, end_bsrr, mid_bsrrs);
     });
 }
 
+/// Bit-bang 4 given 16-bit dshot values through the given pins on the given port
+/// port_bsrr - the bsrr register of the port
+/// pin - numbers of the used pins on the given port
+/// val - raw values being transmitted (without checksum and telemetry bit)
+pub fn dshot_send_parallel(port_bsrr: Reg<Bsrr, W>, pins: [usize; 4], mut values: [u16; 4]) {
+    for value in &mut values {
+        *value = add_telemetry_bit_and_checksum(*value);
+    }
+
+    // The initial value to write to bsrr at the start of each bit - toggle the pin to high for each of the 4 outputs
+    let mut start_bsrr = Bsrr(0);
+    // The end value to write to bsrr at the end of each bit - toggle the pin to low for each of the 4 outputs
+    let mut end_bsrr = Bsrr(0);
+
+    for pin in pins {
+        start_bsrr.set_bs(pin, true);
+        end_bsrr.set_br(pin, true);
+    }
+
+    // An array of 16 bsrr register values
+    // For each bit of the value:
+    // - if it's a zero, we want to enable the reset pin in order to set the pin to low state
+    // - if the bit is one, we leave the pin high for longer time
+    // Do this for the bits of all 4 values - each value has its own pin
+    let mut mid_bsrrs = [Bsrr(0); 16];
+    let mut mask: u16 = 32768;
+
+    for bsrr in &mut mid_bsrrs {
+        for index in 0..4 {
+            if values[index] & mask == 0 {
+                bsrr.set_br(pins[index], true);
+            }
+        }
+        mask >>= 1;
+    }
+
+    free(|critical_section: &CriticalSection| {
+        write_dshot_series(critical_section, port_bsrr, start_bsrr, end_bsrr, mid_bsrrs);
+    });
+}
+
+/// Writes the given series of values to the output pin
+/// Repeat 16 times:
+/// - Write the initial start_bsrr value to bsrr - toggle all pins to high
+/// - Wait for zero-length time
+/// - Write the N-th value from mid_bsrrs to bsrr - set to low the pins that corespond to outputs that have the zero bit in this cycle
+/// - Wait for zero-length time
+/// - Write the end_bsrr value to bsrr - toggle all pins to low
+/// - Wait for remainder time
+/// - Repeat
 #[no_mangle]
 #[inline(never)]
-pub fn dshot_send_multi(_: &CriticalSection, bsrrs: [Reg<Bsrr, W>; 4], bits: [usize; 4], mut value: u64) {
+fn write_dshot_series(
+    _: &CriticalSection,
+    port_bsrr: Reg<Bsrr, W>,
+    start_bsrr: Bsrr,
+    end_bsrr: Bsrr,
+    mid_bsrrs: [Bsrr; 16],
+) {
     unsafe {
-        for _ in 0..16 {
-            match value & 15 {
-                0 => {
-                    dshot_bitbang_bits!(
-                        0, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                1 => {
-                    dshot_bitbang_bits!(
-                        1, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                2 => {
-                    dshot_bitbang_bits!(
-                        2, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                3 => {
-                    dshot_bitbang_bits!(
-                        3, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                4 => {
-                    dshot_bitbang_bits!(
-                        4, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                5 => {
-                    dshot_bitbang_bits!(
-                        5, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                6 => {
-                    dshot_bitbang_bits!(
-                        6, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                7 => {
-                    dshot_bitbang_bits!(
-                        7, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                8 => {
-                    dshot_bitbang_bits!(
-                        8, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                9 => {
-                    dshot_bitbang_bits!(
-                        9, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                10 => {
-                    dshot_bitbang_bits!(
-                        10, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                11 => {
-                    dshot_bitbang_bits!(
-                        11, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                12 => {
-                    dshot_bitbang_bits!(
-                        12, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                13 => {
-                    dshot_bitbang_bits!(
-                        13, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                14 => {
-                    dshot_bitbang_bits!(
-                        14, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                15 => {
-                    dshot_bitbang_bits!(
-                        15, bsrrs[0], bits[0], bsrrs[1], bits[1], bsrrs[2], bits[2], bsrrs[3],
-                        bits[3]
-                    );
-                }
-                _ => todo!(),
-            }
-            value >>= 4;
+        for bsrr in mid_bsrrs {
+            port_bsrr.write_value(start_bsrr);
+            dshot_nop_0!();
+            port_bsrr.write_value(bsrr);
+            dshot_nop_0_to_1!();
+            port_bsrr.write_value(end_bsrr);
+            dshot_nop_remainder!();
         }
     }
 }

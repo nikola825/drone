@@ -6,7 +6,7 @@ use embassy_stm32::{
 };
 use embassy_time::{Duration, Instant, Timer};
 
-use crate::dshot::{dshot_send, dshot_send_values};
+use crate::dshot::{dshot_send_parallel, dshot_send_single};
 
 #[derive(Clone, Copy)]
 #[allow(dead_code, non_camel_case_types)]
@@ -112,7 +112,7 @@ impl Motor {
     }
 
     fn send_value(&self, value: u16) {
-        dshot_send(GPIO(self.port as _).bsrr(), self.pin as _, value);
+        dshot_send_single(GPIO(self.port as _).bsrr(), self.pin as _, value);
     }
 
     fn send_command(&self, command: DshotCommand) {
@@ -185,62 +185,40 @@ impl Motor {
             .await;
     }
 
-    pub fn multi_throttle(
-        motor0: &Self,
-        motor1: &Self,
-        motor2: &Self,
-        motor3: &Self,
-        mut throttle0: u16,
-        mut throttle1: u16,
-        mut throttle2: u16,
-        mut throttle3: u16,
-    ) {
-        if throttle0 > 0 {
-            throttle0 += 48;
+    pub fn multi_throttle(motors: [&Self; 4], mut throttles: [u16; 4]) {
+        for throttle in &mut throttles {
+            if *throttle > 0 {
+                *throttle += 48;
+            }
         }
 
-        if throttle1 > 0 {
-            throttle1 += 48;
-        }
-
-        if throttle2 > 0 {
-            throttle2 += 48;
-        }
-
-        if throttle3 > 0 {
-            throttle3 += 48;
-        }
-
-        Self::multi_send(
-            motor0, motor1, motor2, motor3, throttle0, throttle1, throttle2, throttle3,
-        );
+        Self::multi_send(motors, throttles);
     }
 
-    pub fn multi_send(
-        motor0: &Self,
-        motor1: &Self,
-        motor2: &Self,
-        motor3: &Self,
-        value0: u16,
-        value1: u16,
-        value2: u16,
-        value3: u16,
-    ) {
-        dshot_send_values(
-            [
-                GPIO(motor0.port as _).bsrr(),
-                GPIO(motor1.port as _).bsrr(),
-                GPIO(motor2.port as _).bsrr(),
-                GPIO(motor3.port as _).bsrr(),
-            ],
-            [
-                motor0.pin as _,
-                motor1.pin as _,
-                motor2.pin as _,
-                motor3.pin as _,
-            ],
-            [value0, value1, value2, value3],
-        );
+    pub fn multi_send(motors: [&Self; 4], values: [u16; 4]) {
+        if (motors[0].port == motors[1].port)
+            && (motors[0].port == motors[2].port)
+            && (motors[0].port == motors[3].port)
+        {
+            // If all the motors are on the same port
+            // We can do a parallel bitbang
+            dshot_send_parallel(
+                GPIO(motors[0].port as _).bsrr(),
+                [
+                    motors[0].pin as _,
+                    motors[1].pin as _,
+                    motors[2].pin as _,
+                    motors[3].pin as _,
+                ],
+                values,
+            );
+        } else {
+            // If the motors are on different ports, bitbang them independently
+            motors[0].send_value(values[0]);
+            motors[1].send_value(values[1]);
+            motors[2].send_value(values[2]);
+            motors[3].send_value(values[3]);
+        }
     }
 }
 
@@ -249,14 +227,13 @@ async fn gentle_stop(current_thrust: u16, context: &mut MotorsContext) {
 
     while thrust_target > 200 {
         Motor::multi_throttle(
-            &context.front_left,
-            &context.front_right,
-            &context.rear_left,
-            &context.rear_right,
-            thrust_target,
-            thrust_target,
-            thrust_target,
-            thrust_target,
+            [
+                &context.front_left,
+                &context.front_right,
+                &context.rear_left,
+                &context.rear_right,
+            ],
+            [thrust_target; 4],
         );
 
         Timer::after_millis(100).await;
@@ -270,14 +247,13 @@ async fn gentle_stop(current_thrust: u16, context: &mut MotorsContext) {
 
 fn zero_throttle(context: &MotorsContext) {
     Motor::multi_throttle(
-        &context.front_left,
-        &context.front_right,
-        &context.rear_left,
-        &context.rear_right,
-        0,
-        0,
-        0,
-        0,
+        [
+            &context.front_left,
+            &context.front_right,
+            &context.rear_left,
+            &context.rear_right,
+        ],
+        [0; 4],
     );
 }
 
@@ -327,16 +303,19 @@ pub fn drive(context: &mut MotorsContext, inputs: &MotorInputs) {
         let rear_right: i16 = (thrust - roll_input + pitch_input + yaw_input) / 4;
 
         Motor::multi_throttle(
-            &context.front_left,
-            &context.front_right,
-            &context.rear_left,
-            &context.rear_right,
-            min(front_left as u16, 0),
-            min(front_right as u16, 1990),
-            min(rear_left as u16, 1990),
-            min(rear_right as u16, 1990),
+            [
+                &context.front_left,
+                &context.front_right,
+                &context.rear_left,
+                &context.rear_right,
+            ],
+            [
+                min(front_left as u16, 1990),
+                min(front_right as u16, 1990),
+                min(rear_left as u16, 1990),
+                min(rear_right as u16, 1990),
+            ],
         );
-
     } else {
         zero_throttle(context);
     }

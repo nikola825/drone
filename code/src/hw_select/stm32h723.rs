@@ -207,3 +207,24 @@ macro_rules! get_hardware {
         }
     }};
 }
+
+#[macro_export]
+macro_rules! dshot_nop_0 {
+    () => {
+        nop127!();
+    };
+}
+
+#[macro_export]
+macro_rules! dshot_nop_0_to_1 {
+    () => {
+        nop127!();
+    };
+}
+
+#[macro_export]
+macro_rules! dshot_nop_remainder {
+    () => {
+        nop70!();
+    };
+}
