@@ -16,6 +16,7 @@ use navigation::{navigate, NavigationContext};
 use storage::Store;
 
 mod battery_monitor;
+mod crc8;
 mod crsf;
 mod dshot;
 mod hw_select;
@@ -26,7 +27,6 @@ mod msp_osd;
 mod navigation;
 mod nopdelays;
 mod storage;
-mod crc8;
 
 struct DroneContext {
     arming_context: ArmingContext,

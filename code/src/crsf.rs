@@ -31,27 +31,27 @@ enum CRSFFrameType {
 
 #[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout)]
 #[repr(C)]
-struct CRSFPacket<T>
+struct CRSFPacket<Payload>
 where
-    T: TryFromBytes + IntoBytes + Immutable + KnownLayout + Unaligned + Clone,
+    Payload: TryFromBytes + IntoBytes + Immutable + KnownLayout + Unaligned + Clone,
 {
     sync: u8,
     len: u8,
     frame_type: CRSFFrameType,
-    inner: T,
+    payload: Payload,
     crc8: u8,
 }
 
-impl<T> CRSFPacket<T>
+impl<Payload> CRSFPacket<Payload>
 where
-    T: TryFromBytes + IntoBytes + Immutable + KnownLayout + Unaligned + Clone,
+    Payload: TryFromBytes + IntoBytes + Immutable + KnownLayout + Unaligned + Clone,
 {
-    fn new(frame_type: CRSFFrameType, inner: T) -> Self {
+    fn new(frame_type: CRSFFrameType, payload: Payload) -> Self {
         let mut packet = CRSFPacket {
             sync: CRSF_FRAME_SYNC_BYTE,
-            len: (size_of::<T>() + 2) as u8,
+            len: (size_of::<Payload>() + 2) as u8,
             frame_type,
-            inner,
+            payload,
             crc8: 0,
         };
         packet.update_crc();
@@ -71,11 +71,11 @@ where
         self.crc8 == crc
     }
 
-    fn deserialize(bytes: &[u8]) -> Option<T> {
+    fn deserialize(bytes: &[u8]) -> Option<Payload> {
         let deserialized = Self::try_ref_from_prefix(bytes);
         if let Ok(deserialized) = deserialized {
             if deserialized.0.validate_crc() {
-                return Some(deserialized.0.inner.clone());
+                return Some(deserialized.0.payload.clone());
             }
         }
         None
