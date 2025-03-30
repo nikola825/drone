@@ -1,6 +1,7 @@
 use core::{
     cmp::{max, min},
     marker::PhantomData,
+    mem::offset_of,
 };
 use num_traits::float::FloatCore;
 use zerocopy::{little_endian, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
@@ -76,7 +77,10 @@ impl<Payload: MSPMessagePayload> Default for MSPHeader<Payload> {
 #[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct MSPMessage<Payload: MSPMessagePayload> {
-    header: MSPHeader<Payload>,
+    preamble: [u8; 2],
+    direction: u8,
+    len: u8,
+    message_type: MSPMessageType,
     payload: Payload,
     xor: u8,
 }
@@ -84,12 +88,17 @@ struct MSPMessage<Payload: MSPMessagePayload> {
 impl<Payload: MSPMessagePayload> MSPMessage<Payload> {
     fn new(payload: Payload) -> Self {
         let mut message = MSPMessage {
-            header: MSPHeader::default(),
+            preamble: *b"$M",
+            direction: b'>',
+            len: (size_of::<Payload>() as u8),
+            message_type: Payload::message_type(),
             payload,
             xor: 0u8,
         };
 
-        message.xor = message.as_bytes()[3..]
+        let xorred_part_start = offset_of!(MSPMessage<Payload>, len);
+
+        message.xor = message.as_bytes()[xorred_part_start..]
             .iter()
             .fold(0u8, |accumulator, element| accumulator ^ *element);
 
