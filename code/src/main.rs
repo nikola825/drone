@@ -26,6 +26,7 @@ mod msp_osd;
 mod navigation;
 mod nopdelays;
 mod storage;
+mod crc8;
 
 struct DroneContext {
     arming_context: ArmingContext,

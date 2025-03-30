@@ -1,7 +1,7 @@
 use core::cmp::{max, min};
 use num_traits::float::FloatCore;
 
-use crate::{hw_select::UartMaker, logging::info, storage::Store};
+use crate::{hw_select::UartMaker, logging::info, storage::Store, ArmingContext};
 use embassy_stm32::{
     mode::Async,
     usart::{Parity, StopBits, UartRx, UartTx},
@@ -171,27 +171,56 @@ pub async fn make_msp_uart_pair(
     (rx, tx)
 }
 
+fn float_to_byte_string(value: f32, byte_string: &mut [u8]) {
+    let value = (value * 100f32).round() as i32;
+    let value = min(value, 9999);
+    let mut value = max(0, value);
+
+    byte_string[4] = b'0' + (value % 10) as u8;
+    value /= 10;
+    byte_string[3] = b'0' + (value % 10) as u8;
+    value /= 10;
+    byte_string[2] = b'.';
+    byte_string[1] = b'0' + (value % 10) as u8;
+    value /= 10;
+    byte_string[0] = b'0' + (value % 10) as u8;
+}
+
+fn uint_to_byte_string(mut value: u8, byte_string: &mut [u8]) {
+    byte_string[2] = b'0' + (value % 10);
+    value /= 10;
+    byte_string[1] = b'0' + (value % 10);
+    value /= 10;
+    byte_string[0] = b'0' + (value % 10);
+
+    for character in &mut byte_string[0..2] {
+        if *character == b'0' {
+            *character = b' ';
+        } else {
+            break;
+        }
+    }
+}
+
 async fn draw_status_osd(
     tx: &mut UartTx<'static, Async>,
     bat_voltage: f32,
+    link_quality: u8,
+    rssi: u8,
 ) -> Result<(), embassy_stm32::usart::Error> {
     let mut bat_string = *b"\x9000.00\x06";
+    let mut link_quality_string = *b"\x90000\x06";
+    let mut rssi_string = *b"\x90000\x06";
 
-    let bat_voltage = (bat_voltage * 100f32).round() as i32;
-    let bat_voltage = min(bat_voltage, 9999);
-    let mut bat_voltage = max(0, bat_voltage);
-
-    bat_string[5] = 48u8 + (bat_voltage % 10) as u8;
-    bat_voltage /= 10;
-    bat_string[4] = 48u8 + (bat_voltage % 10) as u8;
-    bat_voltage /= 10;
-    bat_string[2] = 48u8 + (bat_voltage % 10) as u8;
-    bat_voltage /= 10;
-    bat_string[1] = 48u8 + (bat_voltage % 10) as u8;
+    float_to_byte_string(bat_voltage, &mut bat_string[1..6]);
+    uint_to_byte_string(link_quality, &mut link_quality_string[1..4]);
+    uint_to_byte_string(rssi, &mut rssi_string[1..4]);
 
     clear_display(tx).await?;
     write_string(tx, 0, 0, &bat_string).await?;
-    write_string(tx, 1, 0, b"WORLD").await?;
+    write_string(tx, 1, 0, &link_quality_string).await?;
+    write_string(tx, 2, 0, &rssi_string).await?;
+    write_string(tx, 3, 0, b"WORLD").await?;
     draw_display(tx).await
 }
 
@@ -199,16 +228,32 @@ async fn draw_status_osd(
 #[embassy_executor::task]
 pub async fn osd_refresh_task(mut tx: UartTx<'static, Async>, store: &'static Store) {
     info!("OSD task start");
+    let mut arming_context = ArmingContext::default();
     loop {
-        let (throttle, yaw, pitch, roll) = (1500u16, 1500u16, 1500u16, 1500u16);
-        let armed = false;
+        let link_stats = store.get_link_state().await;
+        let command_inputs = store.channel_snapshot().await;
         let battery_voltage = store.get_voltage().await;
+        arming_context.update(&command_inputs);
+
+        let (throttle, yaw, pitch, roll) = (1500u16, 1500u16, 1500u16, 1500u16);
+        /*info!(
+            "LS {} {} {}",
+            battery_voltage,
+            arming_context.is_armed(),
+            link_stats.rssi1
+        );*/
 
         let _ = set_resolution(&mut tx, HDZeroResolution::HD_5018).await;
         let _ = transmit_fc_variant(&mut tx).await;
         let _ = transmit_sticks(&mut tx, throttle, yaw, pitch, roll).await;
-        let _ = transmit_status(&mut tx, armed).await;
-        let _ = draw_status_osd(&mut tx, battery_voltage).await;
+        let _ = transmit_status(&mut tx, arming_context.is_armed()).await;
+        let _ = draw_status_osd(
+            &mut tx,
+            battery_voltage,
+            link_stats.link_quality,
+            max(link_stats.rssi1, link_stats.rssi2),
+        )
+        .await;
         Timer::after_millis(100).await;
     }
 }

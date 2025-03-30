@@ -42,16 +42,16 @@ log = { version = "0.4", optional = true }
 defmt = { version = "0.3", optional = true }
 defmt-rtt = { version = "0.4", optional = true }
 
-cortex-m = { version = "0.7.6", features = [
+cortex-m = { version = "0.7.7", features = [
     "inline-asm",
     "critical-section-single-core",
 ] }
-cortex-m-rt = "0.7.0"
-embedded-hal = "0.2.6"
+cortex-m-rt = "0.7.5"
+embedded-hal = "1.0.0"
 embedded-io = { version = "0.6.0" }
 embedded-io-async = { version = "0.6.1" }
 panic-probe = { version = "0.3", features = ["print-defmt"] }
-zerocopy = { version = "0.7.35", features = ["derive", "byteorder"] }
+zerocopy = { version = "0.8.24", features = ["derive"] }
 
 [profile.release]
 debug = 2
@@ -68,4 +68,9 @@ default = ["usb-logging", "stm32h723"]
 stm32f411 = ["embassy-stm32/stm32f411ce"]
 stm32h723 = ["embassy-stm32/stm32h723vg"]
 rtt-logging = ["dep:defmt-rtt", "dep:defmt", "embassy-stm32/defmt"]
-usb-logging = ["dep:embassy-usb", "dep:embassy-usb-logger", "dep:log", "embassy-stm32/log"]
+usb-logging = [
+    "dep:embassy-usb",
+    "dep:embassy-usb-logger",
+    "dep:log",
+    "embassy-stm32/log",
+]

@@ -3,7 +3,7 @@ use embassy_stm32::{
     interrupt,
     mode::Async,
     pac::{gpio::vals::Pupdr, GPIO},
-    spi::{self, BitOrder, MisoPin, MosiPin, SckPin, Spi},
+    spi::{self, BitOrder, MisoPin, Mode, MosiPin, SckPin, Spi},
     time::Hertz,
     usart::{InterruptHandler, Parity, StopBits, Uart, UartRx, UartTx},
     usb::{DmPin, DpPin},
@@ -12,7 +12,6 @@ use embassy_stm32::{
 
 #[cfg(feature = "stm32h723")]
 pub mod stm32h723;
-use embedded_hal::spi::Mode;
 #[cfg(feature = "stm32h723")]
 pub use stm32h723::{AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
 

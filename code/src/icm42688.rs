@@ -1,12 +1,11 @@
 use embassy_stm32::{
     gpio::Output,
     mode::Async,
-    spi::{BitOrder, Spi},
+    spi::{BitOrder, Spi, MODE_3},
     time::Hertz,
 };
 use embassy_time::Timer;
-use embedded_hal::spi::MODE_3;
-use zerocopy::{big_endian, FromBytes, FromZeroes};
+use zerocopy::{big_endian, FromBytes, Immutable, KnownLayout};
 
 use crate::hw_select::SpiMaker;
 
@@ -62,7 +61,7 @@ enum ICM42688Register {
     GYRO_CONFIG_STATIC10 = 0x13,
 }
 
-#[derive(Default, FromBytes, FromZeroes)]
+#[derive(Default, FromBytes, KnownLayout, Immutable)]
 struct GyroOutputPack {
     x_out: big_endian::I16,
     y_out: big_endian::I16,
@@ -161,7 +160,7 @@ impl ICM42688 {
         let mut data = [0u8; 6];
         self.read_registers(ICM42688Register::GYRO_START, &mut data);
 
-        GyroOutputPack::ref_from(&data)
+        GyroOutputPack::ref_from_bytes(&data)
             .unwrap()
             .get_ypr_deg(self.gyro_fs_range)
     }

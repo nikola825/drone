@@ -1,6 +1,7 @@
 use core::cmp::{max, min};
 use num_traits::float::FloatCore;
 
+use crate::crc8::crc8_calculate;
 use crate::hw_select::UartMaker;
 use crate::logging::{error, info};
 use embassy_stm32::mode::Async;
@@ -10,59 +11,103 @@ use embassy_stm32::usart::{RingBufferedUartRx, StopBits, UartRx, UartTx};
 use embassy_time::{Duration, Instant, Ticker};
 use embedded_io::ReadExactError;
 use embedded_io_async::{Read, Write};
-use zerocopy::{big_endian, AsBytes, FromBytes, FromZeroes};
+use zerocopy::{big_endian, FromBytes, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
 
 use crate::storage::Store;
 
 const CRSF_FRAME_MAX_SIZE: usize = 64;
 const CRSF_FRAME_SYNC_BYTE: u8 = 0xc8;
-const CRSF_FRAMETYPE_LINK_STATISTICS: u8 = 0x14;
-const CRSF_FRAME_TYPE_RC_CHANNELS_PACKED: u8 = 0x16;
 
-#[derive(AsBytes, Default)]
+#[allow(non_camel_case_types)]
+#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[repr(u8)]
+enum CRSFFrameType {
+    CRSF_FRAMETYPE_BATTERY_SENSOR = 0x08,
+    #[allow(dead_code)]
+    CRSF_FRAMETYPE_LINK_STATISTICS = 0x14,
+    #[allow(dead_code)]
+    CRSF_FRAME_TYPE_RC_CHANNELS_PACKED = 0x16,
+}
+
+#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout)]
+#[repr(C)]
+struct CRSFPacket<T>
+where
+    T: TryFromBytes + IntoBytes + Immutable + KnownLayout + Unaligned + Clone,
+{
+    sync: u8,
+    len: u8,
+    frame_type: CRSFFrameType,
+    inner: T,
+    crc8: u8,
+}
+
+impl<T> CRSFPacket<T>
+where
+    T: TryFromBytes + IntoBytes + Immutable + KnownLayout + Unaligned + Clone,
+{
+    fn new(frame_type: CRSFFrameType, inner: T) -> Self {
+        let mut packet = CRSFPacket {
+            sync: CRSF_FRAME_SYNC_BYTE,
+            len: (size_of::<T>() + 2) as u8,
+            frame_type,
+            inner,
+            crc8: 0,
+        };
+        packet.update_crc();
+
+        packet
+    }
+
+    fn update_crc(&mut self) {
+        let bytes = self.as_bytes();
+        let crc = crc8_calculate(&bytes[2..bytes.len() - 1]);
+        self.crc8 = crc;
+    }
+
+    fn validate_crc(&self) -> bool {
+        let bytes = self.as_bytes();
+        let crc = crc8_calculate(&bytes[2..bytes.len() - 1]);
+        self.crc8 == crc
+    }
+
+    fn deserialize(bytes: &[u8]) -> Option<T> {
+        let deserialized = Self::try_ref_from_prefix(bytes);
+        if let Ok(deserialized) = deserialized {
+            if deserialized.0.validate_crc() {
+                return Some(deserialized.0.inner.clone());
+            }
+        }
+        None
+    }
+}
+
+#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone)]
 #[repr(C)]
 struct BatteryInfo {
     voltage: big_endian::I16,
     other_data: [u8; 6],
 }
 
-#[derive(AsBytes, Default)]
-#[repr(C)]
-struct BatPacket {
-    sync: u8,
-    len: u8,
-    typ: u8,
-    info: BatteryInfo,
-    crc8: u8,
-}
-
-impl BatPacket {
-    fn new(voltage: f32) -> Self {
-        let mut packet = BatPacket {
-            sync: 0xc8u8,
-            len: (size_of::<BatteryInfo>() + 2) as u8,
-            typ: 0x08u8,
-            info: BatteryInfo {
+impl BatteryInfo {
+    fn new(voltage: f32) -> CRSFPacket<Self> {
+        CRSFPacket::new(
+            CRSFFrameType::CRSF_FRAMETYPE_BATTERY_SENSOR,
+            BatteryInfo {
                 voltage: big_endian::I16::new((voltage * 10.0f32).round() as i16),
                 other_data: Default::default(),
             },
-            crc8: 0u8,
-        };
-
-        let buffer = packet.as_bytes();
-        let crc = crc8_calculate(&buffer[2..buffer.len() - 1]);
-        packet.crc8 = crc;
-        packet
+        )
     }
 }
 
-#[derive(FromBytes, FromZeroes, Default)]
+#[derive(FromBytes, IntoBytes, Default, Immutable, KnownLayout, Unaligned, Clone)]
 #[repr(C)]
 struct CRSFFramePackedChannels {
     packed: [u8; 22],
 }
 
-#[derive(FromBytes, FromZeroes, Default, Clone)]
+#[derive(FromBytes, IntoBytes, Default, Clone, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 pub struct CRSFFrameLinkStatistics {
     pub rssi1: u8,
@@ -200,28 +245,6 @@ impl CRSFChannels {
     }
 }
 
-fn crc8_process_byte(mut current: u8, byte: u8) -> u8 {
-    current ^= byte;
-    for _ in 0..8 {
-        if current & 0x80 != 0 {
-            current = (current << 1) ^ 0xD5;
-        } else {
-            current <<= 1;
-        }
-    }
-
-    current
-}
-
-fn crc8_calculate(buf: &[u8]) -> u8 {
-    let mut crc = 0u8;
-    for b in buf {
-        crc = crc8_process_byte(crc, *b);
-    }
-
-    crc
-}
-
 pub fn make_uart_pair(
     uart_maker: impl UartMaker,
 ) -> (UartRx<'static, Async>, UartTx<'static, Async>) {
@@ -270,27 +293,24 @@ async fn process_crsf_packet(
     let total_len = 2 + remainder_length;
     rx.read_exact(&mut command_buffer[2..total_len]).await?;
 
-    let crc = crc8_calculate(&command_buffer[2..total_len - 1]);
-    if crc != command_buffer[total_len - 1] {
-        return Ok(());
+    let frame_type = CRSFFrameType::try_read_from_bytes(&command_buffer[2..3]);
+    if let Ok(frame_type) = frame_type {
+        match frame_type {
+            CRSFFrameType::CRSF_FRAMETYPE_BATTERY_SENSOR => {}
+            CRSFFrameType::CRSF_FRAMETYPE_LINK_STATISTICS => {
+                process_link_statistics(&command_buffer, storage).await
+            }
+            CRSFFrameType::CRSF_FRAME_TYPE_RC_CHANNELS_PACKED => {
+                process_received_channels(&command_buffer, storage).await
+            }
+        }
     }
-
-    let msg_type = command_buffer[2];
-    match msg_type {
-        CRSF_FRAME_TYPE_RC_CHANNELS_PACKED => {
-            process_received_channels(&command_buffer[3..total_len - 1], storage).await
-        }
-        CRSF_FRAMETYPE_LINK_STATISTICS => {
-            process_link_statistics(&command_buffer[3..total_len - 1], storage).await
-        }
-        _ => {}
-    };
 
     Ok(())
 }
 
 async fn process_received_channels(buffer: &[u8], storage: &'static Store) {
-    let packed = CRSFFramePackedChannels::read_from(buffer);
+    let packed = CRSFPacket::<CRSFFramePackedChannels>::deserialize(buffer);
     if let Some(packed) = packed {
         let unpacked = packed.unpack();
         storage.update_channels(unpacked).await;
@@ -298,7 +318,7 @@ async fn process_received_channels(buffer: &[u8], storage: &'static Store) {
 }
 
 async fn process_link_statistics(buffer: &[u8], storage: &'static Store) {
-    let stats = CRSFFrameLinkStatistics::read_from(buffer);
+    let stats = CRSFPacket::<CRSFFrameLinkStatistics>::deserialize(buffer);
     if let Some(stats) = stats {
         storage.update_link_state(stats).await;
     }
@@ -312,7 +332,7 @@ pub async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, storage: &'stat
     loop {
         let measured_battery_voltage = storage.get_voltage().await;
 
-        let packet = BatPacket::new(measured_battery_voltage);
+        let packet = BatteryInfo::new(measured_battery_voltage);
 
         let _ = tx.write_all(packet.as_bytes()).await;
 
