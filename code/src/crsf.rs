@@ -16,6 +16,7 @@ use crate::storage::Store;
 
 const CRSF_FRAME_MAX_SIZE: usize = 64;
 const CRSF_FRAME_SYNC_BYTE: u8 = 0xc8;
+const CRSF_FRAMETYPE_LINK_STATISTICS: u8 = 0x14;
 const CRSF_FRAME_TYPE_RC_CHANNELS_PACKED: u8 = 0x16;
 
 #[derive(AsBytes, Default)]
@@ -58,11 +59,22 @@ impl BatPacket {
 #[derive(FromBytes, FromZeroes, Default)]
 #[repr(C)]
 struct CRSFFramePackedChannels {
-    sync: u8,
-    length: u8,
-    frame_type: u8,
     packed: [u8; 22],
-    crc8: u8,
+}
+
+#[derive(FromBytes, FromZeroes, Default, Clone)]
+#[repr(C)]
+pub struct CRSFFrameLinkStatistics {
+    pub rssi1: u8,
+    pub rssi2: u8,
+    pub link_quality: u8,
+    pub snr: i8,
+    pub active_antenna: u8,
+    pub rf_mode: u8,
+    pub tx_power: u8,
+    pub telemetry_rssi: u8,
+    pub telemetry_lq: u8,
+    pub telemetry_snr: i8,
 }
 
 impl CRSFFramePackedChannels {
@@ -226,46 +238,70 @@ pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, storage: &'static St
 
     loop {
         {
-            match read_next_command(&mut rx).await {
-                Ok(channels) => {
-                    if let Some(channels) = channels {
-                        storage.update_channels(channels).await;
-                    }
-                }
-                Err(e) => {
+            process_crsf_packet(&mut rx, storage)
+                .await
+                .inspect_err(|err| {
                     // log the error and reset UART
-                    error!("CRSF receive UART error {}", e);
+                    error!("CRSF receive UART error {}", err);
                     rx.start_uart();
-                }
-            }
+                })
+                .ok();
         }
     }
 }
 
-async fn read_next_command(
+async fn process_crsf_packet(
     rx: &mut RingBufferedUartRx<'_>,
-) -> Result<Option<CRSFChannels>, ReadExactError<embassy_stm32::usart::Error>> {
+    storage: &'static Store,
+) -> Result<(), ReadExactError<embassy_stm32::usart::Error>> {
     let mut command_buffer = [0u8; CRSF_FRAME_MAX_SIZE];
     rx.read_exact(&mut command_buffer[0..1]).await?;
-    if command_buffer[0] == CRSF_FRAME_SYNC_BYTE {
-        rx.read_exact(&mut command_buffer[1..2]).await?;
-        let remainder_length = command_buffer[1] as usize;
-        if remainder_length + 2 <= CRSF_FRAME_MAX_SIZE {
-            let total_len = 2 + remainder_length;
-            rx.read_exact(&mut command_buffer[2..total_len]).await?;
 
-            let crc = crc8_calculate(&command_buffer[2..total_len - 1]);
-            if crc == command_buffer[total_len - 1] {
-                let msg_type = command_buffer[2];
-                if msg_type == CRSF_FRAME_TYPE_RC_CHANNELS_PACKED {
-                    let packed =
-                        CRSFFramePackedChannels::read_from(&command_buffer[0..total_len]).unwrap();
-                    return Ok(Some(packed.unpack()));
-                }
-            }
-        }
+    if command_buffer[0] != CRSF_FRAME_SYNC_BYTE {
+        return Ok(());
     }
-    Ok(None)
+
+    rx.read_exact(&mut command_buffer[1..2]).await?;
+    let remainder_length = command_buffer[1] as usize;
+    if remainder_length > CRSF_FRAME_MAX_SIZE {
+        return Ok(());
+    }
+
+    let total_len = 2 + remainder_length;
+    rx.read_exact(&mut command_buffer[2..total_len]).await?;
+
+    let crc = crc8_calculate(&command_buffer[2..total_len - 1]);
+    if crc != command_buffer[total_len - 1] {
+        return Ok(());
+    }
+
+    let msg_type = command_buffer[2];
+    match msg_type {
+        CRSF_FRAME_TYPE_RC_CHANNELS_PACKED => {
+            process_received_channels(&command_buffer[3..total_len - 1], storage).await
+        }
+        CRSF_FRAMETYPE_LINK_STATISTICS => {
+            process_link_statistics(&command_buffer[3..total_len - 1], storage).await
+        }
+        _ => {}
+    };
+
+    Ok(())
+}
+
+async fn process_received_channels(buffer: &[u8], storage: &'static Store) {
+    let packed = CRSFFramePackedChannels::read_from(buffer);
+    if let Some(packed) = packed {
+        let unpacked = packed.unpack();
+        storage.update_channels(unpacked).await;
+    }
+}
+
+async fn process_link_statistics(buffer: &[u8], storage: &'static Store) {
+    let stats = CRSFFrameLinkStatistics::read_from(buffer);
+    if let Some(stats) = stats {
+        storage.update_link_state(stats).await;
+    }
 }
 
 #[embassy_executor::task]

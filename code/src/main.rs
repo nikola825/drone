@@ -10,7 +10,7 @@ use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Instant, Ticker, Timer};
 use icm42688::ICM42688;
 use logging::{info, init_logging};
-use motors::{disarm, drive, Motor, MotorInputs, MotorsContext};
+use motors::{disarm, drive, Motor, MotorsContext};
 use msp_osd::osd_refresh_task;
 use navigation::{navigate, NavigationContext};
 use storage::Store;
@@ -28,16 +28,25 @@ mod nopdelays;
 mod storage;
 
 struct DroneContext {
-    armed: bool,
+    arming_context: ArmingContext,
     motor_context: MotorsContext,
     navigation_context: NavigationContext,
 }
 
-impl DroneContext {
-    fn update_armed(&mut self, commands: &CRSFChannels) {
+#[derive(Default)]
+pub struct ArmingContext {
+    armed: bool,
+}
+
+impl ArmingContext {
+    fn update(&mut self, commands: &CRSFChannels) {
         let stay_armed = self.armed & commands.armed();
         let arm_at_zero = commands.armed() && commands.throttle() < 10;
         self.armed = commands.is_fresh() && (stay_armed || arm_at_zero);
+    }
+
+    fn is_armed(&self) -> bool {
+        self.armed
     }
 }
 
@@ -61,10 +70,10 @@ async fn main(_spawner: Spawner) {
 
     yellow.set_high();
 
-    let front_left = Motor::new(hardware.motor0_pin);
-    let front_right = Motor::new(hardware.motor3_pin);
-    let rear_left = Motor::new(hardware.motor2_pin);
-    let rear_right = Motor::new(hardware.motor1_pin);
+    let front_left = Motor::new(hardware.motor2_pin);
+    let front_right = Motor::new(hardware.motor0_pin);
+    let rear_left = Motor::new(hardware.motor1_pin);
+    let rear_right = Motor::new(hardware.motor3_pin);
 
     let (crsf_rx, crsf_tx) = crsf::make_uart_pair(hardware.extra.uart7);
 
@@ -86,11 +95,14 @@ async fn main(_spawner: Spawner) {
         .spawn(osd_refresh_task(msp_tx, STORE.get()))
         .unwrap();
 
+    // motor_reset(&front_left, &front_right, &rear_left, &rear_right).await;
+
     let context = DroneContext {
-        armed: false,
+        arming_context: ArmingContext::default(),
         motor_context: MotorsContext::new(front_left, front_right, rear_left, rear_right),
         navigation_context: NavigationContext::new(),
     };
+
     _spawner
         .spawn(tick_task(blue, green, yellow, imu, context, STORE.get()))
         .unwrap();
@@ -117,29 +129,28 @@ async fn tick_task(
     let mut duration = 0f32;
     loop {
         let t1 = Instant::now();
-        let snapshot = store.channel_snapshot().await;
-        let command_inputs = &snapshot.channels;
+        let command_inputs = store.channel_snapshot().await;
 
-        context.update_armed(command_inputs);
+        context.arming_context.update(&command_inputs);
 
-        green_led.set_level(match context.armed {
+        green_led.set_level(match context.arming_context.is_armed() {
             true => Level::High,
             false => Level::Low,
         });
 
-        yellow_led.set_level(match context.armed {
+        yellow_led.set_level(match context.arming_context.is_armed() {
             true => Level::Low,
             false => Level::High,
         });
 
-        blue_led.set_level(match snapshot.channels.is_fresh() {
+        blue_led.set_level(match command_inputs.is_fresh() {
             true => Level::High,
             false => Level::Low,
         });
 
-        let motor_inputs = navigate(&mut imu, &mut context.navigation_context, command_inputs);
+        let motor_inputs = navigate(&mut imu, &mut context.navigation_context, &command_inputs);
 
-        if context.armed {
+        if context.arming_context.is_armed() {
             drive(&mut context.motor_context, &motor_inputs);
         } else {
             disarm(
@@ -156,7 +167,15 @@ async fn tick_task(
         print_counter += 1;
         if print_counter > 800 * (1000 / PID_PERIOD_US) {
             print_counter = 0;
-            info!("TICK {} {:?} {} {} {} {}", duration, imu.get_ypr_deg(), motor_inputs.motor_thrust, motor_inputs.pitch_input, motor_inputs.roll_input, motor_inputs.yaw_input);
+            info!(
+                "TICK {} {:?} {} {} {} {}",
+                duration,
+                imu.get_ypr_deg(),
+                motor_inputs.motor_thrust,
+                motor_inputs.pitch_input,
+                motor_inputs.roll_input,
+                motor_inputs.yaw_input
+            );
         }
 
         ticker.next().await;
@@ -170,7 +189,7 @@ async fn motor_reset(
     rear_left: &Motor,
     rear_right: &Motor,
 ) {
-    loop {
+    for _ in 0..5 {
         info!("BEGINNING RESET");
         info!("Front left");
         front_left.disable_3d_mode().await;
@@ -187,7 +206,7 @@ async fn motor_reset(
         info!("Rear left");
         rear_left.disable_3d_mode().await;
         rear_left
-            .set_direction(motors::MotorDirection::Forward)
+            .set_direction(motors::MotorDirection::Backward)
             .await;
 
         info!("Rear right");
