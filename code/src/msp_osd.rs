@@ -13,6 +13,8 @@ use embassy_stm32::{
 };
 use embassy_time::Timer;
 
+const FC_VARIANT: &[u8; 4] = b"BTFL";
+
 trait MSPMessagePayload: TryFromBytes + IntoBytes + Immutable + KnownLayout + Unaligned {
     fn message_type() -> MSPMessageType;
 }
@@ -128,24 +130,21 @@ impl<Payload: MSPDisplayPortmessagePayload> MSPDisplayPortmessage<Payload> {
     }
 }
 
-const FC_VARIANT: [u8; 4] = *b"BTFL";
 #[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
-struct FcVariantMessage {
-    variant: [u8; 4],
+struct FcVariantMessage<const STRING_LEN: usize> {
+    variant: [u8; STRING_LEN],
 }
 
-impl Default for FcVariantMessage {
-    fn default() -> Self {
-        Self {
-            variant: FC_VARIANT,
-        }
+impl<const STRING_LEN: usize> MSPMessagePayload for FcVariantMessage<STRING_LEN> {
+    fn message_type() -> MSPMessageType {
+        MSPMessageType::FC_VARIANT
     }
 }
 
-impl MSPMessagePayload for FcVariantMessage {
-    fn message_type() -> MSPMessageType {
-        MSPMessageType::FC_VARIANT
+impl<const STRING_LEN: usize> FcVariantMessage<STRING_LEN> {
+    fn new(variant: &[u8; STRING_LEN]) -> Self {
+        Self { variant: *variant }
     }
 }
 
@@ -275,7 +274,7 @@ async fn transmit_displayport_message<Payload: MSPDisplayPortmessagePayload>(
 async fn transmit_fc_variant(
     tx: &mut UartTx<'static, Async>,
 ) -> Result<(), embassy_stm32::usart::Error> {
-    transmit_msp_message(tx, FcVariantMessage::default()).await
+    transmit_msp_message(tx, FcVariantMessage::new(FC_VARIANT)).await
 }
 
 async fn transmit_status(
