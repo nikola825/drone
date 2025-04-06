@@ -20,11 +20,13 @@ pub mod stm32f411;
 #[cfg(feature = "stm32f411")]
 pub use stm32f411::{AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
 
-pub fn gpio_block(n: usize) -> embassy_stm32::pac::gpio::Gpio {
+pub fn get_pin_gpio<T: Pin>(pin: &T) -> embassy_stm32::pac::gpio::Gpio {
     {
         unsafe {
             {
-                embassy_stm32::pac::gpio::Gpio::from_ptr((1476526080usize + 1024usize * n) as _)
+                embassy_stm32::pac::gpio::Gpio::from_ptr(
+                    (1476526080usize + 1024usize * (pin.port() as usize)) as _,
+                )
             }
         }
     }
@@ -80,7 +82,7 @@ impl<
         uart_config.parity = parity;
         uart_config.stop_bits = stop_bits;
 
-        let rx_port = self.rx_pin.port();
+        let rx_gpio = get_pin_gpio(&self.rx_pin);
         let rx_pin_number = self.rx_pin.pin();
 
         let uart = Uart::new(
@@ -95,7 +97,7 @@ impl<
         .unwrap();
 
         if rx_pullup {
-            gpio_block(rx_port as usize)
+            rx_gpio
                 .pupdr()
                 .modify(|w| w.set_pupdr(rx_pin_number as usize, Pupdr::PULL_UP));
         }
