@@ -2,7 +2,7 @@ use embassy_stm32::{
     gpio::{Output, Pin},
     interrupt,
     mode::Async,
-    pac::{gpio::vals::Pupdr, GPIO},
+    pac::gpio::vals::Pupdr,
     spi::{self, BitOrder, MisoPin, Mode, MosiPin, SckPin, Spi},
     time::Hertz,
     usart::{InterruptHandler, Parity, StopBits, Uart, UartRx, UartTx},
@@ -19,6 +19,16 @@ pub use stm32h723::{AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHER
 pub mod stm32f411;
 #[cfg(feature = "stm32f411")]
 pub use stm32f411::{AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
+
+pub fn gpio_block(n: usize) -> embassy_stm32::pac::gpio::Gpio {
+    {
+        unsafe {
+            {
+                embassy_stm32::pac::gpio::Gpio::from_ptr((1476526080usize + 1024usize * n) as _)
+            }
+        }
+    }
+}
 
 pub struct UartHardware<
     UartType: embassy_stm32::usart::Instance + 'static,
@@ -85,9 +95,9 @@ impl<
         .unwrap();
 
         if rx_pullup {
-            GPIO(rx_port as usize)
+            gpio_block(rx_port as usize)
                 .pupdr()
-                .modify(|w| w.set_pupdr(rx_pin_number as usize, Pupdr::PULLUP));
+                .modify(|w| w.set_pupdr(rx_pin_number as usize, Pupdr::PULL_UP));
         }
 
         let (tx, rx) = uart.split();

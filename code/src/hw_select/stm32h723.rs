@@ -138,7 +138,7 @@ pub fn make_peripherals() -> Peripherals {
 
     VREFBUF.csr().modify(|x| {
         x.set_envr(false);
-        x.set_hiz(embassy_stm32::pac::vrefbuf::vals::Hiz::HIGHZ);
+        x.set_hiz(embassy_stm32::pac::vrefbuf::vals::Hiz::HIGH_Z);
     });
     peripherals
 }

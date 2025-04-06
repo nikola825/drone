@@ -1,12 +1,12 @@
 use core::cmp::min;
 
-use embassy_stm32::{
-    gpio::{Level, Output, Pin},
-    pac::GPIO,
-};
+use embassy_stm32::gpio::{Level, Output, Pin};
 use embassy_time::{Duration, Instant, Timer};
 
-use crate::dshot::{dshot_send_parallel, dshot_send_single};
+use crate::{
+    dshot::{dshot_send_parallel, dshot_send_single},
+    hw_select::gpio_block,
+};
 
 #[derive(Clone, Copy)]
 #[allow(dead_code, non_camel_case_types)]
@@ -112,7 +112,7 @@ impl Motor {
     }
 
     fn send_value(&self, value: u16) {
-        dshot_send_single(GPIO(self.port as _).bsrr(), self.pin as _, value);
+        dshot_send_single(gpio_block(self.port as _).bsrr(), self.pin as _, value);
     }
 
     fn send_command(&self, command: DshotCommand) {
@@ -203,7 +203,7 @@ impl Motor {
             // If all the motors are on the same port
             // We can do a parallel bitbang
             dshot_send_parallel(
-                GPIO(motors[0].port as _).bsrr(),
+                gpio_block(motors[0].port as _).bsrr(),
                 [
                     motors[0].pin as _,
                     motors[1].pin as _,
