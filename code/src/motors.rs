@@ -1,5 +1,3 @@
-use core::cmp::min;
-
 use embassy_stm32::{
     gpio::{Level, Output, Pin},
     pac::gpio::Gpio,
@@ -313,10 +311,10 @@ pub fn drive(context: &mut MotorsContext, inputs: &MotorInputs) {
                 &context.rear_right,
             ],
             [
-                min(front_left as u16, 1990),
-                min(front_right as u16, 1990),
-                min(rear_left as u16, 1990),
-                min(rear_right as u16, 1990),
+                front_left.clamp(0, 1990) as u16,
+                front_right.clamp(0, 1990) as u16,
+                rear_left.clamp(0, 1990) as u16,
+                rear_right.clamp(0, 1990) as u16,
             ],
         );
     } else {

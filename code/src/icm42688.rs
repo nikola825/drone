@@ -98,7 +98,7 @@ impl ICM42688 {
             spi,
             cs_pin,
             gyro_output_rate: GYRO_ODR::ODR_1KHz,
-            gyro_fs_range: GYRO_FS_SEL::DPS_1000,
+            gyro_fs_range: GYRO_FS_SEL::DPS_2000,
         }
     }
 

@@ -16,9 +16,11 @@ use navigation::{navigate, NavigationContext};
 use storage::Store;
 
 mod battery_monitor;
+mod channel_mapping;
 mod crc8;
 mod crsf;
 mod dshot;
+mod expo_rates;
 mod hw_select;
 mod icm42688;
 mod logging;

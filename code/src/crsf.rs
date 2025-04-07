@@ -1,4 +1,4 @@
-use core::cmp::{max, min};
+use core::cmp::min;
 use num_traits::float::FloatCore;
 
 use crate::crc8::crc8_calculate;
@@ -17,6 +17,10 @@ use crate::storage::Store;
 
 const CRSF_FRAME_MAX_SIZE: usize = 64;
 const CRSF_FRAME_SYNC_BYTE: u8 = 0xc8;
+
+pub const CRSF_COMMAND_MIN: u16 = 172;
+pub const CRSF_COMMAND_MAX: u16 = 1811;
+pub const CRSF_COMMAND_RANGE: f32 = (CRSF_COMMAND_MAX - CRSF_COMMAND_MIN) as f32;
 
 #[allow(non_camel_case_types)]
 #[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
@@ -170,7 +174,7 @@ impl CRSFFramePackedChannels {
 
 #[derive(Clone)]
 pub struct CRSFChannels {
-    unpacked_channels: [u16; 16],
+    pub unpacked_channels: [u16; 16],
     populated: bool,
     timestamp: Instant,
 }
@@ -186,73 +190,11 @@ impl Default for CRSFChannels {
 }
 
 impl CRSFChannels {
-    pub fn throttle(&self) -> u16 {
-        CRSFChannels::range_transform(self.unpacked_channels[2], 172, 1811, 0, 6000, 0, 10) as u16
-    }
-
-    pub fn armed(&self) -> bool {
-        CRSFChannels::range_transform(self.unpacked_channels[4], 172, 1811, 0, 2, 0, -1) > 0
-    }
-
-    pub fn roll(&self) -> i32 {
-        CRSFChannels::range_transform(self.unpacked_channels[0], 172, 1811, -360, 360, 0, 2)
-    }
-
-    pub fn pitch(&self) -> i32 {
-        CRSFChannels::range_transform(self.unpacked_channels[1], 172, 1811, -360, 360, 0, 2)
-    }
-
-    pub fn yaw(&self) -> i32 {
-        -CRSFChannels::range_transform(self.unpacked_channels[3], 172, 1811, -360, 360, 0, 2)
-    }
-
-    #[allow(dead_code)]
-    pub fn aux1(&self) -> u16 {
-        CRSFChannels::range_transform(self.unpacked_channels[5], 172, 1811, 0, 128, 0, -1) as u16
-    }
-
-    #[allow(dead_code)]
-    pub fn aux2(&self) -> u16 {
-        CRSFChannels::range_transform(self.unpacked_channels[6], 172, 1811, 0, 128, 0, -1) as u16
-    }
-
-    #[allow(dead_code)]
-    pub fn beep(&self) -> bool {
-        CRSFChannels::range_transform(self.unpacked_channels[7], 172, 1811, 0, 2, 0, -1) > 0
-    }
-
     pub fn is_fresh(&self) -> bool {
         let now = Instant::now();
         let age = now - self.timestamp;
 
         self.populated && now > self.timestamp && age < Duration::from_millis(100)
-    }
-
-    fn range_transform(
-        value: u16,
-        in_low: u16,
-        in_high: u16,
-        out_low: i32,
-        out_high: i32,
-        out_deadpoint: i32,
-        out_deadrange: i32,
-    ) -> i32 {
-        if value < in_low {
-            out_low
-        } else if value > in_high {
-            out_high
-        } else {
-            let t1: i32 = (value - in_low) as i32;
-            let in_range: i32 = (in_high - in_low) as i32;
-            let out_range: i32 = out_high - out_low;
-
-            let mut t1 = (out_low) + (t1 * out_range) / in_range;
-            if (t1 - out_deadpoint).abs() < out_deadrange {
-                t1 = out_deadpoint
-            }
-
-            min(max(t1, out_low), out_high)
-        }
     }
 }
 
