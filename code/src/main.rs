@@ -10,10 +10,10 @@ use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Instant, Ticker, Timer};
 use icm42688::ICM42688;
 use logging::{info, init_logging};
-use motors::{disarm, drive, Motor, MotorsContext};
+use motors::{disarm, drive_motors, Motor, MotorsContext};
 use msp_osd::osd_refresh_task;
-use navigation::{navigate, NavigationContext};
-use storage::Store;
+use pid::{do_pid_iteration, PidContext};
+use shared_state::SharedState;
 
 mod battery_monitor;
 mod channel_mapping;
@@ -26,36 +26,34 @@ mod icm42688;
 mod logging;
 mod motors;
 mod msp_osd;
-mod navigation;
 mod nopdelays;
-mod storage;
+mod pid;
+mod shared_state;
 
 struct DroneContext {
-    arming_context: ArmingContext,
+    arming_checker: ArmingChecker,
     motor_context: MotorsContext,
-    navigation_context: NavigationContext,
+    pid_context: PidContext,
 }
 
 #[derive(Default)]
-pub struct ArmingContext {
+pub struct ArmingChecker {
     armed: bool,
 }
 
-impl ArmingContext {
-    fn update(&mut self, commands: &CRSFChannels) {
+impl ArmingChecker {
+    fn update_and_test(&mut self, commands: &CRSFChannels) -> bool {
         let stay_armed = self.armed & commands.armed();
         let arm_at_zero = commands.armed() && commands.throttle() < 10;
         self.armed = commands.is_fresh() && (stay_armed || arm_at_zero);
-    }
 
-    fn is_armed(&self) -> bool {
         self.armed
     }
 }
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
-    static STORE: LazyLock<Store> = LazyLock::new(Store::new);
+    static STORE: LazyLock<SharedState> = LazyLock::new(SharedState::new);
 
     let hardware = get_hardware!();
 
@@ -101,9 +99,9 @@ async fn main(_spawner: Spawner) {
     // motor_reset(&front_left, &front_right, &rear_left, &rear_right).await;
 
     let context = DroneContext {
-        arming_context: ArmingContext::default(),
+        arming_checker: ArmingChecker::default(),
         motor_context: MotorsContext::new(front_left, front_right, rear_left, rear_right),
-        navigation_context: NavigationContext::new(),
+        pid_context: PidContext::new(),
     };
 
     _spawner
@@ -118,7 +116,7 @@ async fn tick_task(
     mut yellow_led: Output<'static>,
     mut imu: ICM42688,
     mut context: DroneContext,
-    store: &'static Store,
+    store: &'static SharedState,
 ) {
     const PID_PERIOD_US: u64 = 1000;
     let mut ticker = Ticker::every(Duration::from_micros(PID_PERIOD_US));
@@ -129,19 +127,21 @@ async fn tick_task(
     green_led.set_low();
     yellow_led.set_high();
 
-    let mut duration = 0f32;
+    let mut total_duration = 0f32;
+    let mut inner_duration = 0f32;
+
     loop {
         let t1 = Instant::now();
         let command_inputs = store.channel_snapshot().await;
 
-        context.arming_context.update(&command_inputs);
+        let armed = context.arming_checker.update_and_test(&command_inputs);
 
-        green_led.set_level(match context.arming_context.is_armed() {
+        green_led.set_level(match armed {
             true => Level::High,
             false => Level::Low,
         });
 
-        yellow_led.set_level(match context.arming_context.is_armed() {
+        yellow_led.set_level(match armed {
             true => Level::Low,
             false => Level::High,
         });
@@ -151,10 +151,11 @@ async fn tick_task(
             false => Level::Low,
         });
 
-        let motor_inputs = navigate(&mut imu, &mut context.navigation_context, &command_inputs);
+        let t2 = Instant::now();
+        let motor_inputs = do_pid_iteration(&mut imu, &mut context.pid_context, &command_inputs);
 
-        if context.arming_context.is_armed() {
-            drive(&mut context.motor_context, &motor_inputs);
+        if armed {
+            drive_motors(&mut context.motor_context, &motor_inputs);
         } else {
             disarm(
                 &mut context.motor_context,
@@ -164,21 +165,15 @@ async fn tick_task(
             .await;
         }
 
-        let t2 = Instant::now();
+        let t3 = Instant::now();
 
-        duration = (t2 - t1).as_micros() as f32 * 0.5 + duration * 0.5;
+        total_duration = (t3 - t1).as_micros() as f32 * 0.5 + total_duration * 0.5;
+        inner_duration = (t3 - t2).as_micros() as f32 * 0.5 + inner_duration * 0.5;
         print_counter += 1;
+
         if print_counter > 800 * (1000 / PID_PERIOD_US) {
             print_counter = 0;
-            info!(
-                "TICK {} {:?} {} {} {} {}",
-                duration,
-                imu.get_ypr_deg(),
-                motor_inputs.motor_thrust,
-                motor_inputs.pitch_input,
-                motor_inputs.roll_input,
-                motor_inputs.yaw_input
-            );
+            info!("TICK {} {}", total_duration, inner_duration);
         }
 
         ticker.next().await;

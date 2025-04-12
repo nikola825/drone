@@ -289,7 +289,7 @@ pub async fn disarm(context: &mut MotorsContext, inputs: &MotorInputs, beep: boo
     }
 }
 
-pub fn drive(context: &mut MotorsContext, inputs: &MotorInputs) {
+pub fn drive_motors(context: &mut MotorsContext, inputs: &MotorInputs) {
     context.running = true;
     if inputs.motor_thrust > 0 {
         let thrust = inputs.motor_thrust as i16;

@@ -35,7 +35,7 @@ const fn crsf_linear_transform(
     }
 }
 
-macro_rules! define_chanel {
+macro_rules! define_channel {
     ($name: ident, $index: expr) => {
         pub const fn $name(&self) -> u16 {
             self.unpacked_channels[$index]
@@ -43,17 +43,17 @@ macro_rules! define_chanel {
     };
 
     (bool, $name: ident, $index: expr) => {
-        pub fn $name(&self) -> bool {
+        pub const fn $name(&self) -> bool {
             crsf_linear_transform(self.unpacked_channels[$index], 0, 2, 0, -1) > 0
         }
     };
 
     ($type: ident, $name: ident, $index: expr, $low: expr, $high: expr) => {
-        define_chanel!($type, $name, $index, $low, $high, 0, -1);
+        define_channel!($type, $name, $index, $low, $high, 0, -1);
     };
 
     ($type: ident, $name: ident, $index: expr, $low: expr, $high: expr, $dead_point: expr, $dead_range: expr) => {
-        pub fn $name(&self) -> $type {
+        pub const fn $name(&self) -> $type {
             crsf_linear_transform(
                 self.unpacked_channels[$index],
                 $low,
@@ -76,19 +76,19 @@ const fn map_crsf_to_servo(value: u16) -> u16 {
 }
 
 impl CRSFChannels {
-    define_chanel!(bool, armed, 4);
+    define_channel!(bool, armed, 4);
 
-    define_chanel!(u16, throttle, 2, 0, 6000, 0, 10);
+    define_channel!(u16, throttle, 2, 0, 6000, 0, 10);
 
-    define_chanel!(f32, yaw_expo, 3, map_crsf_to_expo);
-    define_chanel!(f32, pitch_expo, 1, map_crsf_to_expo);
-    define_chanel!(f32, roll_expo, 0, map_crsf_to_expo);
+    define_channel!(f32, yaw_expo, 3, map_crsf_to_expo);
+    define_channel!(f32, pitch_expo, 1, map_crsf_to_expo);
+    define_channel!(f32, roll_expo, 0, map_crsf_to_expo);
 
-    define_chanel!(u16, yaw_servo, 3, map_crsf_to_servo);
-    define_chanel!(u16, pitch_servo, 1, map_crsf_to_servo);
-    define_chanel!(u16, roll_servo, 0, map_crsf_to_servo);
+    define_channel!(u16, yaw_servo, 3, map_crsf_to_servo);
+    define_channel!(u16, pitch_servo, 1, map_crsf_to_servo);
+    define_channel!(u16, roll_servo, 0, map_crsf_to_servo);
 
-    define_chanel!(u16, aux1, 5, 0, 128);
-    define_chanel!(u16, aux2, 6, 0, 128);
-    define_chanel!(bool, beep, 7);
+    define_channel!(u16, aux1, 5, 0, 128);
+    define_channel!(u16, aux2, 6, 0, 128);
+    define_channel!(bool, beep, 7);
 }

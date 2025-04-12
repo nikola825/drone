@@ -13,7 +13,9 @@ use embedded_io::ReadExactError;
 use embedded_io_async::{Read, Write};
 use zerocopy::{big_endian, FromBytes, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
 
-use crate::storage::Store;
+use crate::shared_state::SharedState;
+
+const CRSF_COMMUNICATION_TIMEOUT: Duration = Duration::from_millis(100);
 
 const CRSF_FRAME_MAX_SIZE: usize = 64;
 const CRSF_FRAME_SYNC_BYTE: u8 = 0xc8;
@@ -194,7 +196,7 @@ impl CRSFChannels {
         let now = Instant::now();
         let age = now - self.timestamp;
 
-        self.populated && now > self.timestamp && age < Duration::from_millis(100)
+        self.populated && now > self.timestamp && age < CRSF_COMMUNICATION_TIMEOUT
     }
 }
 
@@ -207,14 +209,14 @@ pub fn make_uart_pair(
 }
 
 #[embassy_executor::task]
-pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, storage: &'static Store) {
+pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, shared_state: &'static SharedState) {
     let mut ring_buffer = [0u8; 1024];
     let mut rx = rx.into_ring_buffered(&mut ring_buffer);
     info!("CRSF receiver start");
 
     loop {
         {
-            process_crsf_packet(&mut rx, storage)
+            process_crsf_packet(&mut rx, shared_state)
                 .await
                 .inspect_err(|err| {
                     if let CRSFReceiveError::UartError(err) = err {
@@ -230,7 +232,7 @@ pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, storage: &'static St
 
 async fn process_crsf_packet(
     rx: &mut RingBufferedUartRx<'_>,
-    storage: &Store,
+    shared_state: &SharedState,
 ) -> Result<(), CRSFReceiveError> {
     let mut command_buffer: [u8; CRSF_FRAME_MAX_SIZE] = [0u8; CRSF_FRAME_MAX_SIZE];
     rx.read_exact(&mut command_buffer[0..1])
@@ -261,32 +263,35 @@ async fn process_crsf_packet(
     match frame_type {
         CRSFFrameType::CRSF_FRAMETYPE_BATTERY_SENSOR => {}
         CRSFFrameType::CRSF_FRAMETYPE_LINK_STATISTICS => {
-            process_link_statistics(CRSFPacket::deserialize(&command_buffer)?, storage).await
+            process_link_statistics(CRSFPacket::deserialize(&command_buffer)?, shared_state).await
         }
         CRSFFrameType::CRSF_FRAME_TYPE_RC_CHANNELS_PACKED => {
-            process_received_channels(CRSFPacket::deserialize(&command_buffer)?, storage).await
+            process_received_channels(CRSFPacket::deserialize(&command_buffer)?, shared_state).await
         }
     }
 
     Ok(())
 }
 
-async fn process_received_channels(packed: CRSFFramePackedChannels, storage: &Store) {
+async fn process_received_channels(packed: CRSFFramePackedChannels, shared_state: &SharedState) {
     let unpacked = packed.unpack();
-    storage.update_channels(unpacked).await;
+    shared_state.update_channels(unpacked).await;
 }
 
-async fn process_link_statistics(stats: CRSFFrameLinkStatistics, storage: &Store) {
-    storage.update_link_state(stats).await;
+async fn process_link_statistics(stats: CRSFFrameLinkStatistics, shared_state: &SharedState) {
+    shared_state.update_link_state(stats).await;
 }
 
 #[embassy_executor::task]
-pub async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, storage: &'static Store) {
+pub async fn crsf_telemetry_task(
+    mut tx: UartTx<'static, Async>,
+    shared_state: &'static SharedState,
+) {
     info!("CRSF telemetry start");
     let mut ticker = Ticker::every(Duration::from_millis(200));
 
     loop {
-        let measured_battery_voltage = storage.get_voltage().await;
+        let measured_battery_voltage = shared_state.get_voltage().await;
 
         let packet = BatteryInfo::new(measured_battery_voltage);
 

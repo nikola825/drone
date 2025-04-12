@@ -42,7 +42,7 @@ impl Pid {
     }
 }
 
-pub struct NavigationContext {
+pub struct PidContext {
     yaw_pid: Pid,
     pitch_pid: Pid,
     roll_pid: Pid,
@@ -50,9 +50,9 @@ pub struct NavigationContext {
     last_pid_time: Instant,
 }
 
-impl NavigationContext {
+impl PidContext {
     pub fn new() -> Self {
-        NavigationContext {
+        PidContext {
             yaw_pid: Pid::new(),
             pitch_pid: Pid::new(),
             roll_pid: Pid::new(),
@@ -68,9 +68,9 @@ impl NavigationContext {
     }
 }
 
-pub fn navigate(
+pub fn do_pid_iteration(
     imu: &mut ICM42688,
-    context: &mut NavigationContext,
+    context: &mut PidContext,
     inputs: &CRSFChannels,
 ) -> MotorInputs {
     const YAW_OFFSET: f32 = 0.47141057;

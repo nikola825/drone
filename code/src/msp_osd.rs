@@ -1,32 +1,29 @@
 use core::{
     cmp::{max, min},
-    marker::PhantomData,
     mem::offset_of,
 };
 use num_traits::float::FloatCore;
-use zerocopy::{little_endian, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
+use zerocopy::{little_endian, Immutable, IntoBytes, KnownLayout, Unaligned};
 
-use crate::{hw_select::UartMaker, logging::info, storage::Store, ArmingContext};
+use crate::{hw_select::UartMaker, logging::info, shared_state::SharedState, ArmingChecker};
 use embassy_stm32::{
     mode::Async,
     usart::{Parity, StopBits, UartRx, UartTx},
 };
 use embassy_time::Timer;
 
-const FC_VARIANT: &[u8; 4] = b"BTFL";
+const FC_VARIANT: &[u8; 4] = b"INAV";
 
-trait MSPMessagePayload: TryFromBytes + IntoBytes + Immutable + KnownLayout + Unaligned {
+trait MSPMessagePayload: IntoBytes + Immutable + KnownLayout + Unaligned {
     fn message_type() -> MSPMessageType;
 }
 
-trait MSPDisplayPortmessagePayload:
-    TryFromBytes + IntoBytes + Immutable + KnownLayout + Unaligned
-{
+trait MSPDisplayPortmessagePayload: IntoBytes + Immutable + KnownLayout + Unaligned {
     fn message_type() -> MSPDisplayportMessageType;
 }
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-#[derive(Clone, Copy, TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(Clone, Copy, IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(u8)]
 enum MSPMessageType {
     FC_VARIANT = 0x02,  // 2 - FC variant string
@@ -36,7 +33,7 @@ enum MSPMessageType {
 }
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-#[derive(Clone, Copy, TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(Clone, Copy, IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(u8)]
 enum MSPDisplayportMessageType {
     CLEAR = 0x01,  // 1 - clear display
@@ -46,7 +43,7 @@ enum MSPDisplayportMessageType {
 }
 
 #[allow(non_camel_case_types, dead_code)]
-#[derive(Clone, Copy, TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(Clone, Copy, IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(u8)]
 enum HDZeroResolution {
     SD_3016 = 0x00,
@@ -54,29 +51,7 @@ enum HDZeroResolution {
     HD_3016 = 0x02,
 }
 
-#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
-#[repr(C)]
-struct MSPHeader<Payload: MSPMessagePayload> {
-    preamble: [u8; 2],
-    direction: u8,
-    len: u8,
-    message_type: MSPMessageType,
-    pantom_data: PhantomData<Payload>,
-}
-
-impl<Payload: MSPMessagePayload> Default for MSPHeader<Payload> {
-    fn default() -> Self {
-        MSPHeader {
-            preamble: *b"$M",
-            direction: b'>',
-            len: (size_of::<Payload>() as u8),
-            message_type: Payload::message_type(),
-            pantom_data: PhantomData,
-        }
-    }
-}
-
-#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct MSPMessage<Payload: MSPMessagePayload> {
     preamble: [u8; 2],
@@ -87,8 +62,8 @@ struct MSPMessage<Payload: MSPMessagePayload> {
     xor: u8,
 }
 
-impl<Payload: MSPMessagePayload> MSPMessage<Payload> {
-    fn new(payload: Payload) -> Self {
+impl<Payload: MSPMessagePayload> From<Payload> for MSPMessage<Payload> {
+    fn from(payload: Payload) -> Self {
         let mut message = MSPMessage {
             preamble: *b"$M",
             direction: b'>',
@@ -108,7 +83,7 @@ impl<Payload: MSPMessagePayload> MSPMessage<Payload> {
     }
 }
 
-#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct MSPDisplayPortmessage<Payload: MSPDisplayPortmessagePayload> {
     message_type: MSPDisplayportMessageType,
@@ -121,8 +96,8 @@ impl<Payload: MSPDisplayPortmessagePayload> MSPMessagePayload for MSPDisplayPort
     }
 }
 
-impl<Payload: MSPDisplayPortmessagePayload> MSPDisplayPortmessage<Payload> {
-    fn new(payload: Payload) -> Self {
+impl<Payload: MSPDisplayPortmessagePayload> From<Payload> for MSPDisplayPortmessage<Payload> {
+    fn from(payload: Payload) -> Self {
         MSPDisplayPortmessage {
             message_type: Payload::message_type(),
             payload,
@@ -130,7 +105,15 @@ impl<Payload: MSPDisplayPortmessagePayload> MSPDisplayPortmessage<Payload> {
     }
 }
 
-#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+impl<Payload: MSPDisplayPortmessagePayload> From<Payload>
+    for MSPMessage<MSPDisplayPortmessage<Payload>>
+{
+    fn from(payload: Payload) -> Self {
+        Into::<MSPDisplayPortmessage<Payload>>::into(payload).into()
+    }
+}
+
+#[derive(IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct FcVariantMessage<const STRING_LEN: usize> {
     variant: [u8; STRING_LEN],
@@ -148,7 +131,7 @@ impl<const STRING_LEN: usize> FcVariantMessage<STRING_LEN> {
     }
 }
 
-#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct FcStatusMessage {
     unused_data_1: [u8; 6],
@@ -174,7 +157,7 @@ impl FcStatusMessage {
     }
 }
 
-#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct SticksMessage {
     roll: little_endian::U16,
@@ -200,7 +183,7 @@ impl Default for SticksMessage {
     }
 }
 
-#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct DisplayResolutionMessage {
     unused: u8,
@@ -222,7 +205,7 @@ impl DisplayResolutionMessage {
     }
 }
 
-#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct DisplayPortWriteMessage<const STRING_LEN: usize> {
     row: u8,
@@ -237,7 +220,7 @@ impl<const STRING_LEN: usize> MSPDisplayPortmessagePayload for DisplayPortWriteM
     }
 }
 
-#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct DisplayPortClearMessage {}
 
@@ -246,7 +229,7 @@ impl MSPDisplayPortmessagePayload for DisplayPortClearMessage {
         MSPDisplayportMessageType::CLEAR
     }
 }
-#[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout, Unaligned)]
+#[derive(IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 struct DisplayPortDrawMessage {}
 
@@ -258,52 +241,44 @@ impl MSPDisplayPortmessagePayload for DisplayPortDrawMessage {
 
 async fn transmit_msp_message<Payload: MSPMessagePayload>(
     tx: &mut UartTx<'static, Async>,
-    payload: Payload,
+    message: MSPMessage<Payload>,
 ) -> Result<(), embassy_stm32::usart::Error> {
-    let message = MSPMessage::new(payload);
     tx.write(message.as_bytes()).await
-}
-
-async fn transmit_displayport_message<Payload: MSPDisplayPortmessagePayload>(
-    tx: &mut UartTx<'static, Async>,
-    payload: Payload,
-) -> Result<(), embassy_stm32::usart::Error> {
-    transmit_msp_message(tx, MSPDisplayPortmessage::new(payload)).await
 }
 
 async fn transmit_fc_variant(
     tx: &mut UartTx<'static, Async>,
 ) -> Result<(), embassy_stm32::usart::Error> {
-    transmit_msp_message(tx, FcVariantMessage::new(FC_VARIANT)).await
+    transmit_msp_message(tx, FcVariantMessage::new(FC_VARIANT).into()).await
 }
 
 async fn transmit_status(
     tx: &mut UartTx<'static, Async>,
     armed: bool,
 ) -> Result<(), embassy_stm32::usart::Error> {
-    transmit_msp_message(tx, FcStatusMessage::new(armed)).await
+    transmit_msp_message(tx, FcStatusMessage::new(armed).into()).await
 }
 
 async fn transmit_sticks(
     tx: &mut UartTx<'static, Async>,
     sticks: SticksMessage,
 ) -> Result<(), embassy_stm32::usart::Error> {
-    transmit_msp_message(tx, sticks).await
+    transmit_msp_message(tx, sticks.into()).await
 }
 
 async fn clear_display(tx: &mut UartTx<'static, Async>) -> Result<(), embassy_stm32::usart::Error> {
-    transmit_displayport_message(tx, DisplayPortClearMessage {}).await
+    transmit_msp_message(tx, DisplayPortClearMessage {}.into()).await
 }
 
 async fn draw_display(tx: &mut UartTx<'static, Async>) -> Result<(), embassy_stm32::usart::Error> {
-    transmit_displayport_message(tx, DisplayPortDrawMessage {}).await
+    transmit_msp_message(tx, DisplayPortDrawMessage {}.into()).await
 }
 
 async fn set_resolution(
     tx: &mut UartTx<'static, Async>,
     resolution: HDZeroResolution,
 ) -> Result<(), embassy_stm32::usart::Error> {
-    transmit_displayport_message(tx, DisplayResolutionMessage::new(resolution)).await
+    transmit_msp_message(tx, DisplayResolutionMessage::new(resolution).into()).await
 }
 
 async fn write_string<const STRING_LEN: usize>(
@@ -312,14 +287,15 @@ async fn write_string<const STRING_LEN: usize>(
     col: u8,
     data: [u8; STRING_LEN],
 ) -> Result<(), embassy_stm32::usart::Error> {
-    transmit_displayport_message(
+    transmit_msp_message(
         tx,
         DisplayPortWriteMessage {
             row,
             col,
             unused: 0,
             data,
-        },
+        }
+        .into(),
     )
     .await
 }
@@ -369,9 +345,9 @@ async fn draw_status_osd(
     link_quality: u8,
     rssi: u8,
 ) -> Result<(), embassy_stm32::usart::Error> {
-    let mut bat_string = *b"\x9000.00\x06";
-    let mut link_quality_string = *b"\x90000\x06";
-    let mut rssi_string = *b"\x90000\x06";
+    let mut bat_string = *b"\x63__.__\x1f";
+    let mut link_quality_string = *b"\x02___\x25";
+    let mut rssi_string = *b"\x01___\x13";
 
     float_to_byte_string(bat_voltage, &mut bat_string[1..6]);
     uint_to_byte_string(link_quality, &mut link_quality_string[1..4]);
@@ -386,21 +362,26 @@ async fn draw_status_osd(
 }
 
 #[embassy_executor::task]
-pub async fn osd_refresh_task(mut tx: UartTx<'static, Async>, store: &'static Store) {
+pub async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static SharedState) {
     info!("OSD task start");
-    let mut arming_context = ArmingContext::default();
+    let mut arming_checker = ArmingChecker::default();
     loop {
-        let link_stats = store.get_link_state().await;
-        let command_inputs = store.channel_snapshot().await;
-        let battery_voltage = store.get_voltage().await;
-        arming_context.update(&command_inputs);
+        let link_stats = shared_state.get_link_state().await;
+        let command_inputs = shared_state.channel_snapshot().await;
+        let battery_voltage = shared_state.get_voltage().await;
+        let armed = arming_checker.update_and_test(&command_inputs);
 
-        let sticks = SticksMessage::default();
+        let sticks = SticksMessage {
+            pitch: command_inputs.pitch_servo().into(),
+            roll: command_inputs.roll_servo().into(),
+            yaw: command_inputs.yaw_servo().into(),
+            throttle: command_inputs.throttle().into(),
+        };
 
         let _ = set_resolution(&mut tx, HDZeroResolution::HD_5018).await;
         let _ = transmit_fc_variant(&mut tx).await;
         let _ = transmit_sticks(&mut tx, sticks).await;
-        let _ = transmit_status(&mut tx, arming_context.is_armed()).await;
+        let _ = transmit_status(&mut tx, armed).await;
         let _ = draw_status_osd(
             &mut tx,
             battery_voltage,

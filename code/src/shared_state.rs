@@ -1,15 +1,16 @@
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 
 use crate::crsf::{CRSFChannels, CRSFFrameLinkStatistics};
-pub struct Store {
-    pub channel_state: Mutex<ThreadModeRawMutex, CRSFChannels>,
-    pub battery_voltage: Mutex<ThreadModeRawMutex, f32>,
-    pub link_state: Mutex<ThreadModeRawMutex, CRSFFrameLinkStatistics>,
+
+pub struct SharedState {
+    channel_state: Mutex<ThreadModeRawMutex, CRSFChannels>,
+    battery_voltage: Mutex<ThreadModeRawMutex, f32>,
+    link_state: Mutex<ThreadModeRawMutex, CRSFFrameLinkStatistics>,
 }
 
-impl Store {
+impl SharedState {
     pub fn new() -> Self {
-        Store {
+        SharedState {
             channel_state: Mutex::new(CRSFChannels::default()),
             battery_voltage: Mutex::new(0f32),
             link_state: Mutex::new(CRSFFrameLinkStatistics::default()),
