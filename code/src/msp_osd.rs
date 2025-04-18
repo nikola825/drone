@@ -13,6 +13,7 @@ use embassy_stm32::{
 use embassy_time::Timer;
 
 const FC_VARIANT: &[u8; 4] = b"INAV";
+const CELL_COUNT: u32 = 4;
 
 trait MSPMessagePayload: IntoBytes + Immutable + KnownLayout + Unaligned {
     fn message_type() -> MSPMessageType;
@@ -36,7 +37,7 @@ enum MSPMessageType {
 #[derive(Clone, Copy, IntoBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(u8)]
 enum MSPDisplayportMessageType {
-    CLEAR = 0x01,  // 1 - clear display
+    CLEAR = 0x02,  // 1 - clear display
     WRITE = 0x03,  // 3 - write string to display
     DRAW = 0x04,   // 4 - draw written strings on the display
     CONFIG = 0x05, // 5 - configure display resolution
@@ -346,18 +347,20 @@ async fn draw_status_osd(
     rssi: u8,
 ) -> Result<(), embassy_stm32::usart::Error> {
     let mut bat_string = *b"\x63__.__\x1f";
+    let mut cell_string = *b"\x63__.__\x1f";
     let mut link_quality_string = *b"\x02___\x25";
     let mut rssi_string = *b"\x01___\x13";
 
     float_to_byte_string(bat_voltage, &mut bat_string[1..6]);
+    float_to_byte_string(bat_voltage / (CELL_COUNT as f32), &mut cell_string[1..6]);
     uint_to_byte_string(link_quality, &mut link_quality_string[1..4]);
     uint_to_byte_string(rssi, &mut rssi_string[1..4]);
 
     clear_display(tx).await?;
     write_string(tx, 0, 0, bat_string).await?;
-    write_string(tx, 1, 0, link_quality_string).await?;
-    write_string(tx, 2, 0, rssi_string).await?;
-    write_string(tx, 3, 0, *b"WORLD").await?;
+    write_string(tx, 1, 0, cell_string).await?;
+    write_string(tx, 0, 44, link_quality_string).await?;
+    write_string(tx, 1, 44, rssi_string).await?;
     draw_display(tx).await
 }
 
@@ -375,7 +378,7 @@ pub async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'st
             pitch: command_inputs.pitch_servo().into(),
             roll: command_inputs.roll_servo().into(),
             yaw: command_inputs.yaw_servo().into(),
-            throttle: command_inputs.throttle().into(),
+            throttle: command_inputs.throttle_servo().into(),
         };
 
         let _ = set_resolution(&mut tx, HDZeroResolution::HD_5018).await;
@@ -389,6 +392,6 @@ pub async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'st
             max(link_stats.rssi1, link_stats.rssi2),
         )
         .await;
-        Timer::after_millis(100).await;
+        Timer::after_millis(200).await;
     }
 }

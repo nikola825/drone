@@ -72,9 +72,9 @@ async fn main(_spawner: Spawner) {
     yellow.set_high();
 
     let front_left = Motor::new(hardware.motor2_pin);
-    let front_right = Motor::new(hardware.motor0_pin);
+    let front_right = Motor::new(hardware.motor3_pin);
     let rear_left = Motor::new(hardware.motor1_pin);
-    let rear_right = Motor::new(hardware.motor3_pin);
+    let rear_right = Motor::new(hardware.motor0_pin);
 
     let (crsf_rx, crsf_tx) = crsf::make_uart_pair(hardware.extra.uart7);
 
