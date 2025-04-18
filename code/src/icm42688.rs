@@ -1,13 +1,13 @@
 use embassy_stm32::{
-    gpio::{Output, Pin},
+    gpio::Output,
     mode::Async,
-    spi::{self, BitOrder, Instance, MisoPin, MosiPin, RxDma, SckPin, Spi, TxDma},
+    spi::{BitOrder, Spi, MODE_3},
     time::Hertz,
-    Peripheral,
 };
 use embassy_time::Timer;
-use embedded_hal::spi::MODE_3;
-use zerocopy::{big_endian, FromBytes, FromZeroes};
+use zerocopy::{big_endian, FromBytes, Immutable, KnownLayout};
+
+use crate::hw_select::SpiMaker;
 
 #[allow(non_camel_case_types, dead_code)]
 #[derive(Clone, Copy)]
@@ -61,7 +61,7 @@ enum ICM42688Register {
     GYRO_CONFIG_STATIC10 = 0x13,
 }
 
-#[derive(Default, FromBytes, FromZeroes)]
+#[derive(Default, FromBytes, KnownLayout, Immutable)]
 struct GyroOutputPack {
     x_out: big_endian::I16,
     y_out: big_endian::I16,
@@ -91,38 +91,14 @@ impl GyroOutputPack {
 }
 
 impl ICM42688 {
-    pub fn new<T: Instance>(
-        spi_controller: impl Peripheral<P = T> + 'static,
-        sck_pin: impl SckPin<T> + 'static,
-        mosi_pin: impl MosiPin<T> + 'static,
-        miso_pin: impl MisoPin<T> + 'static,
-        tx_dma: impl TxDma<T> + 'static,
-        rx_dma: impl RxDma<T> + 'static,
-        cs_pin: impl Pin + 'static,
-    ) -> ICM42688 {
-        let mut spi_config = spi::Config::default();
-        spi_config.frequency = Hertz(20_000_000);
-        spi_config.mode = MODE_3;
-        spi_config.bit_order = BitOrder::MsbFirst;
-        let spi = spi::Spi::new(
-            spi_controller,
-            sck_pin,
-            mosi_pin,
-            miso_pin,
-            tx_dma,
-            rx_dma,
-            spi_config,
-        );
+    pub fn new(spi_maker: impl SpiMaker) -> ICM42688 {
+        let (cs_pin, spi) = spi_maker.make_spi(Hertz(20_000_000), MODE_3, BitOrder::MsbFirst);
 
         ICM42688 {
             spi,
-            cs_pin: Output::new(
-                cs_pin,
-                embassy_stm32::gpio::Level::High,
-                embassy_stm32::gpio::Speed::VeryHigh,
-            ),
+            cs_pin,
             gyro_output_rate: GYRO_ODR::ODR_1KHz,
-            gyro_fs_range: GYRO_FS_SEL::DPS_1000,
+            gyro_fs_range: GYRO_FS_SEL::DPS_2000,
         }
     }
 
@@ -184,7 +160,7 @@ impl ICM42688 {
         let mut data = [0u8; 6];
         self.read_registers(ICM42688Register::GYRO_START, &mut data);
 
-        GyroOutputPack::ref_from(&data)
+        GyroOutputPack::ref_from_bytes(&data)
             .unwrap()
             .get_ypr_deg(self.gyro_fs_range)
     }
