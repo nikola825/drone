@@ -79,6 +79,7 @@ impl CRSFChannels {
     define_channel!(bool, armed, 4);
 
     define_channel!(u16, throttle, 2, 0, 6000, 0, 10);
+    define_channel!(u8, throttle_percent, 2, 0, 100);
 
     define_channel!(f32, yaw_expo, 3, map_crsf_to_expo);
     define_channel!(f32, pitch_expo, 1, map_crsf_to_expo);

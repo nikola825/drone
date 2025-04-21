@@ -5,7 +5,7 @@ use core::{
 use num_traits::float::FloatCore;
 use zerocopy::{little_endian, Immutable, IntoBytes, KnownLayout, Unaligned};
 
-use crate::{hw_select::UartMaker, logging::info, shared_state::SharedState, ArmingChecker};
+use crate::{hw_select::UartMaker, logging::info, shared_state::SharedState};
 use embassy_stm32::{
     mode::Async,
     usart::{Parity, StopBits, UartRx, UartTx},
@@ -345,40 +345,46 @@ async fn draw_status_osd(
     bat_voltage: f32,
     link_quality: u8,
     rssi: u8,
+    arming_message: &'static [u8; 3],
+    throttle_percentage: u8,
 ) -> Result<(), embassy_stm32::usart::Error> {
     let mut bat_string = *b"\x63__.__\x1f";
     let mut cell_string = *b"\x63__.__\x1f";
     let mut link_quality_string = *b"\x02___\x25";
     let mut rssi_string = *b"\x01___\x13";
+    let mut throttle_string = *b"___\x25";
 
     float_to_byte_string(bat_voltage, &mut bat_string[1..6]);
     float_to_byte_string(bat_voltage / (CELL_COUNT as f32), &mut cell_string[1..6]);
     uint_to_byte_string(link_quality, &mut link_quality_string[1..4]);
     uint_to_byte_string(rssi, &mut rssi_string[1..4]);
+    uint_to_byte_string(throttle_percentage, &mut throttle_string[0..3]);
 
     clear_display(tx).await?;
-    write_string(tx, 0, 0, bat_string).await?;
-    write_string(tx, 1, 0, cell_string).await?;
-    write_string(tx, 0, 44, link_quality_string).await?;
-    write_string(tx, 1, 44, rssi_string).await?;
+    write_string(tx, 2, 0, bat_string).await?;
+    write_string(tx, 3, 0, cell_string).await?;
+    write_string(tx, 4, 0, throttle_string).await?;
+    write_string(tx, 2, 44, link_quality_string).await?;
+    write_string(tx, 3, 44, rssi_string).await?;
+    write_string(tx, 4, 44, *arming_message).await?;
     draw_display(tx).await
 }
 
 #[embassy_executor::task]
 pub async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static SharedState) {
     info!("OSD task start");
-    let mut arming_checker = ArmingChecker::default();
     loop {
         let link_stats = shared_state.get_link_state().await;
-        let command_inputs = shared_state.channel_snapshot().await;
+        let command_state = shared_state.command_snapshot().await;
         let battery_voltage = shared_state.get_voltage().await;
-        let armed = arming_checker.update_and_test(&command_inputs);
+        let armed = command_state.arming_tracker.is_armed();
+        let arming_message = command_state.arming_tracker.arming_message();
 
         let sticks = SticksMessage {
-            pitch: command_inputs.pitch_servo().into(),
-            roll: command_inputs.roll_servo().into(),
-            yaw: command_inputs.yaw_servo().into(),
-            throttle: command_inputs.throttle_servo().into(),
+            pitch: command_state.commands.pitch_servo().into(),
+            roll: command_state.commands.roll_servo().into(),
+            yaw: command_state.commands.yaw_servo().into(),
+            throttle: command_state.commands.throttle_servo().into(),
         };
 
         let _ = set_resolution(&mut tx, HDZeroResolution::HD_5018).await;
@@ -390,6 +396,8 @@ pub async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'st
             battery_voltage,
             link_stats.link_quality,
             max(link_stats.rssi1, link_stats.rssi2),
+            arming_message,
+            command_state.commands.throttle_percent(),
         )
         .await;
         Timer::after_millis(200).await;

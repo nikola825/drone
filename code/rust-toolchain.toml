@@ -1,5 +1,5 @@
 [toolchain]
-channel = "stable"
-components = [ "rustfmt", "rustc-dev" ]
+channel = "1.86.0"
+components = [ "rustfmt", "rustc-dev", "clippy" ]
 targets = [ "thumbv7em-none-eabihf" ]
 profile = "minimal"

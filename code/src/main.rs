@@ -2,7 +2,7 @@
 #![no_main]
 
 use battery_monitor::battery_monitor_task;
-use crsf::{crsf_receiver_task, crsf_telemetry_task, CRSFChannels};
+use crsf::{crsf_receiver_task, crsf_telemetry_task};
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::gpio::{Level, Output, Speed};
@@ -15,6 +15,7 @@ use msp_osd::osd_refresh_task;
 use pid::{do_pid_iteration, PidContext};
 use shared_state::SharedState;
 
+mod arming;
 mod battery_monitor;
 mod channel_mapping;
 mod crc8;
@@ -31,24 +32,8 @@ mod pid;
 mod shared_state;
 
 struct DroneContext {
-    arming_checker: ArmingChecker,
     motor_context: MotorsContext,
     pid_context: PidContext,
-}
-
-#[derive(Default)]
-pub struct ArmingChecker {
-    armed: bool,
-}
-
-impl ArmingChecker {
-    fn update_and_test(&mut self, commands: &CRSFChannels) -> bool {
-        let stay_armed = self.armed & commands.armed();
-        let arm_at_zero = commands.armed() && commands.throttle() < 10;
-        self.armed = commands.is_fresh() && (stay_armed || arm_at_zero);
-
-        self.armed
-    }
 }
 
 #[embassy_executor::main]
@@ -99,7 +84,6 @@ async fn main(_spawner: Spawner) {
     // motor_reset(&front_left, &front_right, &rear_left, &rear_right).await;
 
     let context = DroneContext {
-        arming_checker: ArmingChecker::default(),
         motor_context: MotorsContext::new(front_left, front_right, rear_left, rear_right),
         pid_context: PidContext::new(),
     };
@@ -132,9 +116,9 @@ async fn tick_task(
 
     loop {
         let t1 = Instant::now();
-        let command_inputs = store.channel_snapshot().await;
+        let command_state = store.command_snapshot().await;
 
-        let armed = context.arming_checker.update_and_test(&command_inputs);
+        let armed = command_state.arming_tracker.is_armed();
 
         green_led.set_level(match armed {
             true => Level::High,
@@ -146,13 +130,14 @@ async fn tick_task(
             false => Level::High,
         });
 
-        blue_led.set_level(match command_inputs.is_fresh() {
+        blue_led.set_level(match command_state.commands.is_fresh() {
             true => Level::High,
             false => Level::Low,
         });
 
         let t2 = Instant::now();
-        let motor_inputs = do_pid_iteration(&mut imu, &mut context.pid_context, &command_inputs);
+        let motor_inputs =
+            do_pid_iteration(&mut imu, &mut context.pid_context, &command_state.commands);
 
         if armed {
             drive_motors(&mut context.motor_context, &motor_inputs);
@@ -160,7 +145,7 @@ async fn tick_task(
             disarm(
                 &mut context.motor_context,
                 &motor_inputs,
-                command_inputs.beep(),
+                command_state.commands.beep(),
             )
             .await;
         }

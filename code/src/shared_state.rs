@@ -1,9 +1,18 @@
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 
-use crate::crsf::{CRSFChannels, CRSFFrameLinkStatistics};
+use crate::{
+    arming::ArmingTracker,
+    crsf::{CRSFChannels, CRSFFrameLinkStatistics},
+};
+
+#[derive(Clone, Default)]
+pub struct CommandState {
+    pub arming_tracker: ArmingTracker,
+    pub commands: CRSFChannels,
+}
 
 pub struct SharedState {
-    channel_state: Mutex<ThreadModeRawMutex, CRSFChannels>,
+    channel_state: Mutex<ThreadModeRawMutex, CommandState>,
     battery_voltage: Mutex<ThreadModeRawMutex, f32>,
     link_state: Mutex<ThreadModeRawMutex, CRSFFrameLinkStatistics>,
 }
@@ -11,20 +20,21 @@ pub struct SharedState {
 impl SharedState {
     pub fn new() -> Self {
         SharedState {
-            channel_state: Mutex::new(CRSFChannels::default()),
+            channel_state: Mutex::new(CommandState::default()),
             battery_voltage: Mutex::new(0f32),
             link_state: Mutex::new(CRSFFrameLinkStatistics::default()),
         }
     }
 
-    pub async fn channel_snapshot(&self) -> CRSFChannels {
+    pub async fn command_snapshot(&self) -> CommandState {
         let guard = self.channel_state.lock().await;
         guard.clone()
     }
 
     pub async fn update_channels(&self, channels: CRSFChannels) {
         let mut guard = self.channel_state.lock().await;
-        *guard = channels;
+        guard.arming_tracker.update(&channels);
+        guard.commands = channels;
     }
 
     pub async fn update_voltage(&self, voltage: f32) {

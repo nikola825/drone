@@ -178,7 +178,7 @@ impl CRSFFramePackedChannels {
 pub struct CRSFChannels {
     pub unpacked_channels: [u16; 16],
     populated: bool,
-    timestamp: Instant,
+    pub timestamp: Instant,
 }
 
 impl Default for CRSFChannels {
