@@ -38,8 +38,8 @@
         "other_text_upright": false,
         "pads": {
           "drill": 0.0,
-          "height": 1.45,
-          "width": 1.0
+          "height": 0.4,
+          "width": 0.4
         },
         "silk_line_width": 0.15,
         "silk_text_italic": false,
@@ -124,7 +124,7 @@
       },
       "rules": {
         "max_error": 0.005,
-        "min_clearance": 0.15,
+        "min_clearance": 0.1,
         "min_connection": 0.0,
         "min_copper_edge_clearance": 0.25,
         "min_groove_width": 0.0,
@@ -474,7 +474,7 @@
     "classes": [
       {
         "bus_width": 12,
-        "clearance": 0.15,
+        "clearance": 0.1,
         "diff_pair_gap": 0.25,
         "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
@@ -494,7 +494,6 @@
         "bus_width": 12,
         "clearance": 0.15,
         "diff_pair_gap": 0.25,
-        "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
         "microvia_diameter": 0.3,
@@ -512,7 +511,6 @@
         "bus_width": 12,
         "clearance": 0.15,
         "diff_pair_gap": 0.25,
-        "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
         "line_style": 0,
         "microvia_diameter": 0.3,

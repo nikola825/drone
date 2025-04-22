@@ -15,6 +15,11 @@ pub mod stm32h723;
 #[cfg(feature = "stm32h723")]
 pub use stm32h723::{AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
 
+#[cfg(feature = "stm32h743")]
+pub mod stm32h743;
+#[cfg(feature = "stm32h743")]
+pub use stm32h743::{AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
+
 #[cfg(feature = "stm32f411")]
 pub mod stm32f411;
 #[cfg(feature = "stm32f411")]
