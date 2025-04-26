@@ -5,7 +5,6 @@ use embassy_stm32::{
     bind_interrupts,
     pac::VREFBUF,
     peripherals::{ADC1, DMA1_CH4, DMA1_CH5, DMA1_CH6, DMA1_CH7, PA0, PA1, PE7, PE8, UART4, UART7},
-    time::Hertz,
     usart::{self},
     usb::{self},
     Config, Peripherals,
@@ -80,13 +79,11 @@ fn make_config() -> Config {
 
     {
         use embassy_stm32::rcc::*;
-        config.rcc.hse = Some(Hse {
-            freq: Hertz(20_000_000), // 20 MHz HSE
-            mode: HseMode::Oscillator,
-        });
+        config.rcc.hse = None;
+        config.rcc.hsi = Some(HSIPrescaler::DIV2); // HSI64 / 2 = 32 MHz
         config.rcc.pll1 = Some(Pll {
-            source: PllSource::HSE,
-            prediv: PllPreDiv::DIV10, // 20 MHz / 10 = 2 MHz
+            source: PllSource::HSI,
+            prediv: PllPreDiv::DIV16, //32 MHz / 16 = 2 MHz
             mul: PllMul::MUL240,      // 2MHz * 240 = 480 MHz
             divp: Some(PllDiv::DIV1), // P = 480 MHz / 1 = 480 MHz
             divq: Some(PllDiv::DIV2), // Q = 480 MHz / 2 = 240 MHz
@@ -94,18 +91,18 @@ fn make_config() -> Config {
         });
 
         config.rcc.pll2 = Some(Pll {
-            source: PllSource::HSE,
-            prediv: PllPreDiv::DIV2,  // 20 MHz / 2 = 10 MHz
-            mul: PllMul::MUL24,       // 10MHz * 24 = 240 MHz
+            source: PllSource::HSI,
+            prediv: PllPreDiv::DIV4,  // 32 MHz / 4 = 8 MHz
+            mul: PllMul::MUL30,       // 8MHz * 30 = 240 MHz
             divp: Some(PllDiv::DIV1), // P = 240 MHz / 1 = 240 MHz
             divq: Some(PllDiv::DIV2), // Q = 240 MHz / 2 = 120 MHz
             divr: Some(PllDiv::DIV1), // R = 240 MHz / 1 = 240 MHz
         });
 
         config.rcc.pll3 = Some(Pll {
-            source: PllSource::HSE,
-            prediv: PllPreDiv::DIV2,   // 20 MHz / 2 = 10 MHz
-            mul: PllMul::MUL48,        // 10MHz * 48 = 480 MHz
+            source: PllSource::HSI,
+            prediv: PllPreDiv::DIV2,   // 32 MHz / 2 = 16 MHz
+            mul: PllMul::MUL30,        // 16MHz * 30 = 480 MHz
             divp: Some(PllDiv::DIV2),  // P = 480 MHz / 2  = 240 MHz
             divq: Some(PllDiv::DIV10), // Q = 480 MHz / 10 = 48 MHz
             divr: Some(PllDiv::DIV3),  // R = 480 MHz / 3  = 160 MHz
