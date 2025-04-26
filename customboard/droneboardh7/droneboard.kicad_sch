@@ -6538,7 +6538,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Transistor_FET:DMN2075U"
+		(symbol "Transistor_FET:DMN2056U"
 			(pin_names
 				(hide yes)
 			)
@@ -6554,7 +6554,7 @@
 					(justify left)
 				)
 			)
-			(property "Value" "DMN2075U"
+			(property "Value" "DMN2056U"
 				(at 5.08 0 0)
 				(effects
 					(font
@@ -6574,7 +6574,7 @@
 					(hide yes)
 				)
 			)
-			(property "Datasheet" "http://www.diodes.com/assets/Datasheets/DMN2075U.pdf"
+			(property "Datasheet" "http://www.diodes.com/assets/Datasheets/DMN2056U.pdf"
 				(at 5.08 -3.81 0)
 				(effects
 					(font
@@ -6584,7 +6584,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" "4.2A Id, 20V Vds, N-Channel MOSFET, SOT-23"
+			(property "Description" "4A Id, 20V Vds, N-Channel MOSFET, SOT-23"
 				(at 0 0 0)
 				(effects
 					(font
@@ -6611,7 +6611,7 @@
 					(hide yes)
 				)
 			)
-			(symbol "DMN2075U_0_1"
+			(symbol "DMN2056U_0_1"
 				(polyline
 					(pts
 						(xy 0.254 1.905) (xy 0.254 -1.905)
@@ -6778,7 +6778,7 @@
 					)
 				)
 			)
-			(symbol "DMN2075U_1_1"
+			(symbol "DMN2056U_1_1"
 				(pin input line
 					(at -5.08 0 0)
 					(length 2.54)
@@ -7353,6 +7353,10 @@
 		(uuid "f6a2b4e3-0cf4-44ea-95df-595bb0e31b0d")
 	)
 	(no_connect
+		(at 187.96 120.65)
+		(uuid "05907482-6d27-4d06-aa5e-0e15df4cb3f0")
+	)
+	(no_connect
 		(at 156.21 184.15)
 		(uuid "07cecc71-0e3b-4670-9a4f-14857ced38b0")
 	)
@@ -7455,10 +7459,6 @@
 	(no_connect
 		(at 63.5 166.37)
 		(uuid "6473c43b-3c47-42c9-bb5f-56025e5438e2")
-	)
-	(no_connect
-		(at 109.22 135.89)
-		(uuid "6486975f-98cd-4706-8cf4-4020add86dea")
 	)
 	(no_connect
 		(at 109.22 113.03)
@@ -8085,6 +8085,16 @@
 			(type default)
 		)
 		(uuid "37f9d30b-a6b3-44a2-8940-3e878765e5b8")
+	)
+	(wire
+		(pts
+			(xy 49.53 80.01) (xy 63.5 80.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "399d87aa-408a-48d0-8fbc-0038beb2a45f")
 	)
 	(wire
 		(pts
@@ -9778,7 +9788,7 @@
 	)
 	(wire
 		(pts
-			(xy 109.22 130.81) (xy 118.11 130.81)
+			(xy 109.22 135.89) (xy 118.11 135.89)
 		)
 		(stroke
 			(width 0)
@@ -10227,7 +10237,7 @@
 		(uuid "72128c23-24d0-48c8-a479-359b9f79f16f")
 	)
 	(label "IMU_CS"
-		(at 118.11 130.81 180)
+		(at 118.11 135.89 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -10395,6 +10405,16 @@
 			(justify left bottom)
 		)
 		(uuid "ad9b16f5-2da3-44e2-9fb7-28c438d7498f")
+	)
+	(label "VMCU"
+		(at 49.53 80.01 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "af2bb4a6-d593-4c03-bd9f-1f09ad7fc1a4")
 	)
 	(label "U4TX"
 		(at 118.11 69.85 180)
@@ -11551,7 +11571,7 @@
 				)
 			)
 		)
-		(property "Value" "SW_Push"
+		(property "Value" "KMR221NGLFS"
 			(at 64.77 58.42 0)
 			(effects
 				(font
@@ -11559,7 +11579,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Button_Switch_THT:SW_PUSH_1P1T_6x3.5mm_H4.3_APEM_MJTP1243"
+		(property "Footprint" "Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2"
 			(at 64.77 58.42 0)
 			(effects
 				(font
@@ -12733,6 +12753,82 @@
 			(project "droneboard"
 				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
 					(reference "J6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:DMN2056U")
+		(at 57.15 231.14 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "88ffe319-78c6-4679-ad99-19eaafae0636")
+		(property "Reference" "Q1"
+			(at 63.5 229.8699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "DMN2056U"
+			(at 63.5 232.4099 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 62.23 233.045 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "http://www.diodes.com/assets/Datasheets/DMN2056U.pdf"
+			(at 62.23 234.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Description" "4A Id, 20V Vds, N-Channel MOSFET, SOT-23"
+			(at 57.15 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "01440199-47bc-4c6f-ae63-c9080fd7c224")
+		)
+		(pin "3"
+			(uuid "27563a54-80be-4749-b0af-7ed6480e0339")
+		)
+		(pin "1"
+			(uuid "d6aef2bb-dbb4-40ad-b9a2-59e958989307")
+		)
+		(instances
+			(project ""
+				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
+					(reference "Q1")
 					(unit 1)
 				)
 			)
@@ -14370,7 +14466,7 @@
 				)
 			)
 		)
-		(property "Value" "SW_Push"
+		(property "Value" "KMR221NGLFS"
 			(at 46.99 57.15 0)
 			(effects
 				(font
@@ -14378,7 +14474,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Button_Switch_THT:SW_PUSH_1P1T_6x3.5mm_H4.3_APEM_MJTP1243"
+		(property "Footprint" "Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2"
 			(at 46.99 57.15 0)
 			(effects
 				(font
@@ -14485,82 +14581,6 @@
 			(project "droneboard"
 				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
 					(reference "C3")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Transistor_FET:DMN2075U")
-		(at 57.15 231.14 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "c1b0d2aa-0b08-4c44-824d-e7e40e419cb1")
-		(property "Reference" "Q1"
-			(at 63.5 229.8699 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "DMN2075U"
-			(at 63.5 232.4099 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
-			(at 62.23 233.045 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-					(italic yes)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "http://www.diodes.com/assets/Datasheets/DMN2075U.pdf"
-			(at 62.23 234.95 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-		(property "Description" "4.2A Id, 20V Vds, N-Channel MOSFET, SOT-23"
-			(at 57.15 231.14 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "d8b45cb4-8753-4ee7-bb32-49dc55e45565")
-		)
-		(pin "3"
-			(uuid "83693dbb-4f25-451c-9f4a-3f1293aa2818")
-		)
-		(pin "2"
-			(uuid "0cad13c2-f630-4a66-bf44-84921e3292e9")
-		)
-		(instances
-			(project ""
-				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
-					(reference "Q1")
 					(unit 1)
 				)
 			)
