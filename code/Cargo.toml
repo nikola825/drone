@@ -25,7 +25,6 @@ embassy-executor = { version = "0.7.0", features = [
     "task-arena-size-32768",
     "arch-cortex-m",
     "executor-thread",
-    "executor-interrupt",
 ] }
 
 embassy-futures = { version = "0.1.1"}

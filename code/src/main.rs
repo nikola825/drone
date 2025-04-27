@@ -37,7 +37,7 @@ struct DroneContext {
 }
 
 #[embassy_executor::main]
-async fn main(_spawner: Spawner) {
+async fn main(spawner: Spawner) {
     static STORE: LazyLock<SharedState> = LazyLock::new(SharedState::new);
 
     let hardware = get_hardware!();
@@ -46,7 +46,7 @@ async fn main(_spawner: Spawner) {
     let mut green = Output::new(hardware.green_pin, Level::Low, Speed::VeryHigh);
     let mut yellow = Output::new(hardware.yellow_pin, Level::Low, Speed::VeryHigh);
 
-    init_logging!(hardware, _spawner);
+    init_logging!(hardware, spawner);
 
     green.set_high();
 
@@ -68,16 +68,16 @@ async fn main(_spawner: Spawner) {
 
     blue.set_high();
 
-    _spawner
+    spawner
         .spawn(crsf_receiver_task(crsf_rx, STORE.get()))
         .unwrap();
-    _spawner
+    spawner
         .spawn(crsf_telemetry_task(crsf_tx, STORE.get()))
         .unwrap();
-    _spawner
+    spawner
         .spawn(battery_monitor_task(hardware.adc_reader, STORE.get()))
         .unwrap();
-    _spawner
+    spawner
         .spawn(osd_refresh_task(msp_tx, STORE.get()))
         .unwrap();
 
@@ -88,7 +88,7 @@ async fn main(_spawner: Spawner) {
         pid_context: PidContext::new(),
     };
 
-    _spawner
+    spawner
         .spawn(tick_task(blue, green, yellow, imu, context, STORE.get()))
         .unwrap();
 }

@@ -1,6 +1,8 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
 # replace STM32F429ZITx with your chip as listed in `probe-rs chip list`
 runner = "probe-rs run --chip STM32H723VGTX"
+# Comment this for non-H7 targets
+rustflags = ["-Ctarget-cpu=cortex-m7"]
 
 [build]
 target = "thumbv7em-none-eabihf"
