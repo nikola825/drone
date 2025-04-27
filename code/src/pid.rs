@@ -73,9 +73,11 @@ pub fn do_pid_iteration(
     context: &mut PidContext,
     inputs: &CRSFChannels,
 ) -> MotorInputs {
-    const YAW_OFFSET: f32 = 0.47141057;
-    const PITCH_OFFSET: f32 = 0.3117653;
-    const ROLL_OFFSET: f32 = 0.088096835;
+    // Gyro calibration values
+    const YAW_OFFSET: f32 = -0.11099324;
+    const PITCH_OFFSET: f32 = 0.51241034;
+    const ROLL_OFFSET: f32 = -0.051307525;
+
     let (yaw_measured, pitch_measured, roll_measured) = imu.get_ypr_deg();
 
     let yaw_measured = yaw_measured - YAW_OFFSET;
