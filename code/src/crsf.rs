@@ -1,4 +1,5 @@
 use core::cmp::min;
+use embassy_executor::Spawner;
 use num_traits::float::FloatCore;
 
 use crate::crc8::crc8_calculate;
@@ -200,16 +201,14 @@ impl CRSFChannels {
     }
 }
 
-pub fn make_uart_pair(
-    uart_maker: impl UartMaker,
-) -> (UartRx<'static, Async>, UartTx<'static, Async>) {
+fn make_uart_pair(uart_maker: impl UartMaker) -> (UartRx<'static, Async>, UartTx<'static, Async>) {
     let (rx, tx) = uart_maker.make_uart(420000, Parity::ParityNone, StopBits::STOP1, false);
 
     (rx, tx)
 }
 
 #[embassy_executor::task]
-pub async fn crsf_receiver_task(rx: UartRx<'static, Async>, shared_state: &'static SharedState) {
+async fn crsf_receiver_task(rx: UartRx<'static, Async>, shared_state: &'static SharedState) {
     let mut ring_buffer = [0u8; 1024];
     let mut rx = rx.into_ring_buffered(&mut ring_buffer);
     info!("CRSF receiver start");
@@ -283,10 +282,7 @@ async fn process_link_statistics(stats: CRSFFrameLinkStatistics, shared_state: &
 }
 
 #[embassy_executor::task]
-pub async fn crsf_telemetry_task(
-    mut tx: UartTx<'static, Async>,
-    shared_state: &'static SharedState,
-) {
+async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, shared_state: &'static SharedState) {
     info!("CRSF telemetry start");
     let mut ticker = Ticker::every(Duration::from_millis(200));
 
@@ -299,4 +295,15 @@ pub async fn crsf_telemetry_task(
 
         ticker.next().await;
     }
+}
+
+pub fn init_crsf_communication(
+    uart: impl UartMaker,
+    spawner: &Spawner,
+    store: &'static SharedState,
+) {
+    let (crsf_rx, crsf_tx) = make_uart_pair(uart);
+
+    spawner.spawn(crsf_receiver_task(crsf_rx, store)).unwrap();
+    spawner.spawn(crsf_telemetry_task(crsf_tx, store)).unwrap();
 }

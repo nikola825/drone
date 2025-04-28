@@ -1,8 +1,8 @@
 #![no_std]
 #![no_main]
 
-use battery_monitor::battery_monitor_task;
-use crsf::{crsf_receiver_task, crsf_telemetry_task};
+use battery_monitor::init_battery_monitor;
+use crsf::init_crsf_communication;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::gpio::{Level, Output, Speed};
@@ -11,7 +11,7 @@ use embassy_time::{Duration, Instant, Ticker, Timer};
 use icm42688::ICM42688;
 use logging::{info, init_logging};
 use motors::{disarm, drive_motors, Motor, MotorsContext};
-use msp_osd::osd_refresh_task;
+use osd::init_osd;
 use pid::{do_pid_iteration, PidContext};
 use shared_state::SharedState;
 
@@ -26,8 +26,8 @@ mod hw_select;
 mod icm42688;
 mod logging;
 mod motors;
-mod msp_osd;
 mod nopdelays;
+mod osd;
 mod pid;
 mod shared_state;
 
@@ -61,25 +61,11 @@ async fn main(spawner: Spawner) {
     let rear_left = Motor::new(hardware.motor1_pin);
     let rear_right = Motor::new(hardware.motor0_pin);
 
-    let (crsf_rx, crsf_tx) = crsf::make_uart_pair(hardware.extra.uart7);
-
-    let msp_uart = hardware.extra.uart4;
-    let (_, msp_tx) = msp_osd::make_msp_uart_pair(msp_uart).await;
+    init_crsf_communication(hardware.radio_uart, &spawner, STORE.get());
+    init_battery_monitor(hardware.adc_reader, STORE.get(), &spawner);
+    init_osd!(hardware, spawner, STORE.get());
 
     blue.set_high();
-
-    spawner
-        .spawn(crsf_receiver_task(crsf_rx, STORE.get()))
-        .unwrap();
-    spawner
-        .spawn(crsf_telemetry_task(crsf_tx, STORE.get()))
-        .unwrap();
-    spawner
-        .spawn(battery_monitor_task(hardware.adc_reader, STORE.get()))
-        .unwrap();
-    spawner
-        .spawn(osd_refresh_task(msp_tx, STORE.get()))
-        .unwrap();
 
     // motor_reset(&front_left, &front_right, &rear_left, &rear_right).await;
 

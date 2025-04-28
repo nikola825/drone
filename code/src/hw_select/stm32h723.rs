@@ -4,7 +4,9 @@ use embassy_stm32::{
     adc::{Adc, AnyAdcChannel},
     bind_interrupts,
     pac::VREFBUF,
-    peripherals::{ADC1, DMA1_CH4, DMA1_CH5, DMA1_CH6, DMA1_CH7, PA0, PA1, PE7, PE8, UART4, UART7},
+    peripherals::{
+        ADC1, DMA1_CH2, DMA1_CH3, DMA1_CH4, DMA1_CH5, PA0, PA1, PA2, PA3, UART4, USART2,
+    },
     time::Hertz,
     usart::{self},
     usb::{self},
@@ -26,10 +28,17 @@ bind_interrupts!(pub struct Irqs {
 
 #[allow(dead_code)]
 pub struct ExtraHardware {
-    pub uart4:
+    pub msp_uart:
         UartHardware<UART4, embassy_stm32::peripherals::UART4, PA1, PA0, DMA1_CH4, DMA1_CH5, Irqs>,
-    pub uart7:
-        UartHardware<UART7, embassy_stm32::peripherals::UART7, PE7, PE8, DMA1_CH6, DMA1_CH7, Irqs>,
+    pub uart2: UartHardware<
+        USART2,
+        embassy_stm32::peripherals::USART2,
+        PA3,
+        PA2,
+        DMA1_CH2,
+        DMA1_CH3,
+        Irqs,
+    >,
 }
 
 pub struct AdcReader {
@@ -178,16 +187,16 @@ macro_rules! get_hardware {
             motor3_pin: peripherals.PE15,
 
             radio_uart: UartHardware {
-                peripheral: peripherals.USART2,
-                rx_pin: peripherals.PA3,
-                tx_pin: peripherals.PA2,
-                tx_dma: peripherals.DMA1_CH2,
-                rx_dma: peripherals.DMA1_CH3,
+                peripheral: peripherals.UART7,
+                tx_pin: peripherals.PE8,
+                rx_pin: peripherals.PE7,
+                rx_dma: peripherals.DMA1_CH6,
+                tx_dma: peripherals.DMA1_CH7,
                 irqs: Irqs,
             },
 
             extra: ExtraHardware {
-                uart4: UartHardware {
+                msp_uart: UartHardware {
                     peripheral: peripherals.UART4,
                     tx_pin: peripherals.PA0,
                     rx_pin: peripherals.PA1,
@@ -195,12 +204,12 @@ macro_rules! get_hardware {
                     tx_dma: peripherals.DMA1_CH5,
                     irqs: Irqs,
                 },
-                uart7: UartHardware {
-                    peripheral: peripherals.UART7,
-                    tx_pin: peripherals.PE8,
-                    rx_pin: peripherals.PE7,
-                    rx_dma: peripherals.DMA1_CH6,
-                    tx_dma: peripherals.DMA1_CH7,
+                uart2: UartHardware {
+                    peripheral: peripherals.USART2,
+                    rx_pin: peripherals.PA3,
+                    tx_pin: peripherals.PA2,
+                    tx_dma: peripherals.DMA1_CH3,
+                    rx_dma: peripherals.DMA1_CH2,
                     irqs: Irqs,
                 },
             },

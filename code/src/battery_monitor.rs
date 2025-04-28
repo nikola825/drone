@@ -1,10 +1,11 @@
+use embassy_executor::Spawner;
 use embassy_time::{Duration, Ticker};
 
 use crate::logging::info;
 use crate::{hw_select::AdcReader, shared_state::SharedState};
 
 #[embassy_executor::task]
-pub async fn battery_monitor_task(mut adc_reader: AdcReader, shared_state: &'static SharedState) {
+async fn battery_monitor_task(mut adc_reader: AdcReader, shared_state: &'static SharedState) {
     info!("Battery monitor start");
     let mut ticker = Ticker::every(Duration::from_millis(200));
 
@@ -15,4 +16,10 @@ pub async fn battery_monitor_task(mut adc_reader: AdcReader, shared_state: &'sta
 
         ticker.next().await;
     }
+}
+
+pub fn init_battery_monitor(adc_reader: AdcReader, state: &'static SharedState, spawner: &Spawner) {
+    spawner
+        .spawn(battery_monitor_task(adc_reader, state))
+        .unwrap();
 }

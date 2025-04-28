@@ -8,7 +8,7 @@ const FAILSAFE_DISARM_TIMEOUT: Duration = Duration::from_millis(100);
 const DISARM_REASON_NO_SIGNAL: [u8; 3] = *b"SIG";
 const DISARM_REASON_THROTTLE: [u8; 3] = *b"THR";
 const DISARM_REASON_SWITCH: [u8; 3] = *b"SWI";
-const ARMING_MESSAGE_ARMED: [u8; 3] = *b"ARM";
+const ARMING_MESSAGE_ARMED: [u8; 3] = *b"   ";
 
 #[derive(Clone)]
 pub struct ArmingTracker {
