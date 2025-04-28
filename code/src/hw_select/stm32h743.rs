@@ -4,7 +4,10 @@ use embassy_stm32::{
     adc::{Adc, AnyAdcChannel},
     bind_interrupts,
     pac::VREFBUF,
-    peripherals::{ADC1, DMA1_CH4, DMA1_CH5, DMA1_CH6, DMA1_CH7, DMA2_CH0, DMA2_CH1, PA0, PA1, PE12, PE13, PE14, PE15, PE7, PE8, SPI4, UART4, UART7},
+    peripherals::{
+        ADC1, DMA1_CH2, DMA1_CH3, DMA1_CH4, DMA1_CH5, DMA2_CH0, DMA2_CH1, PA0, PA1, PA2, PA3, PE12,
+        PE13, PE14, PE15, SPI4, UART4, USART2,
+    },
     time::Hertz,
     usart::{self},
     usb::{self},
@@ -26,12 +29,28 @@ bind_interrupts!(pub struct Irqs {
 
 #[allow(dead_code)]
 pub struct ExtraHardware {
-    pub uart4:
+    pub msp_uart:
         UartHardware<UART4, embassy_stm32::peripherals::UART4, PA1, PA0, DMA1_CH4, DMA1_CH5, Irqs>,
-    pub uart7:
-        UartHardware<UART7, embassy_stm32::peripherals::UART7, PE7, PE8, DMA1_CH6, DMA1_CH7, Irqs>,
-    
-    pub spi4: SpiHardware<SPI4, embassy_stm32::peripherals::SPI4, PE12, PE14, PE13, DMA2_CH0, DMA2_CH1, PE15>
+    pub uart2: UartHardware<
+        USART2,
+        embassy_stm32::peripherals::USART2,
+        PA3,
+        PA2,
+        DMA1_CH2,
+        DMA1_CH3,
+        Irqs,
+    >,
+
+    pub baro_spi: SpiHardware<
+        SPI4,
+        embassy_stm32::peripherals::SPI4,
+        PE12,
+        PE14,
+        PE13,
+        DMA2_CH0,
+        DMA2_CH1,
+        PE15,
+    >,
 }
 
 pub struct AdcReader {
@@ -180,16 +199,16 @@ macro_rules! get_hardware {
             motor3_pin: peripherals.PB13,
 
             radio_uart: UartHardware {
-                peripheral: peripherals.USART2,
-                rx_pin: peripherals.PA3,
-                tx_pin: peripherals.PA2,
-                tx_dma: peripherals.DMA1_CH2,
-                rx_dma: peripherals.DMA1_CH3,
+                peripheral: peripherals.UART7,
+                tx_pin: peripherals.PE8,
+                rx_pin: peripherals.PE7,
+                rx_dma: peripherals.DMA1_CH6,
+                tx_dma: peripherals.DMA1_CH7,
                 irqs: Irqs,
             },
 
             extra: ExtraHardware {
-                uart4: UartHardware {
+                msp_uart: UartHardware {
                     peripheral: peripherals.UART4,
                     tx_pin: peripherals.PA0,
                     rx_pin: peripherals.PA1,
@@ -197,15 +216,15 @@ macro_rules! get_hardware {
                     tx_dma: peripherals.DMA1_CH5,
                     irqs: Irqs,
                 },
-                uart7: UartHardware {
-                    peripheral: peripherals.UART7,
-                    tx_pin: peripherals.PE8,
-                    rx_pin: peripherals.PE7,
-                    rx_dma: peripherals.DMA1_CH6,
-                    tx_dma: peripherals.DMA1_CH7,
+                uart2: UartHardware {
+                    peripheral: peripherals.USART2,
+                    rx_pin: peripherals.PA3,
+                    tx_pin: peripherals.PA2,
+                    tx_dma: peripherals.DMA1_CH3,
+                    rx_dma: peripherals.DMA1_CH2,
                     irqs: Irqs,
                 },
-                spi4: SpiHardware {
+                baro_spi: SpiHardware {
                     peripheral: peripherals.SPI4,
                     mosi_pin: peripherals.PE14,
                     miso_pin: peripherals.PE13,
@@ -213,7 +232,7 @@ macro_rules! get_hardware {
                     cs_pin: peripherals.PE15,
                     tx_dma: peripherals.DMA2_CH0,
                     rx_dma: peripherals.DMA2_CH1,
-                }
+                },
             },
         }
     }};
