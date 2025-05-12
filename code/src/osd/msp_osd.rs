@@ -2,7 +2,7 @@ use core::{
     cmp::{max, min},
     mem::offset_of,
 };
-use embassy_executor::Spawner;
+use embassy_executor::SendSpawner;
 use num_traits::float::FloatCore;
 use zerocopy::{little_endian, Immutable, IntoBytes, KnownLayout, Unaligned};
 
@@ -407,12 +407,10 @@ async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static
 
 pub fn init_msp_osd(
     msp_uart: impl UartMaker,
-    spawner: &Spawner,
+    spawner: &SendSpawner,
     shared_state: &'static SharedState,
 ) {
     let (_, msp_tx) = make_msp_uart_pair(msp_uart);
 
-    spawner
-        .spawn(osd_refresh_task(msp_tx, shared_state))
-        .unwrap();
+    spawner.must_spawn(osd_refresh_task(msp_tx, shared_state));
 }

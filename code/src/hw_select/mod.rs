@@ -1,3 +1,4 @@
+use embassy_executor::SendSpawner;
 use embassy_stm32::{
     gpio::{Output, Pin},
     interrupt,
@@ -13,12 +14,12 @@ use embassy_stm32::{
 #[cfg(feature = "stm32h723")]
 pub mod stm32h723;
 #[cfg(feature = "stm32h723")]
-pub use stm32h723::{AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
+pub use stm32h723::{get_spawners, AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
 
 #[cfg(feature = "stm32f411")]
 pub mod stm32f411;
 #[cfg(feature = "stm32f411")]
-pub use stm32f411::{AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
+pub use stm32f411::{get_spawners, AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
 
 pub fn get_pin_gpio<T: Pin>(pin: &T) -> embassy_stm32::pac::gpio::Gpio {
     {
@@ -251,4 +252,9 @@ pub struct Hardware<
     >,
 
     pub extra: ExtraHardware,
+}
+
+pub struct Spawners {
+    pub spawner_high: SendSpawner,
+    pub spawner_low: SendSpawner,
 }

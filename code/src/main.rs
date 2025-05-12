@@ -2,12 +2,14 @@
 #![no_main]
 
 use battery_monitor::init_battery_monitor;
+use cortex_m_rt::entry;
 use crsf::init_crsf_communication;
-use embassy_executor::Spawner;
+use embassy_executor::SendSpawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Instant, Ticker, Timer};
+use hw_select::get_spawners;
 use icm42688::ICM42688;
 use logging::{info, init_logging};
 use motors::{disarm, drive_motors, Motor, MotorsContext};
@@ -36,8 +38,21 @@ struct DroneContext {
     pid_context: PidContext,
 }
 
-#[embassy_executor::main]
-async fn main(spawner: Spawner) {
+#[entry]
+fn main() -> ! {
+    let spawners = get_spawners();
+
+    spawners
+        .spawner_low
+        .must_spawn(async_main(spawners.spawner_low, spawners.spawner_high));
+
+    loop {
+        cortex_m::asm::wfi()
+    }
+}
+
+#[embassy_executor::task]
+async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
     static STORE: LazyLock<SharedState> = LazyLock::new(SharedState::new);
 
     let hardware = get_hardware!();
@@ -46,7 +61,7 @@ async fn main(spawner: Spawner) {
     let mut green = Output::new(hardware.green_pin, Level::Low, Speed::VeryHigh);
     let mut yellow = Output::new(hardware.yellow_pin, Level::Low, Speed::VeryHigh);
 
-    init_logging!(hardware, spawner);
+    init_logging!(hardware, spawner_low);
 
     green.set_high();
 
@@ -61,9 +76,9 @@ async fn main(spawner: Spawner) {
     let rear_left = Motor::new(hardware.motor1_pin);
     let rear_right = Motor::new(hardware.motor0_pin);
 
-    init_crsf_communication(hardware.radio_uart, &spawner, STORE.get());
-    init_battery_monitor(hardware.adc_reader, STORE.get(), &spawner);
-    init_osd!(hardware, spawner, STORE.get());
+    init_crsf_communication(hardware.radio_uart, &spawner_low, STORE.get());
+    init_battery_monitor(hardware.adc_reader, STORE.get(), &spawner_low);
+    init_osd!(hardware, spawner_low, STORE.get());
 
     blue.set_high();
 
@@ -74,9 +89,7 @@ async fn main(spawner: Spawner) {
         pid_context: PidContext::new(),
     };
 
-    spawner
-        .spawn(tick_task(blue, green, yellow, imu, context, STORE.get()))
-        .unwrap();
+    spawner_high.must_spawn(tick_task(blue, green, yellow, imu, context, STORE.get()));
 }
 
 #[embassy_executor::task]
@@ -88,7 +101,7 @@ async fn tick_task(
     mut context: DroneContext,
     store: &'static SharedState,
 ) {
-    const PID_PERIOD_US: u64 = 1000;
+    const PID_PERIOD_US: u64 = 1005;
     let mut ticker = Ticker::every(Duration::from_micros(PID_PERIOD_US));
 
     let mut print_counter = 0;
@@ -99,6 +112,9 @@ async fn tick_task(
 
     let mut total_duration = 0f32;
     let mut inner_duration = 0f32;
+    let mut previous_t1 = Instant::now();
+    let mut max_measured_period = 0;
+    let mut min_measured_period = 10000;
 
     loop {
         let t1 = Instant::now();
@@ -141,12 +157,24 @@ async fn tick_task(
         total_duration = (t3 - t1).as_micros() as f32 * 0.5 + total_duration * 0.5;
         inner_duration = (t3 - t2).as_micros() as f32 * 0.5 + inner_duration * 0.5;
         print_counter += 1;
-
-        if print_counter > 800 * (1000 / PID_PERIOD_US) {
-            print_counter = 0;
-            info!("TICK {} {}", total_duration, inner_duration);
+        let measured_period: u64 = (t1 - previous_t1).as_micros();
+        if measured_period > max_measured_period {
+            max_measured_period = measured_period;
+        }
+        if measured_period < min_measured_period {
+            min_measured_period = measured_period;
         }
 
+        if print_counter > 800 * (2000 / PID_PERIOD_US) {
+            print_counter = 0;
+            info!(
+                "TICK {} {} {} {}",
+                total_duration, inner_duration, min_measured_period, max_measured_period
+            );
+            max_measured_period = 0;
+            min_measured_period = 10000;
+        }
+        previous_t1 = t1;
         ticker.next().await;
     }
 }

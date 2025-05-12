@@ -1,4 +1,4 @@
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
 
 use crate::{
     arming::ArmingTracker,
@@ -12,9 +12,9 @@ pub struct CommandState {
 }
 
 pub struct SharedState {
-    channel_state: Mutex<ThreadModeRawMutex, CommandState>,
-    battery_voltage: Mutex<ThreadModeRawMutex, f32>,
-    link_state: Mutex<ThreadModeRawMutex, CRSFFrameLinkStatistics>,
+    channel_state: Mutex<CriticalSectionRawMutex, CommandState>,
+    battery_voltage: Mutex<CriticalSectionRawMutex, f32>,
+    link_state: Mutex<CriticalSectionRawMutex, CRSFFrameLinkStatistics>,
 }
 
 impl SharedState {

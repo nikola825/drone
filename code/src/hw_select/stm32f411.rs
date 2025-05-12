@@ -1,8 +1,10 @@
 use core::ops::RangeInclusive;
 
+use embassy_executor::InterruptExecutor;
 use embassy_stm32::{
     adc::{Adc, AnyAdcChannel},
     bind_interrupts,
+    interrupt::{InterruptExt, Priority},
     peripherals::ADC1,
     time::Hertz,
     usart::{self},
@@ -10,14 +12,33 @@ use embassy_stm32::{
     Config, Peripherals,
 };
 
+use embassy_stm32::interrupt;
+
 pub use embassy_stm32::peripherals::PA11 as USB_DM;
 pub use embassy_stm32::peripherals::PA12 as USB_DP;
 pub use embassy_stm32::peripherals::USB_OTG_FS as USB_PERIPHERAL;
+
+use super::Spawners;
 
 bind_interrupts!(pub struct Irqs {
     USART2 => usart::InterruptHandler<embassy_stm32::peripherals::USART2>;
     OTG_FS => usb::InterruptHandler<USB_PERIPHERAL>;
 });
+
+// High-priority executor used mainly for PID loop
+pub static EXECUTOR_HIGH: InterruptExecutor = InterruptExecutor::new();
+// Low-priority executor used for less important tasks
+pub static EXECUTOR_LOW: InterruptExecutor = InterruptExecutor::new();
+
+#[interrupt]
+unsafe fn USART1() {
+    EXECUTOR_HIGH.on_interrupt()
+}
+
+#[interrupt]
+unsafe fn USART6() {
+    EXECUTOR_LOW.on_interrupt()
+}
 
 pub struct AdcReader {
     adc: Adc<'static, ADC1>,
@@ -142,6 +163,19 @@ macro_rules! get_hardware {
             extra: ExtraHardware {},
         }
     }};
+}
+
+pub fn get_spawners() -> Spawners {
+    interrupt::USART1.set_priority(Priority::P6);
+    let spawner_high = EXECUTOR_HIGH.start(interrupt::USART1);
+
+    interrupt::USART6.set_priority(Priority::P7);
+    let spawner_low = EXECUTOR_LOW.start(interrupt::USART6);
+
+    Spawners {
+        spawner_high,
+        spawner_low,
+    }
 }
 
 #[macro_export]

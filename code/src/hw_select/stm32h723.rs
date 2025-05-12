@@ -1,8 +1,10 @@
 use core::ops::RangeInclusive;
 
+use embassy_executor::InterruptExecutor;
 use embassy_stm32::{
     adc::{Adc, AnyAdcChannel},
     bind_interrupts,
+    interrupt::{InterruptExt, Priority},
     pac::VREFBUF,
     peripherals::{
         ADC1, DMA1_CH2, DMA1_CH3, DMA1_CH4, DMA1_CH5, PA0, PA1, PA2, PA3, UART4, USART2,
@@ -13,11 +15,13 @@ use embassy_stm32::{
     Config, Peripherals,
 };
 
+use embassy_stm32::interrupt;
+
 pub use embassy_stm32::peripherals::PA11 as USB_DM;
 pub use embassy_stm32::peripherals::PA12 as USB_DP;
 pub use embassy_stm32::peripherals::USB_OTG_HS as USB_PERIPHERAL;
 
-use super::UartHardware;
+use super::{Spawners, UartHardware};
 
 bind_interrupts!(pub struct Irqs {
     USART2 => usart::InterruptHandler<embassy_stm32::peripherals::USART2>;
@@ -25,6 +29,21 @@ bind_interrupts!(pub struct Irqs {
     UART7 => usart::InterruptHandler<embassy_stm32::peripherals::UART7>;
     OTG_HS => usb::InterruptHandler<USB_PERIPHERAL>;
 });
+
+// High-priority executor used mainly for PID loop
+pub static EXECUTOR_HIGH: InterruptExecutor = InterruptExecutor::new();
+// Low-priority executor used for less important tasks
+pub static EXECUTOR_LOW: InterruptExecutor = InterruptExecutor::new();
+
+#[interrupt]
+unsafe fn UART5() {
+    EXECUTOR_HIGH.on_interrupt()
+}
+
+#[interrupt]
+unsafe fn USART3() {
+    EXECUTOR_LOW.on_interrupt()
+}
 
 #[allow(dead_code)]
 pub struct ExtraHardware {
@@ -149,6 +168,15 @@ pub fn make_peripherals() -> Peripherals {
         x.set_envr(false);
         x.set_hiz(embassy_stm32::pac::vrefbuf::vals::Hiz::HIGH_Z);
     });
+
+    unsafe {
+        let peripherals = cortex_m::Peripherals::steal();
+        let mut scb = peripherals.SCB;
+        scb.set_sleeponexit();
+        scb.enable_icache();
+        scb.enable_fpu();
+    }
+
     peripherals
 }
 
@@ -217,23 +245,36 @@ macro_rules! get_hardware {
     }};
 }
 
+pub fn get_spawners() -> Spawners {
+    interrupt::UART5.set_priority(Priority::P6);
+    let spawner_high = EXECUTOR_HIGH.start(interrupt::UART5);
+
+    interrupt::USART3.set_priority(Priority::P7);
+    let spawner_low = EXECUTOR_LOW.start(interrupt::USART3);
+
+    Spawners {
+        spawner_high,
+        spawner_low,
+    }
+}
+
 #[macro_export]
 macro_rules! dshot_nop_0 {
     () => {
-        nop127!();
+        nop500!();
     };
 }
 
 #[macro_export]
 macro_rules! dshot_nop_0_to_1 {
     () => {
-        nop127!();
+        nop500!();
     };
 }
 
 #[macro_export]
 macro_rules! dshot_nop_remainder {
     () => {
-        nop70!();
+        nop200!();
     };
 }

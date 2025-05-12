@@ -1,7 +1,7 @@
 use core::panic::PanicInfo;
 
 use crate::hw_select::{Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
-use embassy_executor::Spawner;
+use embassy_executor::SendSpawner;
 use embassy_futures::join::join;
 use embassy_stm32::{
     peripherals::{PA11, PA12},
@@ -33,9 +33,9 @@ pub async fn init_usb_logging(
     peripheral: USB_PERIPHERAL,
     dp_pin: PA12,
     dm_pin: PA11,
-    spawner: &Spawner,
+    spawner: &SendSpawner,
 ) {
-    spawner.spawn(usb_task(peripheral, dp_pin, dm_pin)).unwrap();
+    spawner.must_spawn(usb_task(peripheral, dp_pin, dm_pin));
 }
 
 #[embassy_executor::task]

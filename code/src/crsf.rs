@@ -1,5 +1,5 @@
 use core::cmp::min;
-use embassy_executor::Spawner;
+use embassy_executor::SendSpawner;
 use num_traits::float::FloatCore;
 
 use crate::crc8::crc8_calculate;
@@ -299,11 +299,11 @@ async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, shared_state: &'sta
 
 pub fn init_crsf_communication(
     uart: impl UartMaker,
-    spawner: &Spawner,
+    spawner: &SendSpawner,
     store: &'static SharedState,
 ) {
     let (crsf_rx, crsf_tx) = make_uart_pair(uart);
 
-    spawner.spawn(crsf_receiver_task(crsf_rx, store)).unwrap();
-    spawner.spawn(crsf_telemetry_task(crsf_tx, store)).unwrap();
+    spawner.must_spawn(crsf_receiver_task(crsf_rx, store));
+    spawner.must_spawn(crsf_telemetry_task(crsf_tx, store));
 }
