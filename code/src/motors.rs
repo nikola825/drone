@@ -3,6 +3,7 @@ use embassy_stm32::{
     pac::gpio::Gpio,
 };
 use embassy_time::{Duration, Instant, Timer};
+use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
 
 use crate::{
     dshot::{dshot_send_parallel, dshot_send_single},
@@ -46,7 +47,8 @@ impl BeepTone {
     }
 }
 
-#[allow(dead_code)]
+#[derive(IntoBytes, Immutable, TryFromBytes, KnownLayout, Unaligned, Clone, Copy, Debug)]
+#[repr(u8)]
 pub enum MotorDirection {
     Forward,
     Backward,

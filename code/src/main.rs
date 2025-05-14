@@ -2,10 +2,12 @@
 #![no_main]
 
 use battery_monitor::init_battery_monitor;
+use config_storage::{read_stored_config, StoredConfig};
 use cortex_m_rt::entry;
 use crsf::init_crsf_communication;
 use embassy_executor::SendSpawner;
 use embassy_stm32::adc::AdcChannel;
+use embassy_stm32::flash::Flash;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Instant, Ticker, Timer};
@@ -20,6 +22,7 @@ use shared_state::SharedState;
 mod arming;
 mod battery_monitor;
 mod channel_mapping;
+mod config_storage;
 mod crc8;
 mod crsf;
 mod dshot;
@@ -61,6 +64,8 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
     let mut green = Output::new(hardware.green_pin, Level::Low, Speed::VeryHigh);
     let mut yellow = Output::new(hardware.yellow_pin, Level::Low, Speed::VeryHigh);
 
+    let mut flash = Flash::new_blocking(hardware.flash);
+
     init_logging!(hardware, spawner_low);
 
     green.set_high();
@@ -71,10 +76,30 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     yellow.set_high();
 
-    let front_left = Motor::new(hardware.motor2_pin);
-    let front_right = Motor::new(hardware.motor3_pin);
-    let rear_left = Motor::new(hardware.motor1_pin);
-    let rear_right = Motor::new(hardware.motor0_pin);
+    // reconfigure_and_store(&mut flash).await;
+    // dump_config(&mut flash).await;
+
+    let stored_config = read_stored_config(&mut flash).await;
+
+    let mut motors: [Option<Motor>; 4] = [
+        Some(Motor::new(hardware.motor0_pin)),
+        Some(Motor::new(hardware.motor1_pin)),
+        Some(Motor::new(hardware.motor2_pin)),
+        Some(Motor::new(hardware.motor3_pin)),
+    ];
+
+    let front_left = motors[stored_config.front_left_motor as usize]
+        .take()
+        .unwrap();
+    let front_right = motors[stored_config.front_right_motor as usize]
+        .take()
+        .unwrap();
+    let rear_left = motors[stored_config.rear_left_motor as usize]
+        .take()
+        .unwrap();
+    let rear_right = motors[stored_config.rear_right_motor as usize]
+        .take()
+        .unwrap();
 
     init_crsf_communication(hardware.radio_uart, &spawner_low, STORE.get());
     init_battery_monitor(hardware.adc_reader, STORE.get(), &spawner_low);
@@ -86,7 +111,7 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     let context = DroneContext {
         motor_context: MotorsContext::new(front_left, front_right, rear_left, rear_right),
-        pid_context: PidContext::new(),
+        pid_context: PidContext::new(&stored_config),
     };
 
     spawner_high.must_spawn(tick_task(blue, green, yellow, imu, context, STORE.get()));
@@ -180,37 +205,32 @@ async fn tick_task(
 }
 
 #[allow(dead_code)]
-async fn motor_reset(
+async fn reapply_motor_configuration(
     front_left: &Motor,
     front_right: &Motor,
     rear_left: &Motor,
     rear_right: &Motor,
+    config: &StoredConfig,
 ) {
     for _ in 0..5 {
         info!("BEGINNING RESET");
         info!("Front left");
         front_left.disable_3d_mode().await;
-        front_left
-            .set_direction(motors::MotorDirection::Forward)
-            .await;
+        front_left.set_direction(config.front_left_direction).await;
 
         info!("Front right");
         front_right.disable_3d_mode().await;
         front_right
-            .set_direction(motors::MotorDirection::Backward)
+            .set_direction(config.front_right_direction)
             .await;
 
         info!("Rear left");
         rear_left.disable_3d_mode().await;
-        rear_left
-            .set_direction(motors::MotorDirection::Backward)
-            .await;
+        rear_left.set_direction(config.rear_left_direction).await;
 
         info!("Rear right");
         rear_right.disable_3d_mode().await;
-        rear_right
-            .set_direction(motors::MotorDirection::Forward)
-            .await;
+        rear_right.set_direction(config.rear_right_direction).await;
 
         info!("RESET END");
         Timer::after_millis(100).await;

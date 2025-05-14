@@ -1,6 +1,8 @@
 use embassy_time::Instant;
 
-use crate::{crsf::CRSFChannels, icm42688::ICM42688, motors::MotorInputs};
+use crate::{
+    config_storage::StoredConfig, crsf::CRSFChannels, icm42688::ICM42688, motors::MotorInputs,
+};
 
 // At our PID rate of 1000Hz, this gives a 3dB dropoff at around 100Hz
 const D_TERM_LPF_FACTOR: f32 = 0.457f32;
@@ -47,15 +49,22 @@ pub struct PidContext {
     pitch_pid: Pid,
     roll_pid: Pid,
 
+    yaw_offset: f32,
+    pitch_offset: f32,
+    roll_offset: f32,
+
     last_pid_time: Instant,
 }
 
 impl PidContext {
-    pub fn new() -> Self {
+    pub fn new(stored_config: &StoredConfig) -> Self {
         PidContext {
             yaw_pid: Pid::new(),
             pitch_pid: Pid::new(),
             roll_pid: Pid::new(),
+            yaw_offset: stored_config.yaw_offset.into(),
+            pitch_offset: stored_config.pitch_offset.into(),
+            roll_offset: stored_config.roll_offset.into(),
             last_pid_time: Instant::now(),
         }
     }
@@ -73,16 +82,11 @@ pub fn do_pid_iteration(
     context: &mut PidContext,
     inputs: &CRSFChannels,
 ) -> MotorInputs {
-    // Gyro calibration values
-    const YAW_OFFSET: f32 = -0.11099324;
-    const PITCH_OFFSET: f32 = 0.51241034;
-    const ROLL_OFFSET: f32 = -0.051307525;
-
     let (yaw_measured, pitch_measured, roll_measured) = imu.get_ypr_deg();
 
-    let yaw_measured = yaw_measured - YAW_OFFSET;
-    let pitch_measured = pitch_measured - PITCH_OFFSET;
-    let roll_measured = roll_measured - ROLL_OFFSET;
+    let yaw_measured = yaw_measured - context.yaw_offset;
+    let pitch_measured = pitch_measured - context.pitch_offset;
+    let roll_measured = roll_measured - context.roll_offset;
 
     let roll_measured = roll_measured * -1f32;
 

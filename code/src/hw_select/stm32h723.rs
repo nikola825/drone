@@ -15,11 +15,16 @@ use embassy_stm32::{
     Config, Peripherals,
 };
 
+const FLASH_SIZE: usize = 1048576;
+pub const STORED_CONFIG_START: usize = FLASH_SIZE - STORED_CONFIG_STRUCT_SIZE;
+
 use embassy_stm32::interrupt;
 
 pub use embassy_stm32::peripherals::PA11 as USB_DM;
 pub use embassy_stm32::peripherals::PA12 as USB_DP;
 pub use embassy_stm32::peripherals::USB_OTG_HS as USB_PERIPHERAL;
+
+use crate::config_storage::STORED_CONFIG_STRUCT_SIZE;
 
 use super::{Spawners, UartHardware};
 
@@ -222,6 +227,8 @@ macro_rules! get_hardware {
                 tx_dma: peripherals.DMA1_CH7,
                 irqs: Irqs,
             },
+
+            flash: peripherals.FLASH,
 
             extra: ExtraHardware {
                 msp_uart: UartHardware {

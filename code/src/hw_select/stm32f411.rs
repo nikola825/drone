@@ -151,6 +151,8 @@ macro_rules! get_hardware {
             motor2_pin: peripherals.PA7,
             motor3_pin: peripherals.PA6,
 
+            flash: peripherals.FLASH,
+
             radio_uart: UartHardware {
                 peripheral: peripherals.USART2,
                 rx_pin: peripherals.PA3,

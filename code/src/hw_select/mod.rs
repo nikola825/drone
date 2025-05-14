@@ -14,7 +14,10 @@ use embassy_stm32::{
 #[cfg(feature = "stm32h723")]
 pub mod stm32h723;
 #[cfg(feature = "stm32h723")]
-pub use stm32h723::{get_spawners, AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
+pub use stm32h723::{
+    get_spawners, AdcReader, ExtraHardware, Irqs, STORED_CONFIG_START, USB_DM, USB_DP,
+    USB_PERIPHERAL,
+};
 
 #[cfg(feature = "stm32f411")]
 pub mod stm32f411;
@@ -250,6 +253,8 @@ pub struct Hardware<
         RadioUartTxDma,
         RadioIrqType,
     >,
+
+    pub flash: embassy_stm32::peripherals::FLASH,
 
     pub extra: ExtraHardware,
 }

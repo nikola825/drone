@@ -64,7 +64,7 @@ default-features = false
 [features]
 default = ["usb-logging", "stm32h723"]
 stm32f411 = ["embassy-stm32/stm32f411ce", "dummy_osd"]
-stm32h723 = ["embassy-stm32/stm32h723vg", "msp_osd"]
+stm32h723 = ["embassy-stm32/stm32h723vg", "msp_osd", "flash_storage"]
 rtt-logging = ["dep:defmt-rtt", "dep:defmt", "embassy-stm32/defmt"]
 usb-logging = [
     "dep:embassy-usb",
@@ -74,3 +74,4 @@ usb-logging = [
 ]
 msp_osd = []
 dummy_osd = []
+flash_storage = []
