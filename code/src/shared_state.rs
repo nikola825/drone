@@ -3,6 +3,7 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
 use crate::{
     arming::ArmingTracker,
     crsf::{CRSFChannels, CRSFFrameLinkStatistics},
+    gps::GPSState,
 };
 
 #[derive(Clone, Default)]
@@ -15,6 +16,7 @@ pub struct SharedState {
     channel_state: Mutex<CriticalSectionRawMutex, CommandState>,
     battery_voltage: Mutex<CriticalSectionRawMutex, f32>,
     link_state: Mutex<CriticalSectionRawMutex, CRSFFrameLinkStatistics>,
+    gps_state: Mutex<CriticalSectionRawMutex, GPSState>,
 }
 
 impl SharedState {
@@ -23,6 +25,7 @@ impl SharedState {
             channel_state: Mutex::new(CommandState::default()),
             battery_voltage: Mutex::new(0f32),
             link_state: Mutex::new(CRSFFrameLinkStatistics::default()),
+            gps_state: Mutex::new(GPSState::default()),
         }
     }
 
@@ -55,5 +58,15 @@ impl SharedState {
     pub async fn update_link_state(&self, link_state: CRSFFrameLinkStatistics) {
         let mut guard = self.link_state.lock().await;
         *guard = link_state;
+    }
+
+    pub async fn update_gps_state(&self, gps_state: GPSState) {
+        let mut guard = self.gps_state.lock().await;
+        *guard = gps_state;
+    }
+
+    pub async fn get_gps_state(&self) -> GPSState {
+        let guard = self.gps_state.lock().await;
+        guard.clone()
     }
 }
