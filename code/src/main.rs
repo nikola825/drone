@@ -35,6 +35,7 @@ mod nopdelays;
 mod osd;
 mod pid;
 mod shared_state;
+mod static_buffer;
 
 struct DroneContext {
     motor_context: MotorsContext,

@@ -15,8 +15,10 @@ use embassy_stm32::{
     Config, Peripherals,
 };
 
-const FLASH_SIZE: usize = 1048576;
-pub const STORED_CONFIG_START: usize = FLASH_SIZE - STORED_CONFIG_STRUCT_SIZE;
+pub const FLASH_SIZE: u32 = embassy_stm32::flash::BANK1_REGION.size;
+pub const STORED_CONFIG_START: u32 = FLASH_SIZE - STORED_CONFIG_STRUCT_SIZE;
+pub const FLASH_ERASE_SIZE: u32 = embassy_stm32::flash::BANK1_REGION.erase_size;
+pub const FLASH_ERASE_START: u32 = FLASH_SIZE - FLASH_ERASE_SIZE;
 
 use embassy_stm32::interrupt;
 

@@ -5,6 +5,7 @@ use num_traits::float::FloatCore;
 use crate::crc8::crc8_calculate;
 use crate::hw_select::UartMaker;
 use crate::logging::{error, info};
+use crate::make_static_buffer;
 use embassy_stm32::mode::Async;
 use embassy_stm32::usart::Parity;
 use embassy_stm32::usart::{RingBufferedUartRx, StopBits, UartRx, UartTx};
@@ -209,8 +210,9 @@ fn make_uart_pair(uart_maker: impl UartMaker) -> (UartRx<'static, Async>, UartTx
 
 #[embassy_executor::task]
 async fn crsf_receiver_task(rx: UartRx<'static, Async>, shared_state: &'static SharedState) {
-    let mut ring_buffer = [0u8; 1024];
-    let mut rx = rx.into_ring_buffered(&mut ring_buffer);
+    let ring_buffer = make_static_buffer!(1024);
+
+    let mut rx = rx.into_ring_buffered(ring_buffer);
     info!("CRSF receiver start");
 
     loop {
@@ -265,7 +267,8 @@ async fn process_crsf_packet(
             process_link_statistics(CRSFPacket::deserialize(&command_buffer)?, shared_state).await
         }
         CRSFFrameType::CRSF_FRAME_TYPE_RC_CHANNELS_PACKED => {
-            process_received_channels(CRSFPacket::deserialize(&command_buffer)?, shared_state).await
+            process_received_channels(CRSFPacket::deserialize(&command_buffer)?, shared_state)
+                .await;
         }
     }
 

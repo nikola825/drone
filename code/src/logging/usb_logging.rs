@@ -1,6 +1,9 @@
 use core::panic::PanicInfo;
 
-use crate::hw_select::{Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
+use crate::{
+    hw_select::{Irqs, USB_DM, USB_DP, USB_PERIPHERAL},
+    make_static_buffer,
+};
 use embassy_executor::SendSpawner;
 use embassy_futures::join::join;
 use embassy_stm32::{
@@ -40,10 +43,12 @@ pub async fn init_usb_logging(
 
 #[embassy_executor::task]
 async fn usb_task(peripheral: USB_PERIPHERAL, dp_pin: USB_DP, dm_pin: USB_DM) {
+    let usb_buffer = make_static_buffer!(256);
+
     let mut config = embassy_stm32::usb::Config::default();
+
     config.vbus_detection = false;
-    let mut usb_buffer = [0u8; 256];
-    let driver = Driver::new_fs(peripheral, Irqs, dp_pin, dm_pin, &mut usb_buffer, config);
+    let driver = Driver::new_fs(peripheral, Irqs, dp_pin, dm_pin, usb_buffer, config);
 
     let mut config = embassy_usb::Config::new(USB_DEVICE_VID, USB_DEVICE_PID);
     config.manufacturer = Some(USB_DEVICE_MANUFACTURER);

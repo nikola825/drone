@@ -15,8 +15,8 @@ use embassy_stm32::{
 pub mod stm32h723;
 #[cfg(feature = "stm32h723")]
 pub use stm32h723::{
-    get_spawners, AdcReader, ExtraHardware, Irqs, STORED_CONFIG_START, USB_DM, USB_DP,
-    USB_PERIPHERAL,
+    get_spawners, AdcReader, ExtraHardware, Irqs, FLASH_ERASE_START, FLASH_SIZE,
+    STORED_CONFIG_START, USB_DM, USB_DP, USB_PERIPHERAL,
 };
 
 #[cfg(feature = "stm32f411")]

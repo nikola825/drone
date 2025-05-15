@@ -1,8 +1,4 @@
-use crate::{
-    crc8::crc8_calculate,
-    logging::error,
-    motors::{self, MotorDirection},
-};
+use crate::{crc8::crc8_calculate, logging::error, motors::MotorDirection};
 
 #[cfg(feature = "flash_storage")]
 use crate::hw_select::STORED_CONFIG_START;
@@ -12,7 +8,7 @@ use embassy_time::Timer;
 use log::info;
 use zerocopy::{little_endian::F32, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
 
-pub const STORED_CONFIG_STRUCT_SIZE: usize = 64;
+pub const STORED_CONFIG_STRUCT_SIZE: u32 = 64;
 
 #[derive(Debug)]
 pub enum StoredConfigError {
@@ -113,17 +109,17 @@ impl StoredConfig {
 #[allow(dead_code, clippy::field_reassign_with_default)]
 #[cfg(feature = "flash_storage")]
 pub async fn reconfigure_and_store(flash: &mut Flash<'static, Blocking>) {
-    let mut config = StoredConfig::default();
-    //let mut config = read_stored_config(flash).await;
+    //let mut config = StoredConfig::default();
+    let mut config = read_stored_config(flash).await;
 
     config.front_left_motor = 2;
     config.front_right_motor = 3;
     config.rear_left_motor = 1;
     config.rear_right_motor = 0;
-    config.front_left_direction = motors::MotorDirection::Forward;
-    config.front_right_direction = motors::MotorDirection::Backward;
-    config.rear_left_direction = motors::MotorDirection::Backward;
-    config.rear_right_direction = motors::MotorDirection::Forward;
+    config.front_left_direction = MotorDirection::Forward;
+    config.front_right_direction = MotorDirection::Backward;
+    config.rear_left_direction = MotorDirection::Backward;
+    config.rear_right_direction = MotorDirection::Forward;
     config.yaw_offset = (-0.11099324f32).into();
     config.pitch_offset = (0.51241034).into();
     config.roll_offset = (-0.051307525).into();
@@ -136,10 +132,10 @@ pub async fn read_stored_config(flash: &mut Flash<'static, Blocking>) -> StoredC
     {
         Timer::after_millis(300).await;
 
-        let mut buffer = [0u8; STORED_CONFIG_STRUCT_SIZE];
+        let mut buffer = [0u8; STORED_CONFIG_STRUCT_SIZE as usize];
 
         let stored_config_result = flash
-            .blocking_read(STORED_CONFIG_START as u32, &mut buffer)
+            .blocking_read(STORED_CONFIG_START, &mut buffer)
             .map_err(StoredConfigError::FlashError)
             .and_then(|_| {
                 StoredConfig::try_read_from_bytes(&buffer)
@@ -163,10 +159,10 @@ pub async fn read_stored_config(flash: &mut Flash<'static, Blocking>) -> StoredC
             front_right_motor: 3,
             rear_left_motor: 1,
             rear_right_motor: 0,
-            front_left_direction: motors::MotorDirection::Forward,
-            front_right_direction: motors::MotorDirection::Backward,
-            rear_left_direction: motors::MotorDirection::Backward,
-            rear_right_direction: motors::MotorDirection::Forward,
+            front_left_direction: MotorDirection::Forward,
+            front_right_direction: MotorDirection::Backward,
+            rear_left_direction: MotorDirection::Backward,
+            rear_right_direction: MotorDirection::Forward,
             yaw_offset: (-0.11099324f32).into(),
             pitch_offset: (0.51241034).into(),
             roll_offset: (-0.051307525).into(),
@@ -178,13 +174,16 @@ pub async fn read_stored_config(flash: &mut Flash<'static, Blocking>) -> StoredC
 
 #[cfg(feature = "flash_storage")]
 pub async fn store_config(flash: &mut Flash<'static, Blocking>, mut config: StoredConfig) {
+    use crate::hw_select::{FLASH_ERASE_START, FLASH_SIZE};
+
     config.update_checksum();
     Timer::after_millis(300).await;
 
     let store_result = config.validate().and_then(|config| {
         let bytes = config.as_bytes();
         flash
-            .blocking_write(STORED_CONFIG_START as u32, bytes)
+            .blocking_erase(FLASH_ERASE_START, FLASH_SIZE)
+            .and_then(|_| flash.blocking_write(STORED_CONFIG_START, bytes))
             .map_err(StoredConfigError::FlashError)
     });
 
