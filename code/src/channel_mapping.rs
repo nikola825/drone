@@ -91,6 +91,6 @@ impl CRSFChannels {
     define_channel!(u16, throttle_servo, 2, map_crsf_to_servo);
 
     define_channel!(u16, aux1, 5, 0, 128);
-    define_channel!(u16, aux2, 6, 0, 128);
+    define_channel!(u16, aux2, 6, 0, 30);
     define_channel!(bool, beep, 7);
 }

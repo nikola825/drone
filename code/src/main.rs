@@ -191,7 +191,7 @@ async fn tick_task(
             min_measured_period = measured_period;
         }
 
-        if print_counter > 800 * (2000 / PID_PERIOD_US) {
+        if print_counter > 1000 * (2000 / PID_PERIOD_US) {
             print_counter = 0;
             info!(
                 "TICK {} {} {} {}",

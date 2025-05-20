@@ -97,15 +97,17 @@ pub fn do_pid_iteration(
     let thrust = inputs.throttle() as f32;
     let command_limit = thrust / 4f32;
 
-    let motor_thrust = inputs.throttle();
+    let motor_thrust = inputs.throttle() as u32;
+
+    let thrust_scaled = (motor_thrust * (100 - inputs.aux2() as u32)) / 100;
+
+    let motor_thrust = thrust_scaled as u16;
 
     let now = Instant::now();
     let dt = (now - context.last_pid_time).as_micros() as f32 * 1e-6;
     context.last_pid_time = now;
 
     let p_scale_factor = 1.0f32 + (inputs.aux1() / 2) as f32 / 8f32;
-
-    let kd = (inputs.aux2() / 2) as f32 / 200.0f32;
 
     if motor_thrust < 200 {
         context.reset();
@@ -122,7 +124,7 @@ pub fn do_pid_iteration(
             .calculate(
                 12.6f32 * p_scale_factor,
                 60f32,
-                kd,
+                0.045f32,
                 pitch_error,
                 dt,
                 command_limit,
@@ -134,7 +136,7 @@ pub fn do_pid_iteration(
             .calculate(
                 12.6f32 * p_scale_factor,
                 60f32,
-                kd,
+                0.045f32,
                 roll_error,
                 dt,
                 command_limit,
