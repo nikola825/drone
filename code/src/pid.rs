@@ -1,7 +1,14 @@
+use core::f32;
+
 use embassy_time::Instant;
 
 use crate::{
-    config_storage::StoredConfig, crsf::CRSFChannels, icm42688::ICM42688, motors::MotorInputs,
+    ahrs_wrapper::AhrsWrapper,
+    config_storage::StoredConfig,
+    crsf::CRSFChannels,
+    icm42688::ICM42688,
+    math_stuff::{angle_add, angle_sub},
+    motors::MotorInputs,
 };
 
 // At our PID rate of 1000Hz, this gives a 3dB dropoff at around 100Hz
@@ -54,6 +61,10 @@ pub struct PidContext {
     roll_offset: f32,
 
     last_pid_time: Instant,
+
+    pub orient: AhrsWrapper,
+
+    current_yaw_angle: f32,
 }
 
 impl PidContext {
@@ -66,33 +77,81 @@ impl PidContext {
             pitch_offset: stored_config.pitch_offset.into(),
             roll_offset: stored_config.roll_offset.into(),
             last_pid_time: Instant::now(),
+            orient: AhrsWrapper::new(),
+            current_yaw_angle: 0f32,
         }
     }
 
-    fn reset(&mut self) {
+    fn reset(&mut self, current_yaw_angle: f32) {
         self.yaw_pid.reset();
         self.pitch_pid.reset();
         self.roll_pid.reset();
         self.last_pid_time = Instant::now();
+        self.current_yaw_angle = current_yaw_angle;
     }
 }
 
-pub fn do_pid_iteration(
+fn angle_mode_target_angular_velocity(angle: f32, target_angle: f32, velocity_scale: f32) -> f32 {
+    let angle_error = angle_sub(target_angle, angle);
+    let mut target_velocity = angle_error * velocity_scale;
+
+    if angle_error < -0.1 {
+        target_velocity -= 1.0f32;
+    }
+    if angle_error > 0.1 {
+        target_velocity += 1.0f32;
+    }
+
+    target_velocity
+}
+
+pub async fn do_pid_iteration(
     imu: &mut ICM42688,
     context: &mut PidContext,
     inputs: &CRSFChannels,
 ) -> MotorInputs {
-    let (yaw_measured, pitch_measured, roll_measured) = imu.get_ypr_deg();
+    let motion_data = imu.get_motion_data().apply_gyro_offsets(
+        context.yaw_offset,
+        context.pitch_offset,
+        context.roll_offset,
+    );
 
-    let yaw_measured = yaw_measured - context.yaw_offset;
-    let pitch_measured = pitch_measured - context.pitch_offset;
-    let roll_measured = roll_measured - context.roll_offset;
+    context.orient.update(&motion_data);
 
-    let roll_measured = roll_measured * -1f32;
+    let euler = context.orient.read_ypr();
 
-    let yaw_error = -inputs.yaw_expo() - yaw_measured;
-    let pitch_error = inputs.pitch_expo() - pitch_measured;
-    let roll_error = inputs.roll_expo() - roll_measured;
+    let angle_mode = inputs.mode() > 0;
+
+    let (yaw_target_angular_velocity, pitch_target_angular_velocity, roll_target_angular_velocity) =
+        if angle_mode {
+            let yaw_target_velocity = if inputs.yaw_expo().abs() > 5f32 {
+                context.current_yaw_angle = euler.yaw;
+
+                inputs.yaw_expo()
+            } else {
+                angle_mode_target_angular_velocity(
+                    euler.yaw,
+                    angle_add(context.current_yaw_angle, inputs.yaw_angle()),
+                    inputs.aux1(),
+                )
+            };
+
+            (
+                yaw_target_velocity,
+                angle_mode_target_angular_velocity(
+                    euler.pitch,
+                    inputs.pitch_angle(),
+                    inputs.aux1(),
+                ),
+                angle_mode_target_angular_velocity(euler.roll, inputs.roll_angle(), inputs.aux1()),
+            )
+        } else {
+            (inputs.yaw_expo(), inputs.pitch_expo(), inputs.roll_expo())
+        };
+
+    let yaw_error = yaw_target_angular_velocity - motion_data.gyro_yaw;
+    let pitch_error = pitch_target_angular_velocity - motion_data.gyro_pitch;
+    let roll_error = roll_target_angular_velocity - motion_data.gyro_roll;
 
     let thrust = inputs.throttle() as f32;
     let command_limit = thrust / 4f32;
@@ -107,10 +166,8 @@ pub fn do_pid_iteration(
     let dt = (now - context.last_pid_time).as_micros() as f32 * 1e-6;
     context.last_pid_time = now;
 
-    let p_scale_factor = 1.0f32 + (inputs.aux1() / 2) as f32 / 8f32;
-
     if motor_thrust < 200 {
-        context.reset();
+        context.reset(euler.yaw);
 
         MotorInputs::idle(motor_thrust)
     } else {
@@ -121,26 +178,12 @@ pub fn do_pid_iteration(
 
         let pitch_input = context
             .pitch_pid
-            .calculate(
-                12.6f32 * p_scale_factor,
-                60f32,
-                0.045f32,
-                pitch_error,
-                dt,
-                command_limit,
-            )
+            .calculate(12.6f32, 60f32, 0.045f32, pitch_error, dt, command_limit)
             .clamp(-command_limit, command_limit) as i16;
 
         let roll_input = context
             .roll_pid
-            .calculate(
-                12.6f32 * p_scale_factor,
-                60f32,
-                0.045f32,
-                roll_error,
-                dt,
-                command_limit,
-            )
+            .calculate(12.6f32, 60f32, 0.045f32, roll_error, dt, command_limit)
             .clamp(-command_limit, command_limit) as i16;
 
         MotorInputs {

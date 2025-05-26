@@ -51,6 +51,8 @@ embedded-io-async = { version = "0.6.1" }
 panic-probe = { version = "0.3", features = ["print-defmt"] }
 zerocopy = { version = "0.8.24", features = ["derive"] }
 static_cell = "2.1.0"
+ahrs = {version="0.7.0", default-features = false}
+nalgebra = {version = "0.33.2", default-features = false}
 
 [profile.release]
 debug = 2

@@ -22,8 +22,8 @@ const CRSF_COMMUNICATION_TIMEOUT: Duration = Duration::from_millis(100);
 const CRSF_FRAME_MAX_SIZE: usize = 64;
 const CRSF_FRAME_SYNC_BYTE: u8 = 0xc8;
 
-pub const CRSF_COMMAND_MIN: u16 = 172;
-pub const CRSF_COMMAND_MAX: u16 = 1811;
+pub const CRSF_COMMAND_MIN: u16 = 191;
+pub const CRSF_COMMAND_MAX: u16 = 1792;
 pub const CRSF_COMMAND_RANGE: f32 = (CRSF_COMMAND_MAX - CRSF_COMMAND_MIN) as f32;
 
 #[allow(non_camel_case_types)]

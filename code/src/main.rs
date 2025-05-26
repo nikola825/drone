@@ -19,6 +19,7 @@ use osd::init_osd;
 use pid::{do_pid_iteration, PidContext};
 use shared_state::SharedState;
 
+mod ahrs_wrapper;
 mod arming;
 mod battery_monitor;
 mod channel_mapping;
@@ -30,6 +31,7 @@ mod expo_rates;
 mod hw_select;
 mod icm42688;
 mod logging;
+mod math_stuff;
 mod motors;
 mod nopdelays;
 mod osd;
@@ -165,7 +167,7 @@ async fn tick_task(
 
         let t2 = Instant::now();
         let motor_inputs =
-            do_pid_iteration(&mut imu, &mut context.pid_context, &command_state.commands);
+            do_pid_iteration(&mut imu, &mut context.pid_context, &command_state.commands).await;
 
         if armed {
             drive_motors(&mut context.motor_context, &motor_inputs);

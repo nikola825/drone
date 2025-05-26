@@ -300,10 +300,10 @@ pub fn drive_motors(context: &mut MotorsContext, inputs: &MotorInputs) {
         let pitch_input = inputs.pitch_input;
         let roll_input = inputs.roll_input;
 
-        let front_left: i16 = (thrust + roll_input - pitch_input + yaw_input) / 4;
-        let front_right: i16 = (thrust - roll_input - pitch_input - yaw_input) / 4;
-        let rear_left: i16 = (thrust + roll_input + pitch_input - yaw_input) / 4;
-        let rear_right: i16 = (thrust - roll_input + pitch_input + yaw_input) / 4;
+        let front_left: i16 = (thrust + roll_input - pitch_input - yaw_input) / 4;
+        let front_right: i16 = (thrust - roll_input - pitch_input + yaw_input) / 4;
+        let rear_left: i16 = (thrust + roll_input + pitch_input + yaw_input) / 4;
+        let rear_right: i16 = (thrust - roll_input + pitch_input - yaw_input) / 4;
 
         Motor::multi_throttle(
             [

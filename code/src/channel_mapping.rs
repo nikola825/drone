@@ -90,7 +90,12 @@ impl CRSFChannels {
     define_channel!(u16, roll_servo, 0, map_crsf_to_servo);
     define_channel!(u16, throttle_servo, 2, map_crsf_to_servo);
 
-    define_channel!(u16, aux1, 5, 0, 128);
+    define_channel!(f32, yaw_angle, 3, -30, 30, 0, -1);
+    define_channel!(f32, roll_angle, 0, -30, 30, 0, -1);
+    define_channel!(f32, pitch_angle, 1, -30, 30, 0, -1);
+
+    define_channel!(f32, aux1, 5, 0, 15);
     define_channel!(u16, aux2, 6, 0, 30);
     define_channel!(bool, beep, 7);
+    define_channel!(u16, mode, 8, 0, 100);
 }
