@@ -9433,6 +9433,16 @@
 	)
 	(wire
 		(pts
+			(xy 50.8 80.01) (xy 63.5 80.01)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fe96f062-4e4a-4ed3-a612-232f6b959341")
+	)
+	(wire
+		(pts
 			(xy 54.61 191.77) (xy 54.61 204.47)
 		)
 		(stroke
@@ -9822,12 +9832,12 @@
 		(uuid "7d34224c-3844-4252-83b7-9220eb172942")
 	)
 	(label "VMCU"
-		(at 63.5 80.01 180)
+		(at 50.8 80.01 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right bottom)
+			(justify left bottom)
 		)
 		(uuid "7d871af4-d0af-4463-9127-4b681d635d09")
 	)

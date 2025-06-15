@@ -19,6 +19,14 @@ pub use stm32h723::{
     STORED_CONFIG_START, USB_DM, USB_DP, USB_PERIPHERAL,
 };
 
+#[cfg(feature = "stm32h743")]
+pub mod stm32h743;
+#[cfg(feature = "stm32h743")]
+pub use stm32h743::{
+    get_spawners, AdcReader, ExtraHardware, Irqs, FLASH_ERASE_START, FLASH_SIZE,
+    STORED_CONFIG_START, USB_DM, USB_DP, USB_PERIPHERAL,
+};
+
 #[cfg(feature = "stm32f411")]
 pub mod stm32f411;
 #[cfg(feature = "stm32f411")]
