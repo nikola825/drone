@@ -1,8 +1,10 @@
 use core::cmp::min;
 use embassy_executor::SendSpawner;
 use num_traits::float::FloatCore;
+use zerocopy::big_endian::{I16, I32, U16};
 
 use crate::crc8::crc8_calculate;
+use crate::gps::UbxNavPVTPacket;
 use crate::hw_select::UartMaker;
 use crate::logging::{error, info};
 use crate::make_static_buffer;
@@ -35,6 +37,7 @@ enum CRSFFrameType {
     CRSF_FRAMETYPE_LINK_STATISTICS = 0x14,
     #[allow(dead_code)]
     CRSF_FRAME_TYPE_RC_CHANNELS_PACKED = 0x16,
+    CRSF_FRAMETYPE_GPS = 0x02,
 }
 
 #[derive(TryFromBytes, IntoBytes, Immutable, KnownLayout)]
@@ -117,6 +120,54 @@ impl BatteryInfo {
                 other_data: Default::default(),
             },
         )
+    }
+}
+
+#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone)]
+#[repr(C)]
+struct GPSInfo {
+    latitude: I32,
+    longitude: I32,
+    ground_speed: I16,
+    ground_course: I16,
+    altitude: U16,
+    sat_count: u8,
+}
+
+impl GPSInfo {
+    pub fn new(gps_packet: &UbxNavPVTPacket) -> CRSFPacket<Self> {
+        if gps_packet.gps_data_displayable() {
+            let latitude: i32 = gps_packet.latitude.as_1e7();
+            let longitude: i32 = gps_packet.longitude.as_1e7();
+
+            let ground_speed_km_h_10: i16 = gps_packet.ground_speed.as_kmh_multiple(10);
+
+            let altitude_m_add_1000: u16 =
+                (gps_packet.height_mean_sea_level.as_meters() + 1000) as u16;
+
+            let heading_of_motion_deg_x_100: i16 =
+                gps_packet.motion_heading.as_degrees_multiple(100);
+
+            CRSFPacket::new(
+                CRSFFrameType::CRSF_FRAMETYPE_GPS,
+                GPSInfo {
+                    sat_count: gps_packet.satelites_visible,
+                    latitude: latitude.into(),
+                    longitude: longitude.into(),
+                    ground_speed: ground_speed_km_h_10.into(),
+                    altitude: altitude_m_add_1000.into(),
+                    ground_course: heading_of_motion_deg_x_100.into(),
+                },
+            )
+        } else {
+            CRSFPacket::new(
+                CRSFFrameType::CRSF_FRAMETYPE_GPS,
+                GPSInfo {
+                    sat_count: gps_packet.satelites_visible,
+                    ..Default::default()
+                },
+            )
+        }
     }
 }
 
@@ -262,7 +313,6 @@ async fn process_crsf_packet(
         .map_err(|_| CRSFReceiveError::UnknownFrameType)?;
 
     match frame_type {
-        CRSFFrameType::CRSF_FRAMETYPE_BATTERY_SENSOR => {}
         CRSFFrameType::CRSF_FRAMETYPE_LINK_STATISTICS => {
             process_link_statistics(CRSFPacket::deserialize(&command_buffer)?, shared_state).await
         }
@@ -270,6 +320,7 @@ async fn process_crsf_packet(
             process_received_channels(CRSFPacket::deserialize(&command_buffer)?, shared_state)
                 .await;
         }
+        _ => {}
     }
 
     Ok(())
@@ -295,6 +346,13 @@ async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, shared_state: &'sta
         let packet = BatteryInfo::new(measured_battery_voltage);
 
         let _ = tx.write_all(packet.as_bytes()).await;
+
+        let gps_state = shared_state.get_gps_state().await;
+
+        if let Some(gps_packet) = gps_state.gps_packet {
+            let gps_info_packet = GPSInfo::new(&gps_packet);
+            let _ = tx.write_all(gps_info_packet.as_bytes()).await;
+        }
 
         ticker.next().await;
     }

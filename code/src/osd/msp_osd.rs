@@ -6,7 +6,7 @@ use embassy_executor::SendSpawner;
 use num_traits::float::FloatCore;
 use zerocopy::{little_endian, Immutable, IntoBytes, KnownLayout, Unaligned};
 
-use crate::{hw_select::UartMaker, logging::info, shared_state::SharedState};
+use crate::{gps::GPSState, hw_select::UartMaker, logging::info, shared_state::SharedState};
 use embassy_stm32::{
     mode::Async,
     usart::{Parity, StopBits, UartRx, UartTx},
@@ -325,7 +325,7 @@ fn float_to_byte_string(value: f32, byte_string: &mut [u8]) {
     byte_string[0] = b'0' + (value % 10) as u8;
 }
 
-fn uint_to_byte_string(mut value: u8, byte_string: &mut [u8]) {
+fn uint8_to_byte_string(mut value: u8, byte_string: &mut [u8]) {
     byte_string[2] = b'0' + (value % 10);
     value /= 10;
     byte_string[1] = b'0' + (value % 10);
@@ -341,6 +341,24 @@ fn uint_to_byte_string(mut value: u8, byte_string: &mut [u8]) {
     }
 }
 
+fn uint16_to_byte_string(mut value: u16, byte_string: &mut [u8]) {
+    byte_string[3] = b'0' + ((value % 10) as u8);
+    value /= 10;
+    byte_string[2] = b'0' + ((value % 10) as u8);
+    value /= 10;
+    byte_string[1] = b'0' + ((value % 10) as u8);
+    value /= 10;
+    byte_string[0] = b'0' + ((value % 10) as u8);
+
+    for character in &mut byte_string[0..3] {
+        if *character == b'0' {
+            *character = b' ';
+        } else {
+            break;
+        }
+    }
+}
+
 async fn draw_status_osd(
     tx: &mut UartTx<'static, Async>,
     bat_voltage: f32,
@@ -348,6 +366,7 @@ async fn draw_status_osd(
     rssi: u8,
     arming_message: &'static [u8; 3],
     throttle_percentage: u8,
+    gps_state: &GPSState
 ) -> Result<(), embassy_stm32::usart::Error> {
     let mut bat_string = *b"\x63__.__\x1f";
     let mut cell_string = *b"\x63__.__\x1f";
@@ -357,17 +376,37 @@ async fn draw_status_osd(
 
     float_to_byte_string(bat_voltage, &mut bat_string[1..6]);
     float_to_byte_string(bat_voltage / (CELL_COUNT as f32), &mut cell_string[1..6]);
-    uint_to_byte_string(link_quality, &mut link_quality_string[1..4]);
-    uint_to_byte_string(rssi, &mut rssi_string[1..4]);
-    uint_to_byte_string(throttle_percentage, &mut throttle_string[0..3]);
+    uint8_to_byte_string(link_quality, &mut link_quality_string[1..4]);
+    uint8_to_byte_string(rssi, &mut rssi_string[1..4]);
+    uint8_to_byte_string(throttle_percentage, &mut throttle_string[0..3]);
 
     clear_display(tx).await?;
     write_string(tx, 2, 0, bat_string).await?;
     write_string(tx, 3, 0, cell_string).await?;
     write_string(tx, 4, 0, throttle_string).await?;
+
     write_string(tx, 2, 44, link_quality_string).await?;
     write_string(tx, 3, 44, rssi_string).await?;
     write_string(tx, 4, 44, *arming_message).await?;
+
+    if let Some(packet) = &gps_state.gps_packet {
+        let mut sat_string = *b"\x08\x09___";
+
+        uint8_to_byte_string(packet.satelites_visible, &mut sat_string[2..5]);
+        write_string(tx, 5, 44, sat_string).await?;
+
+        if packet.gps_data_displayable() {
+            let mut speed_string = *b"\x90____";
+            let mut altitude_string = *b"\x76____";
+
+            uint16_to_byte_string(packet.ground_speed.as_kmh_multiple(1) as u16, &mut speed_string[2..5]);
+            uint16_to_byte_string(packet.height_mean_sea_level.as_meters() as u16, &mut altitude_string[2..5]);
+
+            write_string(tx, 5, 0, speed_string).await?;
+            write_string(tx, 6, 0, altitude_string).await?;
+        }
+    }
+
     draw_display(tx).await
 }
 
@@ -380,6 +419,7 @@ async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static
         let battery_voltage = shared_state.get_voltage().await;
         let armed = command_state.arming_tracker.is_armed();
         let arming_message = command_state.arming_tracker.arming_message();
+        let gps_state = shared_state.get_gps_state().await;
 
         let sticks = SticksMessage {
             pitch: command_state.commands.pitch_servo().into(),
@@ -399,6 +439,7 @@ async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static
             max(link_stats.rssi1, link_stats.rssi2),
             arming_message,
             command_state.commands.throttle_percent(),
+            &gps_state
         )
         .await;
         Timer::after_millis(200).await;

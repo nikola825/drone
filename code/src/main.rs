@@ -11,6 +11,7 @@ use embassy_stm32::flash::Flash;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Instant, Ticker, Timer};
+use gps::init_gps_receiver;
 use hw_select::get_spawners;
 use icm42688::ICM42688;
 use logging::{info, init_logging};
@@ -28,6 +29,7 @@ mod crc8;
 mod crsf;
 mod dshot;
 mod expo_rates;
+mod gps;
 mod hw_select;
 mod icm42688;
 mod logging;
@@ -106,6 +108,7 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     init_crsf_communication(hardware.radio_uart, &spawner_low, STORE.get());
     init_battery_monitor(hardware.adc_reader, STORE.get(), &spawner_low);
+    init_gps_receiver(hardware.extra.uart2, &spawner_low, STORE.get());
     init_osd!(hardware, spawner_low, STORE.get());
 
     blue.set_high();
