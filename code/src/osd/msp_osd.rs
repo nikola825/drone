@@ -6,7 +6,12 @@ use embassy_executor::SendSpawner;
 use num_traits::float::FloatCore;
 use zerocopy::{little_endian, Immutable, IntoBytes, KnownLayout, Unaligned};
 
-use crate::{gps::GPSState, hw_select::UartMaker, logging::info, shared_state::SharedState};
+use crate::{
+    gps::{GPSState, SpherePosition},
+    hw_select::UartMaker,
+    logging::info,
+    shared_state::SharedState,
+};
 use embassy_stm32::{
     mode::Async,
     usart::{Parity, StopBits, UartRx, UartTx},
@@ -310,55 +315,75 @@ fn make_msp_uart_pair(
     (rx, tx)
 }
 
-fn float_to_byte_string(value: f32, byte_string: &mut [u8]) {
+fn float_to_byte_string(value: f32, symbol_character: u8, unit_character: u8) -> [u8; 7] {
+    let mut returned_string: [u8; 7] = [
+        symbol_character,
+        b'_',
+        b'_',
+        b'.',
+        b'_',
+        b'_',
+        unit_character,
+    ];
+
     let value = (value * 100f32).round() as i32;
     let value = min(value, 9999);
     let mut value = max(0, value);
 
-    byte_string[4] = b'0' + (value % 10) as u8;
+    returned_string[5] = b'0' + (value % 10) as u8;
     value /= 10;
-    byte_string[3] = b'0' + (value % 10) as u8;
+    returned_string[4] = b'0' + (value % 10) as u8;
     value /= 10;
-    byte_string[2] = b'.';
-    byte_string[1] = b'0' + (value % 10) as u8;
+    returned_string[3] = b'.';
+    returned_string[2] = b'0' + (value % 10) as u8;
     value /= 10;
-    byte_string[0] = b'0' + (value % 10) as u8;
+    returned_string[1] = b'0' + (value % 10) as u8;
+
+    returned_string
 }
 
-fn uint8_to_byte_string(mut value: u8, byte_string: &mut [u8]) {
-    byte_string[2] = b'0' + (value % 10);
+fn uint8_to_byte_string(mut value: u8, symbol_character: u8, unit_character: u8) -> [u8; 5] {
+    let mut returned_string: [u8; 5] = [symbol_character, b'_', b'_', b'_', unit_character];
+    returned_string[3] = b'0' + (value % 10);
     value /= 10;
-    byte_string[1] = b'0' + (value % 10);
+    returned_string[2] = b'0' + (value % 10);
     value /= 10;
-    byte_string[0] = b'0' + (value % 10);
+    returned_string[1] = b'0' + (value % 10);
 
-    for character in &mut byte_string[0..2] {
+    for character in &mut returned_string[1..3] {
         if *character == b'0' {
             *character = b' ';
         } else {
             break;
         }
     }
+
+    returned_string
 }
 
-fn uint16_to_byte_string(mut value: u16, byte_string: &mut [u8]) {
-    byte_string[3] = b'0' + ((value % 10) as u8);
-    value /= 10;
-    byte_string[2] = b'0' + ((value % 10) as u8);
-    value /= 10;
-    byte_string[1] = b'0' + ((value % 10) as u8);
-    value /= 10;
-    byte_string[0] = b'0' + ((value % 10) as u8);
+fn uint16_to_byte_string(mut value: u16, symbol_character: u8) -> [u8; 5] {
+    let mut returned_string: [u8; 5] = [symbol_character, b'_', b'_', b'_', b'_'];
 
-    for character in &mut byte_string[0..3] {
+    returned_string[4] = b'0' + ((value % 10) as u8);
+    value /= 10;
+    returned_string[3] = b'0' + ((value % 10) as u8);
+    value /= 10;
+    returned_string[2] = b'0' + ((value % 10) as u8);
+    value /= 10;
+    returned_string[1] = b'0' + ((value % 10) as u8);
+
+    for character in &mut returned_string[1..4] {
         if *character == b'0' {
             *character = b' ';
         } else {
             break;
         }
     }
+
+    returned_string
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn draw_status_osd(
     tx: &mut UartTx<'static, Async>,
     bat_voltage: f32,
@@ -366,19 +391,14 @@ async fn draw_status_osd(
     rssi: u8,
     arming_message: &'static [u8; 3],
     throttle_percentage: u8,
-    gps_state: &GPSState
+    gps_state: &GPSState,
+    home_position: &Option<SpherePosition>,
 ) -> Result<(), embassy_stm32::usart::Error> {
-    let mut bat_string = *b"\x63__.__\x1f";
-    let mut cell_string = *b"\x63__.__\x1f";
-    let mut link_quality_string = *b"\x02___\x25";
-    let mut rssi_string = *b"\x01___\x13";
-    let mut throttle_string = *b"___\x25";
-
-    float_to_byte_string(bat_voltage, &mut bat_string[1..6]);
-    float_to_byte_string(bat_voltage / (CELL_COUNT as f32), &mut cell_string[1..6]);
-    uint8_to_byte_string(link_quality, &mut link_quality_string[1..4]);
-    uint8_to_byte_string(rssi, &mut rssi_string[1..4]);
-    uint8_to_byte_string(throttle_percentage, &mut throttle_string[0..3]);
+    let bat_string = float_to_byte_string(bat_voltage, b'\x63', b'\x1f');
+    let cell_string = float_to_byte_string(bat_voltage / (CELL_COUNT as f32), b'\x63', b'\x1f');
+    let link_quality_string = uint8_to_byte_string(link_quality, b'\x02', b'\x25');
+    let rssi_string = uint8_to_byte_string(rssi, b'\x01', b'\x13');
+    let throttle_string = uint8_to_byte_string(throttle_percentage, b'\x95', b'\x25');
 
     clear_display(tx).await?;
     write_string(tx, 2, 0, bat_string).await?;
@@ -390,20 +410,30 @@ async fn draw_status_osd(
     write_string(tx, 4, 44, *arming_message).await?;
 
     if let Some(packet) = &gps_state.gps_packet {
-        let mut sat_string = *b"\x08\x09___";
+        let sat_string = uint8_to_byte_string(packet.satelites_visible, b'\x08', b' ');
 
-        uint8_to_byte_string(packet.satelites_visible, &mut sat_string[2..5]);
         write_string(tx, 5, 44, sat_string).await?;
 
         if packet.gps_data_displayable() {
-            let mut speed_string = *b"\x90____";
-            let mut altitude_string = *b"\x76____";
+            let speed_string =
+                uint16_to_byte_string(packet.ground_speed.as_kmh_multiple(1) as u16, b'\x90');
+            let altitude_string =
+                uint16_to_byte_string(packet.height_mean_sea_level.as_meters() as u16, b'\x76');
 
-            uint16_to_byte_string(packet.ground_speed.as_kmh_multiple(1) as u16, &mut speed_string[2..5]);
-            uint16_to_byte_string(packet.height_mean_sea_level.as_meters() as u16, &mut altitude_string[2..5]);
+            let heading_string =
+                uint16_to_byte_string(packet.motion_heading.as_degrees_0_360(), b'\x0c');
 
             write_string(tx, 5, 0, speed_string).await?;
             write_string(tx, 6, 0, altitude_string).await?;
+            write_string(tx, 6, 44, heading_string).await?;
+
+            if let Some(home) = home_position {
+                let home_heading = packet.position.heading_to(home);
+
+                let home_heading_string =
+                    uint16_to_byte_string(home_heading.as_degrees_0_360(), b'\x0a');
+                write_string(tx, 7, 44, home_heading_string).await?;
+            }
         }
     }
 
@@ -413,6 +443,8 @@ async fn draw_status_osd(
 #[embassy_executor::task]
 async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static SharedState) {
     info!("OSD task start");
+    let mut home: Option<SpherePosition> = None;
+
     loop {
         let link_stats = shared_state.get_link_state().await;
         let command_state = shared_state.command_snapshot().await;
@@ -420,6 +452,12 @@ async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static
         let armed = command_state.arming_tracker.is_armed();
         let arming_message = command_state.arming_tracker.arming_message();
         let gps_state = shared_state.get_gps_state().await;
+
+        if let Some(packet) = &gps_state.gps_packet {
+            if !armed && packet.gps_data_displayable() {
+                home = Some(packet.position.clone());
+            }
+        }
 
         let sticks = SticksMessage {
             pitch: command_state.commands.pitch_servo().into(),
@@ -439,7 +477,8 @@ async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static
             max(link_stats.rssi1, link_stats.rssi2),
             arming_message,
             command_state.commands.throttle_percent(),
-            &gps_state
+            &gps_state,
+            &home,
         )
         .await;
         Timer::after_millis(200).await;

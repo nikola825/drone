@@ -1,4 +1,7 @@
-use crate::logging::error;
+use crate::{
+    logging::error,
+    math_stuff::{DEG_TO_RAD_FACTOR, RAD_TO_DEG_FACTOR},
+};
 use embassy_executor::SendSpawner;
 use embassy_stm32::{
     mode::Async,
@@ -66,8 +69,7 @@ pub struct UbxNavPVTPacket {
     pub fix_type: FixType,
     pub fix_status_flags: FixStatusFlags,
     pub satelites_visible: u8,
-    pub latitude: AngularCoordinate,
-    pub longitude: AngularCoordinate,
+    pub position: SpherePosition,
     pub height_ellipsoid: Altitude,
     pub height_mean_sea_level: Altitude,
     pub horizontal_accuracy: U32,
@@ -147,6 +149,42 @@ impl AngularCoordinate {
     pub fn as_1e7(&self) -> i32 {
         self.inner_deg_1e7.into()
     }
+
+    pub fn as_f32(&self) -> f32 {
+        (i32::from(self.inner_deg_1e7) as f32) / 1e7f32
+    }
+}
+
+#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone)]
+#[repr(C)]
+pub struct SpherePosition {
+    pub latitude: AngularCoordinate,
+    pub longitude: AngularCoordinate,
+}
+
+use num_traits::Float;
+impl SpherePosition {
+    pub fn heading_to(&self, other: &Self) -> Heading {
+        // Returns heading needed to go from self to other
+        // Formula picked off the internet, seems to be working
+        let lat_a = self.latitude.as_f32();
+        let lon_a = self.longitude.as_f32();
+
+        let lat_b = other.latitude.as_f32();
+        let lon_b = other.longitude.as_f32();
+
+        let lat_a = lat_a * DEG_TO_RAD_FACTOR;
+        let lon_a = lon_a * DEG_TO_RAD_FACTOR;
+        let lat_b = lat_b * DEG_TO_RAD_FACTOR;
+        let lon_b = lon_b * DEG_TO_RAD_FACTOR;
+        let x = lat_b.cos() * (lon_b - lon_a).sin();
+        let y = lat_a.cos() * lat_b.sin() - lat_a.sin() * lat_b.cos() * (lon_b - lon_a).cos();
+
+        let heading_deg_1e5 = x.atan2(y) * RAD_TO_DEG_FACTOR * 1e5f32;
+        Heading {
+            inner_deg_1e5: I32::from(heading_deg_1e5 as i32),
+        }
+    }
 }
 
 #[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone)]
@@ -182,6 +220,10 @@ pub struct Heading {
 impl Heading {
     pub fn as_degrees_multiple(&self, multiple: i32) -> i16 {
         (i32::from(self.inner_deg_1e5) * multiple / 100000) as i16
+    }
+
+    pub fn as_degrees_0_360(&self) -> u16 {
+        self.as_degrees_multiple(1).rem_euclid(360) as u16
     }
 }
 

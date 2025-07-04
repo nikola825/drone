@@ -137,8 +137,8 @@ struct GPSInfo {
 impl GPSInfo {
     pub fn new(gps_packet: &UbxNavPVTPacket) -> CRSFPacket<Self> {
         if gps_packet.gps_data_displayable() {
-            let latitude: i32 = gps_packet.latitude.as_1e7();
-            let longitude: i32 = gps_packet.longitude.as_1e7();
+            let latitude: i32 = gps_packet.position.latitude.as_1e7();
+            let longitude: i32 = gps_packet.position.longitude.as_1e7();
 
             let ground_speed_km_h_10: i16 = gps_packet.ground_speed.as_kmh_multiple(10);
 
