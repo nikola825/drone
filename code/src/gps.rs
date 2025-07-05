@@ -158,15 +158,16 @@ impl AngularCoordinate {
 #[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone)]
 #[repr(C)]
 pub struct SpherePosition {
-    pub latitude: AngularCoordinate,
     pub longitude: AngularCoordinate,
+    pub latitude: AngularCoordinate,
 }
 
 use num_traits::Float;
 impl SpherePosition {
     pub fn heading_to(&self, other: &Self) -> Heading {
         // Returns heading needed to go from self to other
-        // Formula picked off the internet, seems to be working
+
+        // Convert all coordinates to radians
         let lat_a = self.latitude.as_f32();
         let lon_a = self.longitude.as_f32();
 
@@ -177,10 +178,14 @@ impl SpherePosition {
         let lon_a = lon_a * DEG_TO_RAD_FACTOR;
         let lat_b = lat_b * DEG_TO_RAD_FACTOR;
         let lon_b = lon_b * DEG_TO_RAD_FACTOR;
+
+        // Haversine formula for calculating heading between two points
         let x = lat_b.cos() * (lon_b - lon_a).sin();
         let y = lat_a.cos() * lat_b.sin() - lat_a.sin() * lat_b.cos() * (lon_b - lon_a).cos();
-
-        let heading_deg_1e5 = x.atan2(y) * RAD_TO_DEG_FACTOR * 1e5f32;
+        let heading_rad = x.atan2(y);
+        
+        // Convert back to degrees*1e5
+        let heading_deg_1e5 = heading_rad * RAD_TO_DEG_FACTOR * 1e5f32;
         Heading {
             inner_deg_1e5: I32::from(heading_deg_1e5 as i32),
         }
