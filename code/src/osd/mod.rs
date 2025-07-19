@@ -15,3 +15,5 @@ macro_rules! init_osd {
 }
 
 pub(crate) use init_osd;
+
+pub mod char_map_hdzero_inav;

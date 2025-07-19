@@ -18,6 +18,7 @@ use crate::{hw_select::UartMaker, shared_state::SharedState};
 
 const UBX_SYNC_1: u8 = 0xb5;
 const UBX_SYNC_2: u8 = 0x62;
+const EARTH_RADIUS_IN_METERS: f32 = 6371e3;
 
 const PACKET_CLASS_TYPE_UBX_NAV_PVT: PacketClassAndType = PacketClassAndType::new(0x01, 0x07);
 
@@ -183,12 +184,38 @@ impl SpherePosition {
         let x = lat_b.cos() * (lon_b - lon_a).sin();
         let y = lat_a.cos() * lat_b.sin() - lat_a.sin() * lat_b.cos() * (lon_b - lon_a).cos();
         let heading_rad = x.atan2(y);
-        
+
         // Convert back to degrees*1e5
         let heading_deg_1e5 = heading_rad * RAD_TO_DEG_FACTOR * 1e5f32;
         Heading {
             inner_deg_1e5: I32::from(heading_deg_1e5 as i32),
         }
+    }
+
+    pub fn distance_to_in_meters(&self, other: &Self) -> u32 {
+        // Returns distance in meters from self to other
+
+        // Convert all coordinates to radians
+        let lat_a = self.latitude.as_f32();
+        let lon_a = self.longitude.as_f32();
+
+        let lat_b = other.latitude.as_f32();
+        let lon_b = other.longitude.as_f32();
+
+        let lat_a = lat_a * DEG_TO_RAD_FACTOR;
+        let lon_a = lon_a * DEG_TO_RAD_FACTOR;
+        let lat_b = lat_b * DEG_TO_RAD_FACTOR;
+        let lon_b = lon_b * DEG_TO_RAD_FACTOR;
+
+        let delta_lon_half = (lon_a - lon_b) / 2f32;
+        let delta_lat_half = (lat_a - lat_b) / 2f32;
+
+        let a =
+            delta_lat_half.sin().powi(2) + lat_a.cos() * lat_b.cos() * delta_lon_half.sin().powi(2);
+        let c = 2f32 * a.sqrt().atan2((1f32 - a).sqrt());
+        let distance = EARTH_RADIUS_IN_METERS * c;
+
+        distance.abs().round() as u32
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::osd::char_map_hdzero_inav::OSDSymbol;
 use core::{
     cmp::{max, min},
     mem::offset_of,
@@ -10,7 +11,7 @@ use crate::{
     gps::{GPSState, SpherePosition},
     hw_select::UartMaker,
     logging::info,
-    shared_state::SharedState,
+    shared_state::{CommandState, SharedState},
 };
 use embassy_stm32::{
     mode::Async,
@@ -268,8 +269,14 @@ async fn transmit_status(
 
 async fn transmit_sticks(
     tx: &mut UartTx<'static, Async>,
-    sticks: SticksMessage,
+    command_state: &CommandState,
 ) -> Result<(), embassy_stm32::usart::Error> {
+    let sticks = SticksMessage {
+        pitch: command_state.commands.pitch_servo().into(),
+        roll: command_state.commands.roll_servo().into(),
+        yaw: command_state.commands.yaw_servo().into(),
+        throttle: command_state.commands.throttle_servo().into(),
+    };
     transmit_msp_message(tx, sticks.into()).await
 }
 
@@ -288,7 +295,38 @@ async fn set_resolution(
     transmit_msp_message(tx, DisplayResolutionMessage::new(resolution).into()).await
 }
 
-async fn write_string<const STRING_LEN: usize>(
+struct ColumnPositionTracker {
+    current_row: u8,
+    column: u8,
+}
+
+impl ColumnPositionTracker {
+    fn new(column: u8, initial_row: u8) -> Self {
+        Self {
+            current_row: initial_row,
+            column,
+        }
+    }
+
+    fn get_next_row(&mut self) -> u8 {
+        let row = self.current_row;
+        self.current_row += 1;
+        row
+    }
+}
+
+async fn add_string_to_column<const STRING_LEN: usize>(
+    tx: &mut UartTx<'static, Async>,
+    position_tracker: &mut ColumnPositionTracker,
+    data: [u8; STRING_LEN],
+) -> Result<(), embassy_stm32::usart::Error> {
+    let col = position_tracker.column;
+    let row = position_tracker.get_next_row();
+
+    write_string_to_screen(tx, row, col, data).await
+}
+
+async fn write_string_to_screen<const STRING_LEN: usize>(
     tx: &mut UartTx<'static, Async>,
     row: u8,
     col: u8,
@@ -315,15 +353,19 @@ fn make_msp_uart_pair(
     (rx, tx)
 }
 
-fn float_to_byte_string(value: f32, symbol_character: u8, unit_character: u8) -> [u8; 7] {
+fn float_to_byte_string(
+    value: f32,
+    symbol_character: OSDSymbol,
+    unit_character: OSDSymbol,
+) -> [u8; 7] {
     let mut returned_string: [u8; 7] = [
-        symbol_character,
+        symbol_character.into(),
         b'_',
         b'_',
         b'.',
         b'_',
         b'_',
-        unit_character,
+        unit_character.into(),
     ];
 
     let value = (value * 100f32).round() as i32;
@@ -342,8 +384,18 @@ fn float_to_byte_string(value: f32, symbol_character: u8, unit_character: u8) ->
     returned_string
 }
 
-fn uint8_to_byte_string(mut value: u8, symbol_character: u8, unit_character: u8) -> [u8; 5] {
-    let mut returned_string: [u8; 5] = [symbol_character, b'_', b'_', b'_', unit_character];
+fn uint8_to_byte_string(
+    mut value: u8,
+    symbol_character: OSDSymbol,
+    unit_character: OSDSymbol,
+) -> [u8; 5] {
+    let mut returned_string: [u8; 5] = [
+        symbol_character.into(),
+        b'_',
+        b'_',
+        b'_',
+        unit_character.into(),
+    ];
     returned_string[3] = b'0' + (value % 10);
     value /= 10;
     returned_string[2] = b'0' + (value % 10);
@@ -361,8 +413,8 @@ fn uint8_to_byte_string(mut value: u8, symbol_character: u8, unit_character: u8)
     returned_string
 }
 
-fn uint16_to_byte_string(mut value: u16, symbol_character: u8) -> [u8; 5] {
-    let mut returned_string: [u8; 5] = [symbol_character, b'_', b'_', b'_', b'_'];
+fn uint16_to_byte_string(mut value: u16, symbol_character: OSDSymbol) -> [u8; 5] {
+    let mut returned_string: [u8; 5] = [symbol_character.into(), b'_', b'_', b'_', b'_'];
 
     returned_string[4] = b'0' + ((value % 10) as u8);
     value /= 10;
@@ -383,59 +435,92 @@ fn uint16_to_byte_string(mut value: u16, symbol_character: u8) -> [u8; 5] {
     returned_string
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn draw_status_osd(
     tx: &mut UartTx<'static, Async>,
-    bat_voltage: f32,
-    link_quality: u8,
-    rssi: u8,
-    arming_message: &'static [u8; 3],
-    throttle_percentage: u8,
+    shared_state: &SharedState,
+    command_state: &CommandState,
     gps_state: &GPSState,
     home_position: &Option<SpherePosition>,
 ) -> Result<(), embassy_stm32::usart::Error> {
-    let bat_string = float_to_byte_string(bat_voltage, b'\x63', b'\x1f');
-    let cell_string = float_to_byte_string(bat_voltage / (CELL_COUNT as f32), b'\x63', b'\x1f');
-    let link_quality_string = uint8_to_byte_string(link_quality, b'\x02', b'\x25');
-    let rssi_string = uint8_to_byte_string(rssi, b'\x01', b'\x13');
-    let throttle_string = uint8_to_byte_string(throttle_percentage, b'\x95', b'\x25');
+    const LEFT_COLUMN: u8 = 0;
+    const RIGHT_COLUMN: u8 = 44;
+
+    let bat_voltage = shared_state.get_voltage().await;
+    let link_stats = shared_state.get_link_state().await;
+    let rssi = max(link_stats.rssi1, link_stats.rssi2);
+    let link_quality = link_stats.link_quality;
+    let throttle_percentage = command_state.commands.throttle_percent();
+    let arming_message = command_state.arming_tracker.arming_message();
+
+    let mut left_column = ColumnPositionTracker::new(LEFT_COLUMN, 2);
+    let mut right_column = ColumnPositionTracker::new(RIGHT_COLUMN, 2);
+
+    let bat_string = float_to_byte_string(bat_voltage, OSDSymbol::Battery, OSDSymbol::Vols);
+    let cell_string = float_to_byte_string(
+        bat_voltage / (CELL_COUNT as f32),
+        OSDSymbol::Battery,
+        OSDSymbol::Vols,
+    );
+    let link_quality_string =
+        uint8_to_byte_string(link_quality, OSDSymbol::LinkQuality, OSDSymbol::Percent);
+    let rssi_string = uint8_to_byte_string(rssi, OSDSymbol::Rssi, OSDSymbol::Dbm);
+    let throttle_string = uint8_to_byte_string(
+        throttle_percentage,
+        OSDSymbol::ThrottlePercentage,
+        OSDSymbol::Percent,
+    );
 
     clear_display(tx).await?;
-    write_string(tx, 2, 0, bat_string).await?;
-    write_string(tx, 3, 0, cell_string).await?;
-    write_string(tx, 4, 0, throttle_string).await?;
+    add_string_to_column(tx, &mut left_column, bat_string).await?;
+    add_string_to_column(tx, &mut left_column, cell_string).await?;
+    add_string_to_column(tx, &mut left_column, throttle_string).await?;
 
-    write_string(tx, 2, 44, link_quality_string).await?;
-    write_string(tx, 3, 44, rssi_string).await?;
-    write_string(tx, 4, 44, *arming_message).await?;
+    add_string_to_column(tx, &mut right_column, link_quality_string).await?;
+    add_string_to_column(tx, &mut right_column, rssi_string).await?;
 
     if let Some(packet) = &gps_state.gps_packet {
-        let sat_string = uint8_to_byte_string(packet.satelites_visible, b'\x08', b' ');
+        let sat_string = uint8_to_byte_string(
+            packet.satelites_visible,
+            OSDSymbol::SateliteLeft,
+            OSDSymbol::Blank,
+        );
 
-        write_string(tx, 5, 44, sat_string).await?;
+        add_string_to_column(tx, &mut right_column, sat_string).await?;
 
         if packet.gps_data_displayable() {
-            let speed_string =
-                uint16_to_byte_string(packet.ground_speed.as_kmh_multiple(1) as u16, b'\x90');
-            let altitude_string =
-                uint16_to_byte_string(packet.height_mean_sea_level.as_meters() as u16, b'\x76');
+            let speed_string = uint16_to_byte_string(
+                packet.ground_speed.as_kmh_multiple(1) as u16,
+                OSDSymbol::SpeedKmh,
+            );
+            let altitude_string = uint16_to_byte_string(
+                packet.height_mean_sea_level.as_meters() as u16,
+                OSDSymbol::AltitudeMeters,
+            );
 
             let heading_string =
-                uint16_to_byte_string(packet.motion_heading.as_degrees_0_360(), b'\x0c');
+                uint16_to_byte_string(packet.motion_heading.as_degrees_0_360(), OSDSymbol::Heading);
 
-            write_string(tx, 5, 0, speed_string).await?;
-            write_string(tx, 6, 0, altitude_string).await?;
-            write_string(tx, 6, 44, heading_string).await?;
+            add_string_to_column(tx, &mut left_column, speed_string).await?;
+            add_string_to_column(tx, &mut left_column, altitude_string).await?;
+            add_string_to_column(tx, &mut right_column, heading_string).await?;
 
             if let Some(home) = home_position {
                 let home_heading = packet.position.heading_to(home);
+                let home_distance_meters =
+                    packet.position.distance_to_in_meters(home).clamp(0, 9999) as u16;
 
                 let home_heading_string =
-                    uint16_to_byte_string(home_heading.as_degrees_0_360(), b'\x0a');
-                write_string(tx, 7, 44, home_heading_string).await?;
+                    uint16_to_byte_string(home_heading.as_degrees_0_360(), OSDSymbol::Home);
+                add_string_to_column(tx, &mut right_column, home_heading_string).await?;
+
+                let home_distance_string =
+                    uint16_to_byte_string(home_distance_meters, OSDSymbol::DistanceMeters);
+                add_string_to_column(tx, &mut right_column, home_distance_string).await?;
             }
         }
     }
+
+    add_string_to_column(tx, &mut right_column, *arming_message).await?;
 
     draw_display(tx).await
 }
@@ -446,41 +531,21 @@ async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static
     let mut home: Option<SpherePosition> = None;
 
     loop {
-        let link_stats = shared_state.get_link_state().await;
         let command_state = shared_state.command_snapshot().await;
-        let battery_voltage = shared_state.get_voltage().await;
         let armed = command_state.arming_tracker.is_armed();
-        let arming_message = command_state.arming_tracker.arming_message();
         let gps_state = shared_state.get_gps_state().await;
 
         if let Some(packet) = &gps_state.gps_packet {
-            if !armed && packet.gps_data_displayable() {
+            if packet.gps_data_displayable() && (!armed || home.is_none()) {
                 home = Some(packet.position.clone());
             }
         }
 
-        let sticks = SticksMessage {
-            pitch: command_state.commands.pitch_servo().into(),
-            roll: command_state.commands.roll_servo().into(),
-            yaw: command_state.commands.yaw_servo().into(),
-            throttle: command_state.commands.throttle_servo().into(),
-        };
-
         let _ = set_resolution(&mut tx, HDZeroResolution::HD_5018).await;
         let _ = transmit_fc_variant(&mut tx).await;
-        let _ = transmit_sticks(&mut tx, sticks).await;
+        let _ = transmit_sticks(&mut tx, &command_state).await;
         let _ = transmit_status(&mut tx, armed).await;
-        let _ = draw_status_osd(
-            &mut tx,
-            battery_voltage,
-            link_stats.link_quality,
-            max(link_stats.rssi1, link_stats.rssi2),
-            arming_message,
-            command_state.commands.throttle_percent(),
-            &gps_state,
-            &home,
-        )
-        .await;
+        let _ = draw_status_osd(&mut tx, shared_state, &command_state, &gps_state, &home).await;
         Timer::after_millis(200).await;
     }
 }
