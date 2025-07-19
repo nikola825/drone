@@ -34,6 +34,7 @@ mod hw_select;
 mod icm42688;
 mod logging;
 mod math_stuff;
+mod mcu_utils;
 mod motors;
 mod nopdelays;
 mod osd;

@@ -270,20 +270,20 @@ pub fn get_spawners() -> Spawners {
 #[macro_export]
 macro_rules! dshot_nop_0 {
     () => {
-        nop500!();
+        nop250!();
     };
 }
 
 #[macro_export]
 macro_rules! dshot_nop_0_to_1 {
     () => {
-        nop500!();
+        nop250!();
     };
 }
 
 #[macro_export]
 macro_rules! dshot_nop_remainder {
     () => {
-        nop200!();
+        nop100!();
     };
 }

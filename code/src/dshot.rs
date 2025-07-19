@@ -1,4 +1,8 @@
-use crate::{dshot_nop_0, dshot_nop_0_to_1, dshot_nop_remainder, nopdelays::*};
+use crate::{
+    dshot_nop_0, dshot_nop_0_to_1, dshot_nop_remainder,
+    mcu_utils::{run_with_paused_icache, ICachePause},
+    nopdelays::*,
+};
 use core::arch::asm;
 use embassy_stm32::pac::{
     common::{Reg, W},
@@ -111,20 +115,24 @@ pub fn dshot_send_parallel(port_bsrr: Reg<Bsrr, W>, pins: [usize; 4], mut values
 #[no_mangle]
 #[inline(never)]
 fn write_dshot_series(
-    _: &CriticalSection,
+    critical_section: &CriticalSection,
     port_bsrr: Reg<Bsrr, W>,
     start_bsrr: Bsrr,
     end_bsrr: Bsrr,
     mid_bsrrs: [Bsrr; 16],
 ) {
+    // Icache causes unreliable timings, so we temporarily disable it
+    // while sending dshot commands
     unsafe {
-        for bsrr in mid_bsrrs {
-            port_bsrr.write_value(start_bsrr);
-            dshot_nop_0!();
-            port_bsrr.write_value(bsrr);
-            dshot_nop_0_to_1!();
-            port_bsrr.write_value(end_bsrr);
-            dshot_nop_remainder!();
-        }
+        run_with_paused_icache(critical_section, |_: &ICachePause| {
+            for bsrr in mid_bsrrs {
+                port_bsrr.write_value(start_bsrr);
+                dshot_nop_0!();
+                port_bsrr.write_value(bsrr);
+                dshot_nop_0_to_1!();
+                port_bsrr.write_value(end_bsrr);
+                dshot_nop_remainder!();
+            }
+        });
     }
 }
