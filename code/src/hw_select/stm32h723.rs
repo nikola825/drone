@@ -1,14 +1,11 @@
-use core::ops::RangeInclusive;
-
 use embassy_executor::InterruptExecutor;
 use embassy_stm32::{
-    adc::{Adc, AnyAdcChannel},
+    adc::AdcChannel,
     bind_interrupts,
+    gpio::Pin,
     interrupt::{InterruptExt, Priority},
     pac::VREFBUF,
-    peripherals::{
-        ADC1, DMA1_CH2, DMA1_CH3, DMA1_CH4, DMA1_CH5, PA0, PA1, PA2, PA3, UART4, USART2,
-    },
+    peripherals::ADC1,
     time::Hertz,
     usart::{self},
     usb::{self},
@@ -26,9 +23,15 @@ pub use embassy_stm32::peripherals::PA11 as USB_DM;
 pub use embassy_stm32::peripherals::PA12 as USB_DP;
 pub use embassy_stm32::peripherals::USB_OTG_HS as USB_PERIPHERAL;
 
-use crate::config_storage::STORED_CONFIG_STRUCT_SIZE;
+use crate::{
+    config_storage::STORED_CONFIG_STRUCT_SIZE,
+    generic_hardware_type,
+    hw_select::{
+        Hardware, OptionalOutput, SpiHardware, SpiMaker, UartHardware, UartMaker, VoltageReader,
+    },
+};
 
-use super::{Spawners, UartHardware};
+use super::Spawners;
 
 bind_interrupts!(pub struct Irqs {
     USART2 => usart::InterruptHandler<embassy_stm32::peripherals::USART2>;
@@ -52,63 +55,7 @@ unsafe fn USART3() {
     EXECUTOR_LOW.on_interrupt()
 }
 
-#[allow(dead_code)]
-pub struct ExtraHardware {
-    pub msp_uart:
-        UartHardware<UART4, embassy_stm32::peripherals::UART4, PA1, PA0, DMA1_CH4, DMA1_CH5, Irqs>,
-    pub uart2: UartHardware<
-        USART2,
-        embassy_stm32::peripherals::USART2,
-        PA3,
-        PA2,
-        DMA1_CH2,
-        DMA1_CH3,
-        Irqs,
-    >,
-}
-
-pub struct AdcReader {
-    adc: Adc<'static, ADC1>,
-    bat_pin: AnyAdcChannel<ADC1>,
-    adc_range_max: u16,
-    resistor_divider_factor: f32,
-    acceptable_voltage_range: RangeInclusive<f32>,
-    voltage_reference: f32,
-}
-
-impl AdcReader {
-    pub fn new(bat_pin: AnyAdcChannel<ADC1>, adc1: ADC1) -> Self {
-        let mut adc1 = Adc::new(adc1);
-
-        adc1.set_averaging(embassy_stm32::adc::Averaging::Samples16);
-        adc1.set_sample_time(embassy_stm32::adc::SampleTime::CYCLES32_5);
-
-        adc1.set_resolution(embassy_stm32::adc::Resolution::BITS12);
-
-        AdcReader {
-            adc: adc1,
-            bat_pin,
-            adc_range_max: 4096u16,
-            resistor_divider_factor: 11f32,
-            acceptable_voltage_range: 0f32..=20f32,
-            voltage_reference: 3.3f32,
-        }
-    }
-
-    pub fn get_bat(&mut self) -> f32 {
-        let measurement = self.adc.blocking_read(&mut self.bat_pin);
-
-        let measured_voltage = ((measurement as f32) * self.voltage_reference)
-            / (self.adc_range_max as f32)
-            * self.resistor_divider_factor;
-
-        if self.acceptable_voltage_range.contains(&measured_voltage) {
-            measured_voltage
-        } else {
-            0f32
-        }
-    }
-}
+pub type BatteryMeter = VoltageReader<ADC1>;
 
 fn make_config() -> Config {
     let mut config = Config::default();
@@ -187,72 +134,65 @@ pub fn make_peripherals() -> Peripherals {
     peripherals
 }
 
-#[macro_export]
-macro_rules! get_hardware {
-    () => {{
-        use $crate::hw_select::stm32h723::*;
-        use $crate::hw_select::*;
-        let peripherals = make_peripherals();
+pub fn make_hardware() -> generic_hardware_type!() {
+    let peripherals = make_peripherals();
 
-        Hardware {
-            blue_pin: peripherals.PE3,
-            yellow_pin: peripherals.PE4,
-            green_pin: peripherals.PE2,
+    Hardware {
+        blue_pin: peripherals.PE3,
+        yellow_pin: peripherals.PE4,
+        green_pin: peripherals.PE2,
 
-            usb_dm: peripherals.PA11,
-            usb_dp: peripherals.PA12,
-            usb_peripheral: peripherals.USB_OTG_HS,
+        usb_dm: peripherals.PA11,
+        usb_dp: peripherals.PA12,
+        usb_peripheral: peripherals.USB_OTG_HS,
 
-            imu_spi: SpiHardware {
-                peripheral: peripherals.SPI1,
-                sck_pin: peripherals.PB3,
-                miso_pin: peripherals.PB4,
-                mosi_pin: peripherals.PB5,
+        imu_spi: SpiHardware {
+            peripheral: peripherals.SPI1,
+            sck_pin: peripherals.PB3,
+            miso_pin: peripherals.PB4,
+            mosi_pin: peripherals.PB5,
 
-                rx_dma: peripherals.DMA1_CH0,
-                tx_dma: peripherals.DMA1_CH1,
-                cs_pin: peripherals.PB7,
-            },
+            rx_dma: peripherals.DMA1_CH0,
+            tx_dma: peripherals.DMA1_CH1,
+            cs_pin: peripherals.PB7,
+        },
 
-            adc_reader: AdcReader::new(peripherals.PA4.degrade_adc(), peripherals.ADC1),
+        battery_meter: BatteryMeter::new(peripherals.PA4.degrade_adc(), peripherals.ADC1),
 
-            motor0_pin: peripherals.PE12,
-            motor1_pin: peripherals.PE13,
-            motor2_pin: peripherals.PE14,
-            motor3_pin: peripherals.PE15,
+        motor0_pin: peripherals.PE12,
+        motor1_pin: peripherals.PE13,
+        motor2_pin: peripherals.PE14,
+        motor3_pin: peripherals.PE15,
 
-            radio_uart: UartHardware {
-                peripheral: peripherals.UART7,
-                tx_pin: peripherals.PE8,
-                rx_pin: peripherals.PE7,
-                rx_dma: peripherals.DMA1_CH6,
-                tx_dma: peripherals.DMA1_CH7,
-                irqs: Irqs,
-            },
+        radio_uart: UartHardware {
+            peripheral: peripherals.UART7,
+            tx_pin: peripherals.PE8,
+            rx_pin: peripherals.PE7,
+            rx_dma: peripherals.DMA1_CH6,
+            tx_dma: peripherals.DMA1_CH7,
+            irqs: Irqs,
+        },
 
-            flash: peripherals.FLASH,
-            vtx_power_toggle: OptionalOutput::unimplemented(),
+        flash: peripherals.FLASH,
+        vtx_power_toggle: OptionalOutput::unimplemented(),
 
-            extra: ExtraHardware {
-                msp_uart: UartHardware {
-                    peripheral: peripherals.UART4,
-                    tx_pin: peripherals.PA0,
-                    rx_pin: peripherals.PA1,
-                    rx_dma: peripherals.DMA1_CH4,
-                    tx_dma: peripherals.DMA1_CH5,
-                    irqs: Irqs,
-                },
-                uart2: UartHardware {
-                    peripheral: peripherals.USART2,
-                    rx_pin: peripherals.PA3,
-                    tx_pin: peripherals.PA2,
-                    tx_dma: peripherals.DMA1_CH3,
-                    rx_dma: peripherals.DMA1_CH2,
-                    irqs: Irqs,
-                },
-            },
-        }
-    }};
+        msp_uart: Some(UartHardware {
+            peripheral: peripherals.UART4,
+            tx_pin: peripherals.PA0,
+            rx_pin: peripherals.PA1,
+            rx_dma: peripherals.DMA1_CH4,
+            tx_dma: peripherals.DMA1_CH5,
+            irqs: Irqs,
+        }),
+        gps_uart: Some(UartHardware {
+            peripheral: peripherals.USART2,
+            rx_pin: peripherals.PA3,
+            tx_pin: peripherals.PA2,
+            tx_dma: peripherals.DMA1_CH3,
+            rx_dma: peripherals.DMA1_CH2,
+            irqs: Irqs,
+        }),
+    }
 }
 
 pub fn get_spawners() -> Spawners {

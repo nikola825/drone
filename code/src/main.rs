@@ -6,7 +6,6 @@ use config_storage::read_stored_config;
 use cortex_m_rt::entry;
 use crsf::init_crsf_communication;
 use embassy_executor::SendSpawner;
-use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::flash::Flash;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_sync::lazy_lock::LazyLock;
@@ -23,6 +22,7 @@ use shared_state::SharedState;
 // These are used only during calibration
 #[allow(unused_imports)]
 use crate::config_storage::reconfigure_and_store;
+use crate::hw_select::make_hardware;
 #[allow(unused_imports)]
 use crate::icm42688::calibrate_gyro_offsets;
 #[allow(unused_imports)]
@@ -72,7 +72,7 @@ fn main() -> ! {
 async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
     static STORE: LazyLock<SharedState> = LazyLock::new(SharedState::new);
 
-    let mut hardware = get_hardware!();
+    let mut hardware = make_hardware();
 
     let mut blue = Output::new(hardware.blue_pin, Level::Low, Speed::VeryHigh);
     let mut green = Output::new(hardware.green_pin, Level::Low, Speed::VeryHigh);
@@ -120,11 +120,21 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
         .unwrap();
 
     init_crsf_communication(hardware.radio_uart, &spawner_low, STORE.get());
-    init_battery_monitor(hardware.adc_reader, STORE.get(), &spawner_low);
-    init_gps_receiver(hardware.extra.gps_uart, &spawner_low, STORE.get());
+    init_battery_monitor(hardware.battery_meter, STORE.get(), &spawner_low);
 
-    hardware.vtx_power_toggle.set_high();
-    init_osd!(hardware, spawner_low, STORE.get());
+    if let Some(gps_uart) = hardware.gps_uart {
+        init_gps_receiver(gps_uart, &spawner_low, STORE.get());
+    }
+
+    if let Some(msp_uart) = hardware.msp_uart {
+        hardware.vtx_power_toggle.set_high();
+        init_osd(
+            msp_uart,
+            hardware.vtx_power_toggle,
+            &spawner_low,
+            STORE.get(),
+        );
+    }
 
     blue.set_high();
 

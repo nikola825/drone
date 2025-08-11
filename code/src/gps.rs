@@ -1,5 +1,7 @@
 use crate::{
-    logging::error, make_static_buffer, math_stuff::{DEG_TO_RAD_FACTOR, RAD_TO_DEG_FACTOR}
+    logging::error,
+    make_static_buffer,
+    math_stuff::{DEG_TO_RAD_FACTOR, RAD_TO_DEG_FACTOR},
 };
 use embassy_executor::SendSpawner;
 use embassy_stm32::{

@@ -1,24 +1,5 @@
-#[cfg(feature = "msp_osd")]
 pub mod msp_osd;
 
-#[cfg(feature = "msp_osd")]
-macro_rules! init_osd {
-    ($hardware:ident, $spawner:ident, $store: expr) => {{
-        use osd::msp_osd::init_msp_osd;
-        init_msp_osd(
-            $hardware.extra.msp_uart,
-            $hardware.vtx_power_toggle,
-            &$spawner,
-            $store,
-        );
-    }};
-}
-
-#[cfg(feature = "dummy_osd")]
-macro_rules! init_osd {
-    ($hardware:ident, $spawner:ident, $store: expr) => {};
-}
-
-pub(crate) use init_osd;
+pub(crate) use msp_osd::init_msp_osd as init_osd;
 
 pub mod char_map_hdzero_inav;

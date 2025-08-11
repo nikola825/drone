@@ -1,5 +1,8 @@
+use core::ops::RangeInclusive;
+
 use embassy_executor::SendSpawner;
 use embassy_stm32::{
+    adc::{Adc, AnyAdcChannel},
     gpio::{Output, Pin},
     interrupt,
     mode::Async,
@@ -12,25 +15,26 @@ use embassy_stm32::{
 };
 
 #[cfg(feature = "stm32h723")]
-pub mod stm32h723;
+mod stm32h723;
 #[cfg(feature = "stm32h723")]
-pub use stm32h723::{
-    get_spawners, AdcReader, ExtraHardware, Irqs, FLASH_ERASE_START, FLASH_SIZE,
-    STORED_CONFIG_START, USB_DM, USB_DP, USB_PERIPHERAL,
-};
+use stm32h723 as hardware_module;
 
 #[cfg(feature = "stm32h743")]
-pub mod stm32h743;
+mod stm32h743;
 #[cfg(feature = "stm32h743")]
-pub use stm32h743::{
-    get_spawners, AdcReader, ExtraHardware, Irqs, FLASH_ERASE_START, FLASH_SIZE,
-    STORED_CONFIG_START, USB_DM, USB_DP, USB_PERIPHERAL,
-};
+use stm32h743 as hardware_module;
 
 #[cfg(feature = "stm32f411")]
-pub mod stm32f411;
+mod stm32f411;
 #[cfg(feature = "stm32f411")]
-pub use stm32f411::{get_spawners, AdcReader, ExtraHardware, Irqs, USB_DM, USB_DP, USB_PERIPHERAL};
+use stm32f411 as hardware_module;
+
+pub use hardware_module::{
+    get_spawners, make_hardware, BatteryMeter, Irqs, USB_DM, USB_DP, USB_PERIPHERAL,
+};
+
+#[cfg(feature = "flash_storage")]
+pub use hardware_module::{FLASH_ERASE_START, FLASH_SIZE, STORED_CONFIG_START};
 
 pub fn get_pin_gpio<T: Pin>(pin: &T) -> embassy_stm32::pac::gpio::Gpio {
     {
@@ -239,6 +243,49 @@ impl OptionalOutput {
     }
 }
 
+pub struct VoltageReader<AdcType: embassy_stm32::adc::Instance> {
+    pub adc: Adc<'static, AdcType>,
+    pub pin: AnyAdcChannel<AdcType>,
+    pub adc_range_max: u16,
+    pub resistor_divider_factor: f32,
+    pub acceptable_voltage_range: RangeInclusive<f32>,
+    pub voltage_reference: f32,
+}
+
+impl<AdcType: embassy_stm32::adc::Instance> VoltageReader<AdcType> {
+    pub fn new(pin: AnyAdcChannel<AdcType>, adc: AdcType) -> Self {
+        let mut adc = Adc::new(adc);
+
+        adc.set_averaging(embassy_stm32::adc::Averaging::Samples16);
+        adc.set_sample_time(embassy_stm32::adc::SampleTime::CYCLES32_5);
+
+        adc.set_resolution(embassy_stm32::adc::Resolution::BITS12);
+
+        Self {
+            adc,
+            pin,
+            adc_range_max: 4096u16,
+            resistor_divider_factor: 11f32,
+            acceptable_voltage_range: 0f32..=28f32,
+            voltage_reference: 3.3f32,
+        }
+    }
+
+    pub fn get_voltage(&mut self) -> f32 {
+        let measurement = self.adc.blocking_read(&mut self.pin);
+
+        let measured_voltage = ((measurement as f32) * self.voltage_reference)
+            * self.resistor_divider_factor
+            / (self.adc_range_max as f32);
+
+        if self.acceptable_voltage_range.contains(&measured_voltage) {
+            measured_voltage
+        } else {
+            0f32
+        }
+    }
+}
+
 #[allow(dead_code)]
 pub struct Hardware<
     BluePin: Pin,
@@ -246,26 +293,14 @@ pub struct Hardware<
     YellowPin: Pin,
     UsbDp: DpPin<USB_PERIPHERAL>,
     UsbDm: DmPin<USB_PERIPHERAL>,
-    IMUSpiType: embassy_stm32::spi::Instance + 'static,
-    IMUSpiPeripheral: Peripheral<P = IMUSpiType> + 'static,
-    IMUSck: SckPin<IMUSpiType> + 'static,
-    IMUMosi: MosiPin<IMUSpiType> + 'static,
-    IMUMiso: MisoPin<IMUSpiType> + 'static,
-    IMUTxDma: embassy_stm32::spi::TxDma<IMUSpiType> + 'static,
-    IMURxDma: embassy_stm32::spi::RxDma<IMUSpiType> + 'static,
-    IMUCsPin: Pin + 'static,
+    ImuSpiMaker: SpiMaker,
     Motor0Pin: Pin,
     Motor1Pin: Pin,
     Motor2Pin: Pin,
     Motor3Pin: Pin,
-    RadioUartType: embassy_stm32::usart::Instance + 'static,
-    RadioUartPeripheral: Peripheral<P = RadioUartType> + 'static,
-    RadioUartRxPin: embassy_stm32::usart::RxPin<RadioUartType> + 'static,
-    RadioUartTxPin: embassy_stm32::usart::TxPin<RadioUartType> + 'static,
-    RadioUartRxDma: embassy_stm32::usart::RxDma<RadioUartType> + 'static,
-    RadioUartTxDma: embassy_stm32::usart::TxDma<RadioUartType> + 'static,
-    RadioIrqType: interrupt::typelevel::Binding<RadioUartType::Interrupt, InterruptHandler<RadioUartType>>
-        + 'static,
+    RadioUartMaker: UartMaker,
+    MspUartMaker: UartMaker,
+    GpsUartMaker: UartMaker,
 > {
     pub blue_pin: BluePin,
     pub green_pin: GreenPin,
@@ -274,39 +309,47 @@ pub struct Hardware<
     pub usb_dp: UsbDp,
     pub usb_dm: UsbDm,
 
-    pub adc_reader: AdcReader,
+    pub battery_meter: BatteryMeter,
 
-    pub imu_spi: SpiHardware<
-        IMUSpiType,
-        IMUSpiPeripheral,
-        IMUSck,
-        IMUMosi,
-        IMUMiso,
-        IMUTxDma,
-        IMURxDma,
-        IMUCsPin,
-    >,
+    pub imu_spi: ImuSpiMaker,
 
     pub motor0_pin: Motor0Pin,
     pub motor1_pin: Motor1Pin,
     pub motor2_pin: Motor2Pin,
     pub motor3_pin: Motor3Pin,
 
-    pub radio_uart: UartHardware<
-        RadioUartType,
-        RadioUartPeripheral,
-        RadioUartRxPin,
-        RadioUartTxPin,
-        RadioUartRxDma,
-        RadioUartTxDma,
-        RadioIrqType,
-    >,
+    pub radio_uart: RadioUartMaker,
 
     pub flash: embassy_stm32::peripherals::FLASH,
 
-    pub extra: ExtraHardware,
-
     pub vtx_power_toggle: OptionalOutput,
+
+    pub msp_uart: Option<MspUartMaker>,
+    pub gps_uart: Option<GpsUartMaker>,
+}
+
+// Used to indicate a generic type of the make_hardware methods until we have
+// generic type aliases
+// https://github.com/rust-lang/rust/issues/63063
+#[macro_export]
+macro_rules! generic_hardware_type {
+    () => {
+        Hardware<
+            impl Pin,
+            impl Pin,
+            impl Pin,
+            USB_DP,
+            USB_DM,
+            impl SpiMaker,
+            impl Pin,
+            impl Pin,
+            impl Pin,
+            impl Pin,
+            impl UartMaker,
+            impl UartMaker,
+            impl UartMaker,
+        >
+    };
 }
 
 pub struct Spawners {
