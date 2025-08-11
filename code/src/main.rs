@@ -2,7 +2,7 @@
 #![no_main]
 
 use battery_monitor::init_battery_monitor;
-use config_storage::{read_stored_config, StoredConfig};
+use config_storage::read_stored_config;
 use cortex_m_rt::entry;
 use crsf::init_crsf_communication;
 use embassy_executor::SendSpawner;
@@ -19,6 +19,14 @@ use motors::{disarm, drive_motors, Motor, MotorsContext};
 use osd::init_osd;
 use pid::{do_pid_iteration, PidContext};
 use shared_state::SharedState;
+
+// These are used only during calibration
+#[allow(unused_imports)]
+use crate::config_storage::reconfigure_and_store;
+#[allow(unused_imports)]
+use crate::icm42688::calibrate_gyro_offsets;
+#[allow(unused_imports)]
+use crate::motors::do_motor_mapping;
 
 mod ahrs_wrapper;
 mod arming;
@@ -64,7 +72,7 @@ fn main() -> ! {
 async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
     static STORE: LazyLock<SharedState> = LazyLock::new(SharedState::new);
 
-    let hardware = get_hardware!();
+    let mut hardware = get_hardware!();
 
     let mut blue = Output::new(hardware.blue_pin, Level::Low, Speed::VeryHigh);
     let mut green = Output::new(hardware.green_pin, Level::Low, Speed::VeryHigh);
@@ -94,6 +102,10 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
         Some(Motor::new(hardware.motor3_pin)),
     ];
 
+    // do_motor_mapping(motors, &stored_config).await;
+    // calibrate_gyro_offsets(imu, &stored_config, true).await;
+    // apply_motor_directions(&front_left, &front_right, &rear_left, &rear_right).await;
+
     let front_left = motors[stored_config.front_left_motor as usize]
         .take()
         .unwrap();
@@ -109,12 +121,12 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     init_crsf_communication(hardware.radio_uart, &spawner_low, STORE.get());
     init_battery_monitor(hardware.adc_reader, STORE.get(), &spawner_low);
-    init_gps_receiver(hardware.extra.uart2, &spawner_low, STORE.get());
+    init_gps_receiver(hardware.extra.gps_uart, &spawner_low, STORE.get());
+
+    hardware.vtx_power_toggle.set_high();
     init_osd!(hardware, spawner_low, STORE.get());
 
     blue.set_high();
-
-    // motor_reset(&front_left, &front_right, &rear_left, &rear_right).await;
 
     let context = DroneContext {
         motor_context: MotorsContext::new(front_left, front_right, rear_left, rear_right),
@@ -201,45 +213,12 @@ async fn tick_task(
             print_counter = 0;
             info!(
                 "TICK {} {} {} {}",
-                total_duration, inner_duration, min_measured_period, max_measured_period
+                total_duration, inner_duration, min_measured_period, max_measured_period,
             );
             max_measured_period = 0;
             min_measured_period = 10000;
         }
         previous_t1 = t1;
         ticker.next().await;
-    }
-}
-
-#[allow(dead_code)]
-async fn reapply_motor_configuration(
-    front_left: &Motor,
-    front_right: &Motor,
-    rear_left: &Motor,
-    rear_right: &Motor,
-    config: &StoredConfig,
-) {
-    for _ in 0..5 {
-        info!("BEGINNING RESET");
-        info!("Front left");
-        front_left.disable_3d_mode().await;
-        front_left.set_direction(config.front_left_direction).await;
-
-        info!("Front right");
-        front_right.disable_3d_mode().await;
-        front_right
-            .set_direction(config.front_right_direction)
-            .await;
-
-        info!("Rear left");
-        rear_left.disable_3d_mode().await;
-        rear_left.set_direction(config.rear_left_direction).await;
-
-        info!("Rear right");
-        rear_right.disable_3d_mode().await;
-        rear_right.set_direction(config.rear_right_direction).await;
-
-        info!("RESET END");
-        Timer::after_millis(100).await;
     }
 }

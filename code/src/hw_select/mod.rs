@@ -19,6 +19,14 @@ pub use stm32h723::{
     STORED_CONFIG_START, USB_DM, USB_DP, USB_PERIPHERAL,
 };
 
+#[cfg(feature = "stm32h743")]
+pub mod stm32h743;
+#[cfg(feature = "stm32h743")]
+pub use stm32h743::{
+    get_spawners, AdcReader, ExtraHardware, Irqs, FLASH_ERASE_START, FLASH_SIZE,
+    STORED_CONFIG_START, USB_DM, USB_DP, USB_PERIPHERAL,
+};
+
 #[cfg(feature = "stm32f411")]
 pub mod stm32f411;
 #[cfg(feature = "stm32f411")]
@@ -191,6 +199,46 @@ impl<
     }
 }
 
+pub struct OptionalOutput {
+    toggle_output: Option<Output<'static>>,
+}
+
+impl OptionalOutput {
+    #[allow(dead_code)]
+    pub fn new<PinType: Pin + 'static>(
+        pin: PinType,
+        initial_level: embassy_stm32::gpio::Level,
+    ) -> Self {
+        Self {
+            toggle_output: Some(Output::new(
+                pin,
+                initial_level,
+                embassy_stm32::gpio::Speed::High,
+            )),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn unimplemented() -> Self {
+        Self {
+            toggle_output: None,
+        }
+    }
+
+    pub fn set_high(&mut self) {
+        if let Some(toggle) = self.toggle_output.as_mut() {
+            toggle.set_high();
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn set_low(&mut self) {
+        if let Some(toggle) = self.toggle_output.as_mut() {
+            toggle.set_low();
+        }
+    }
+}
+
 #[allow(dead_code)]
 pub struct Hardware<
     BluePin: Pin,
@@ -257,6 +305,8 @@ pub struct Hardware<
     pub flash: embassy_stm32::peripherals::FLASH,
 
     pub extra: ExtraHardware,
+
+    pub vtx_power_toggle: OptionalOutput,
 }
 
 pub struct Spawners {

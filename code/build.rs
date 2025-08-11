@@ -32,3 +32,13 @@ fn copy_memory_x(out_dir: &Path) {
         .write_all(include_bytes!("memory-configs/memory_f411.x"))
         .unwrap();
 }
+
+#[cfg(feature = "stm32h743")]
+fn copy_memory_x(out_dir: &Path) {
+    println!("cargo::rerun-if-changed=memory-configs/memory_h743.x");
+
+    File::create(out_dir.join("memory.x"))
+        .unwrap()
+        .write_all(include_bytes!("memory-configs/memory_h743.x"))
+        .unwrap();
+}

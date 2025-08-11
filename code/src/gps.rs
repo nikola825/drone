@@ -1,6 +1,5 @@
 use crate::{
-    logging::error,
-    math_stuff::{DEG_TO_RAD_FACTOR, RAD_TO_DEG_FACTOR},
+    logging::error, make_static_buffer, math_stuff::{DEG_TO_RAD_FACTOR, RAD_TO_DEG_FACTOR}
 };
 use embassy_executor::SendSpawner;
 use embassy_stm32::{
@@ -277,9 +276,9 @@ pub fn init_gps_receiver(uart: impl UartMaker, spawner: &SendSpawner, store: &'s
 
 #[embassy_executor::task]
 async fn gps_receiver_task(rx: UartRx<'static, Async>, store: &'static SharedState) {
-    let mut rx_ring_buffer: [u8; 512] = [0u8; 512];
+    let ring_buffer = make_static_buffer!(1024);
 
-    let mut rx = rx.into_ring_buffered(&mut rx_ring_buffer);
+    let mut rx = rx.into_ring_buffered(ring_buffer);
 
     loop {
         receive_ubx_packet(&mut rx, store)

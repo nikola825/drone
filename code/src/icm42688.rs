@@ -8,7 +8,7 @@ use embassy_time::Timer;
 use nalgebra::Vector3;
 use zerocopy::{big_endian, FromBytes, Immutable, KnownLayout};
 
-use crate::hw_select::SpiMaker;
+use crate::{config_storage::StoredConfig, hw_select::SpiMaker, logging::info};
 
 // Gyro results will be multiplied with this vector to align controller inputs with orientation
 // Expected gyro outputs are:
@@ -270,5 +270,43 @@ impl ICM42688 {
             gyro_pitch: gyro_ypr.x,
             gyro_roll: gyro_ypr.y,
         }
+    }
+}
+
+#[allow(dead_code)]
+pub async fn calibrate_gyro_offsets(
+    mut imu: ICM42688,
+    config: &StoredConfig,
+    apply_existing_offsets: bool,
+) -> ! {
+    const SMOOTHING_FACTOR: f32 = 0.001;
+
+    let mut yaw_accumulated = 0f32;
+    let mut pitch_accumulated = 0f32;
+    let mut roll_accumulated = 0f32;
+
+    loop {
+        for _ in 0..1000 {
+            let mut data = imu.get_motion_data();
+            if apply_existing_offsets {
+                data = data.apply_gyro_offsets(
+                    config.yaw_offset.into(),
+                    config.pitch_offset.into(),
+                    config.roll_offset.into(),
+                );
+            }
+            yaw_accumulated =
+                yaw_accumulated * (1f32 - SMOOTHING_FACTOR) + data.gyro_yaw * SMOOTHING_FACTOR;
+            pitch_accumulated =
+                pitch_accumulated * (1f32 - SMOOTHING_FACTOR) + data.gyro_pitch * SMOOTHING_FACTOR;
+            roll_accumulated =
+                roll_accumulated * (1f32 - SMOOTHING_FACTOR) + data.gyro_roll * SMOOTHING_FACTOR;
+            Timer::after_micros(1005).await;
+        }
+
+        info!("---------------------------");
+        info!("config.yaw_offset = ({}).into();", yaw_accumulated);
+        info!("config.pitch_offset = ({}).into();", pitch_accumulated);
+        info!("config.roll_offset = ({}).into();", roll_accumulated);
     }
 }

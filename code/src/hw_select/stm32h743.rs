@@ -2,29 +2,28 @@ use core::ops::RangeInclusive;
 
 use embassy_executor::InterruptExecutor;
 use embassy_stm32::{
-    adc::{Adc, AnyAdcChannel},
+    adc::{Adc, AnyAdcChannel, VrefInt},
     bind_interrupts,
     interrupt::{InterruptExt, Priority},
-    pac::VREFBUF,
-    peripherals::{
-        ADC1, DMA1_CH2, DMA1_CH3, DMA1_CH4, DMA1_CH5, PA0, PA1, PA2, PA3, UART4, USART2,
-    },
+    peripherals::{ADC1, ADC3, DMA1_CH2, DMA1_CH3, DMA1_CH6, DMA1_CH7, PA2, PA3, PE7, PE8},
     time::Hertz,
     usart::{self},
     usb::{self},
     Config, Peripherals,
 };
 
-pub const FLASH_SIZE: u32 = embassy_stm32::flash::BANK1_REGION.size;
+pub const FLASH_SIZE: u32 =
+    embassy_stm32::flash::BANK1_REGION.size + embassy_stm32::flash::BANK2_REGION.size;
 pub const STORED_CONFIG_START: u32 = FLASH_SIZE - STORED_CONFIG_STRUCT_SIZE;
-pub const FLASH_ERASE_SIZE: u32 = embassy_stm32::flash::BANK1_REGION.erase_size;
+pub const FLASH_ERASE_SIZE: u32 = embassy_stm32::flash::BANK2_REGION.erase_size;
 pub const FLASH_ERASE_START: u32 = FLASH_SIZE - FLASH_ERASE_SIZE;
 
 use embassy_stm32::interrupt;
 
 pub use embassy_stm32::peripherals::PA11 as USB_DM;
 pub use embassy_stm32::peripherals::PA12 as USB_DP;
-pub use embassy_stm32::peripherals::USB_OTG_HS as USB_PERIPHERAL;
+pub use embassy_stm32::peripherals::USB_OTG_FS as USB_PERIPHERAL;
+use log::info;
 
 use crate::config_storage::STORED_CONFIG_STRUCT_SIZE;
 
@@ -34,7 +33,7 @@ bind_interrupts!(pub struct Irqs {
     USART2 => usart::InterruptHandler<embassy_stm32::peripherals::USART2>;
     UART4 => usart::InterruptHandler<embassy_stm32::peripherals::UART4>;
     UART7 => usart::InterruptHandler<embassy_stm32::peripherals::UART7>;
-    OTG_HS => usb::InterruptHandler<USB_PERIPHERAL>;
+    OTG_FS => usb::InterruptHandler<USB_PERIPHERAL>;
 });
 
 // High-priority executor used mainly for PID loop
@@ -54,53 +53,70 @@ unsafe fn USART3() {
 
 #[allow(dead_code)]
 pub struct ExtraHardware {
-    pub msp_uart:
-        UartHardware<UART4, embassy_stm32::peripherals::UART4, PA1, PA0, DMA1_CH4, DMA1_CH5, Irqs>,
-    pub uart2: UartHardware<
-        USART2,
+    pub msp_uart: UartHardware<
+        embassy_stm32::peripherals::UART7,
+        embassy_stm32::peripherals::UART7,
+        PE7,
+        PE8,
+        DMA1_CH6,
+        DMA1_CH7,
+        Irqs,
+    >,
+    pub gps_uart: UartHardware<
+        embassy_stm32::peripherals::USART2,
         embassy_stm32::peripherals::USART2,
         PA3,
         PA2,
-        DMA1_CH2,
         DMA1_CH3,
+        DMA1_CH2,
         Irqs,
     >,
 }
 
 pub struct AdcReader {
-    adc: Adc<'static, ADC1>,
+    adc1: Adc<'static, ADC1>,
+    adc3: Adc<'static, ADC3>,
     bat_pin: AnyAdcChannel<ADC1>,
-    adc_range_max: u16,
     resistor_divider_factor: f32,
     acceptable_voltage_range: RangeInclusive<f32>,
     voltage_reference: f32,
+    vref_internal: VrefInt,
 }
 
 impl AdcReader {
-    pub fn new(bat_pin: AnyAdcChannel<ADC1>, adc1: ADC1) -> Self {
+    pub fn new(bat_pin: AnyAdcChannel<ADC1>, adc1: ADC1, adc3: ADC3) -> Self {
         let mut adc1 = Adc::new(adc1);
+        let mut adc3 = Adc::new(adc3);
+        let vref_internal = adc3.enable_vrefint();
 
         adc1.set_averaging(embassy_stm32::adc::Averaging::Samples16);
         adc1.set_sample_time(embassy_stm32::adc::SampleTime::CYCLES32_5);
-
         adc1.set_resolution(embassy_stm32::adc::Resolution::BITS12);
 
+        adc3.set_averaging(embassy_stm32::adc::Averaging::Samples16);
+        adc3.set_sample_time(embassy_stm32::adc::SampleTime::CYCLES32_5);
+        adc3.set_resolution(embassy_stm32::adc::Resolution::BITS12);
+
         AdcReader {
-            adc: adc1,
+            adc1,
+            adc3,
             bat_pin,
-            adc_range_max: 4096u16,
             resistor_divider_factor: 11f32,
             acceptable_voltage_range: 0f32..=20f32,
-            voltage_reference: 3.3f32,
+            voltage_reference: 1.216f32,
+            vref_internal,
         }
     }
 
     pub fn get_bat(&mut self) -> f32 {
-        let measurement = self.adc.blocking_read(&mut self.bat_pin);
+        let batery_measurement = self.adc1.blocking_read(&mut self.bat_pin);
+        let reference_measurement = self.adc3.blocking_read(&mut self.vref_internal);
 
-        let measured_voltage = ((measurement as f32) * self.voltage_reference)
-            / (self.adc_range_max as f32)
+        let measured_voltage = ((batery_measurement as f32) * self.voltage_reference)
+            / (reference_measurement as f32)
             * self.resistor_divider_factor;
+
+        info!("BAT {}", measured_voltage);
 
         if self.acceptable_voltage_range.contains(&measured_voltage) {
             measured_voltage
@@ -116,34 +132,34 @@ fn make_config() -> Config {
     {
         use embassy_stm32::rcc::*;
         config.rcc.hse = Some(Hse {
-            freq: Hertz(20_000_000), // 20 MHz HSE
+            freq: Hertz(8_000_000), // 20 MHz HSE
             mode: HseMode::Oscillator,
         });
         config.rcc.pll1 = Some(Pll {
             source: PllSource::HSE,
-            prediv: PllPreDiv::DIV10, // 20 MHz / 10 = 2 MHz
-            mul: PllMul::MUL240,      // 2MHz * 240 = 480 MHz
-            divp: Some(PllDiv::DIV1), // P = 480 MHz / 1 = 480 MHz
-            divq: Some(PllDiv::DIV2), // Q = 480 MHz / 2 = 240 MHz
-            divr: Some(PllDiv::DIV2), // R = 480 MHz / 2 = 240 MHz
+            prediv: PllPreDiv::DIV1,   // 8 MHz / 1 = 8 MHz
+            mul: PllMul::MUL120,       // 8MHz * 120 = 960 MHz
+            divp: Some(PllDiv::DIV2),  // P = 960 MHz / 2 = 480 MHz
+            divq: Some(PllDiv::DIV2),  // Q = 960 MHz / 4 = 240 MHz
+            divr: Some(PllDiv::DIV10), // R = 960 MHz / 10 = 96 MHz
         });
 
         config.rcc.pll2 = Some(Pll {
             source: PllSource::HSE,
-            prediv: PllPreDiv::DIV2,  // 20 MHz / 2 = 10 MHz
-            mul: PllMul::MUL24,       // 10MHz * 24 = 240 MHz
-            divp: Some(PllDiv::DIV1), // P = 240 MHz / 1 = 240 MHz
-            divq: Some(PllDiv::DIV2), // Q = 240 MHz / 2 = 120 MHz
-            divr: Some(PllDiv::DIV1), // R = 240 MHz / 1 = 240 MHz
+            prediv: PllPreDiv::DIV2,  // 8 MHz / 2 = 4 MHz
+            mul: PllMul::MUL125,      // 4 MHz * 125 = 500 MHz
+            divp: Some(PllDiv::DIV4), // P = 500 MHz / 4 = 125 MHz
+            divq: Some(PllDiv::DIV4), // Q = 500 MHz / 4 = 125 MHz
+            divr: Some(PllDiv::DIV5), // R = 500 MHz / 5 = 100 MHz
         });
 
         config.rcc.pll3 = Some(Pll {
             source: PllSource::HSE,
-            prediv: PllPreDiv::DIV2,   // 20 MHz / 2 = 10 MHz
-            mul: PllMul::MUL48,        // 10MHz * 48 = 480 MHz
-            divp: Some(PllDiv::DIV2),  // P = 480 MHz / 2  = 240 MHz
-            divq: Some(PllDiv::DIV10), // Q = 480 MHz / 10 = 48 MHz
-            divr: Some(PllDiv::DIV3),  // R = 480 MHz / 3  = 160 MHz
+            prediv: PllPreDiv::DIV1,  // 8 MHz / 1 = 8 MHz
+            mul: PllMul::MUL25,       // 8 MHz * 25 = 200 MHz
+            divp: Some(PllDiv::DIV1), // P = 200 MHz / 1 = 200 MHz
+            divq: Some(PllDiv::DIV2), // Q = 200 MHz / 2 = 100 MHz
+            divr: Some(PllDiv::DIV2), // R = 200 MHz / 2 = 100 MHz
         });
 
         config.rcc.sys = Sysclk::PLL1_P; // sysclk = P = 550MHz;
@@ -155,9 +171,9 @@ fn make_config() -> Config {
         config.rcc.apb4_pre = APBPrescaler::DIV2; // APB4 = 240 MHz / 2 = 120 MHz
 
         config.rcc.mux.usbsel = mux::Usbsel::HSI48; // USB CLK = PLL3.Q = 48 MHz
-        config.rcc.mux.adcsel = mux::Adcsel::PLL3_R; // USB CLK = PLL3.R = 160 MHz
-        config.rcc.mux.spi123sel = mux::Saisel::PLL2_P; // SPI123 CLK = PLL2.P = 240 MHz;
-        config.rcc.mux.usart234578sel = mux::Usart234578sel::PLL2_Q; // USART234578 CLK = PLL2.Q  = 120 MHz
+        config.rcc.mux.adcsel = mux::Adcsel::PLL3_R; // USB CLK = PLL3.R = 100 MHz
+        config.rcc.mux.spi123sel = mux::Saisel::PLL3_P; // SPI123 CLK = PLL3.P = 200 MHz;
+        config.rcc.mux.usart234578sel = mux::Usart234578sel::PLL2_Q; // USART234578 CLK = PLL2.Q  = 125 MHz
         config.rcc.hsi48 = Some(Hsi48Config {
             sync_from_usb: true,
         });
@@ -170,11 +186,6 @@ fn make_config() -> Config {
 pub fn make_peripherals() -> Peripherals {
     let config = make_config();
     let peripherals = embassy_stm32::init(config);
-
-    VREFBUF.csr().modify(|x| {
-        x.set_envr(false);
-        x.set_hiz(embassy_stm32::pac::vrefbuf::vals::Hiz::HIGH_Z);
-    });
 
     unsafe {
         let peripherals = cortex_m::Peripherals::steal();
@@ -190,7 +201,7 @@ pub fn make_peripherals() -> Peripherals {
 #[macro_export]
 macro_rules! get_hardware {
     () => {{
-        use $crate::hw_select::stm32h723::*;
+        use $crate::hw_select::stm32h743::*;
         use $crate::hw_select::*;
         let peripherals = make_peripherals();
 
@@ -201,7 +212,7 @@ macro_rules! get_hardware {
 
             usb_dm: peripherals.PA11,
             usb_dp: peripherals.PA12,
-            usb_peripheral: peripherals.USB_OTG_HS,
+            usb_peripheral: peripherals.USB_OTG_FS,
 
             imu_spi: SpiHardware {
                 peripheral: peripherals.SPI1,
@@ -214,7 +225,11 @@ macro_rules! get_hardware {
                 cs_pin: peripherals.PB7,
             },
 
-            adc_reader: AdcReader::new(peripherals.PA4.degrade_adc(), peripherals.ADC1),
+            adc_reader: AdcReader::new(
+                peripherals.PA4.degrade_adc(),
+                peripherals.ADC1,
+                peripherals.ADC3,
+            ),
 
             motor0_pin: peripherals.PE12,
             motor1_pin: peripherals.PE13,
@@ -222,32 +237,33 @@ macro_rules! get_hardware {
             motor3_pin: peripherals.PE15,
 
             radio_uart: UartHardware {
-                peripheral: peripherals.UART7,
-                tx_pin: peripherals.PE8,
-                rx_pin: peripherals.PE7,
-                rx_dma: peripherals.DMA1_CH6,
-                tx_dma: peripherals.DMA1_CH7,
+                peripheral: peripherals.UART4,
+                tx_pin: peripherals.PA0,
+                rx_pin: peripherals.PA1,
+                rx_dma: peripherals.DMA1_CH4,
+                tx_dma: peripherals.DMA1_CH5,
                 irqs: Irqs,
             },
 
             flash: peripherals.FLASH,
-            vtx_power_toggle: OptionalOutput::unimplemented(),
+
+            vtx_power_toggle: OptionalOutput::new(peripherals.PD8, embassy_stm32::gpio::Level::Low),
 
             extra: ExtraHardware {
-                msp_uart: UartHardware {
-                    peripheral: peripherals.UART4,
-                    tx_pin: peripherals.PA0,
-                    rx_pin: peripherals.PA1,
-                    rx_dma: peripherals.DMA1_CH4,
-                    tx_dma: peripherals.DMA1_CH5,
-                    irqs: Irqs,
-                },
-                uart2: UartHardware {
+                gps_uart: UartHardware {
                     peripheral: peripherals.USART2,
                     rx_pin: peripherals.PA3,
                     tx_pin: peripherals.PA2,
-                    tx_dma: peripherals.DMA1_CH3,
-                    rx_dma: peripherals.DMA1_CH2,
+                    tx_dma: peripherals.DMA1_CH2,
+                    rx_dma: peripherals.DMA1_CH3,
+                    irqs: Irqs,
+                },
+                msp_uart: UartHardware {
+                    peripheral: peripherals.UART7,
+                    tx_pin: peripherals.PE8,
+                    rx_pin: peripherals.PE7,
+                    rx_dma: peripherals.DMA1_CH6,
+                    tx_dma: peripherals.DMA1_CH7,
                     irqs: Irqs,
                 },
             },

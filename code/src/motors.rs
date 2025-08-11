@@ -6,8 +6,10 @@ use embassy_time::{Duration, Instant, Timer};
 use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
 
 use crate::{
+    config_storage::StoredConfig,
     dshot::{dshot_send_parallel, dshot_send_single},
     hw_select::get_pin_gpio,
+    logging::info,
 };
 
 #[derive(Clone, Copy)]
@@ -173,7 +175,7 @@ impl Motor {
     }
 
     #[allow(dead_code)]
-    pub async fn set_direction(&self, direction: MotorDirection) {
+    async fn set_direction(&self, direction: MotorDirection) {
         let direction_command = match direction {
             MotorDirection::Forward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_1,
             MotorDirection::Backward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_2,
@@ -183,12 +185,12 @@ impl Motor {
     }
 
     #[allow(dead_code)]
-    pub async fn disable_3d_mode(&self) {
+    async fn disable_3d_mode(&self) {
         self.set_setting_and_save(DshotCommand::DSHOT_CMD_3D_MODE_OFF)
             .await;
     }
 
-    pub fn multi_throttle(motors: [&Self; 4], mut throttles: [u16; 4]) {
+    fn multi_throttle(motors: [&Self; 4], mut throttles: [u16; 4]) {
         for throttle in &mut throttles {
             if *throttle > 0 {
                 *throttle += 48;
@@ -198,7 +200,7 @@ impl Motor {
         Self::multi_send(motors, throttles);
     }
 
-    pub fn multi_send(motors: [&Self; 4], values: [u16; 4]) {
+    fn multi_send(motors: [&Self; 4], values: [u16; 4]) {
         if (motors[0].port == motors[1].port)
             && (motors[0].port == motors[2].port)
             && (motors[0].port == motors[3].port)
@@ -321,5 +323,74 @@ pub fn drive_motors(context: &mut MotorsContext, inputs: &MotorInputs) {
         );
     } else {
         zero_throttle(context);
+    }
+}
+
+#[allow(dead_code)]
+pub async fn do_motor_mapping(mut motors: [Option<Motor>; 4], config: &StoredConfig) -> ! {
+    let motors = [
+        motors[0].take().unwrap(),
+        motors[1].take().unwrap(),
+        motors[2].take().unwrap(),
+        motors[3].take().unwrap(),
+    ];
+
+    let mut selected_motor = 0;
+    loop {
+        let motor_name = if selected_motor == config.front_left_motor {
+            "front_left"
+        } else if selected_motor == config.front_right_motor {
+            "front_right"
+        } else if selected_motor == config.rear_left_motor {
+            "rear_left"
+        } else if selected_motor == config.rear_right_motor {
+            "rear_right"
+        } else {
+            "unknown"
+        };
+
+        info!("Doing motor {}: {}", selected_motor, motor_name);
+
+        for _ in 0..2000 {
+            let mut throttles = [0; 4];
+            throttles[selected_motor as usize] = 60;
+
+            Motor::multi_throttle([&motors[0], &motors[1], &motors[2], &motors[3]], throttles);
+            Timer::after_micros(1005).await;
+        }
+        selected_motor = (selected_motor + 1) % 4;
+    }
+}
+
+#[allow(dead_code)]
+pub async fn apply_motor_directions(
+    front_left: &Motor,
+    front_right: &Motor,
+    rear_left: &Motor,
+    rear_right: &Motor,
+    config: &StoredConfig,
+) {
+    for _ in 0..5 {
+        info!("Applying directions");
+        info!("Front left");
+        front_left.disable_3d_mode().await;
+        front_left.set_direction(config.front_left_direction).await;
+
+        info!("Front right");
+        front_right.disable_3d_mode().await;
+        front_right
+            .set_direction(config.front_right_direction)
+            .await;
+
+        info!("Rear left");
+        rear_left.disable_3d_mode().await;
+        rear_left.set_direction(config.rear_left_direction).await;
+
+        info!("Rear right");
+        rear_right.disable_3d_mode().await;
+        rear_right.set_direction(config.rear_right_direction).await;
+
+        info!("Apply end");
+        Timer::after_millis(100).await;
     }
 }

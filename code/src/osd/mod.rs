@@ -5,7 +5,12 @@ pub mod msp_osd;
 macro_rules! init_osd {
     ($hardware:ident, $spawner:ident, $store: expr) => {{
         use osd::msp_osd::init_msp_osd;
-        init_msp_osd($hardware.extra.msp_uart, &$spawner, $store);
+        init_msp_osd(
+            $hardware.extra.msp_uart,
+            $hardware.vtx_power_toggle,
+            &$spawner,
+            $store,
+        );
     }};
 }
 

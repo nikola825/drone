@@ -152,6 +152,7 @@ macro_rules! get_hardware {
             motor3_pin: peripherals.PA6,
 
             flash: peripherals.FLASH,
+            vtx_power_toggle: OptionalOutput::unimplemented(),
 
             radio_uart: UartHardware {
                 peripheral: peripherals.USART2,

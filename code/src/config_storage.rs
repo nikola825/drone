@@ -109,13 +109,13 @@ impl StoredConfig {
 #[allow(dead_code, clippy::field_reassign_with_default)]
 #[cfg(feature = "flash_storage")]
 pub async fn reconfigure_and_store(flash: &mut Flash<'static, Blocking>) {
-    //let mut config = StoredConfig::default();
-    let mut config = read_stored_config(flash).await;
+    let mut config = StoredConfig::default();
+    //let mut config = read_stored_config(flash).await;
 
-    config.front_left_motor = 2;
-    config.front_right_motor = 3;
-    config.rear_left_motor = 1;
-    config.rear_right_motor = 0;
+    config.front_left_motor = 1;
+    config.front_right_motor = 2;
+    config.rear_left_motor = 0;
+    config.rear_right_motor = 3;
     config.front_left_direction = MotorDirection::Forward;
     config.front_right_direction = MotorDirection::Backward;
     config.rear_left_direction = MotorDirection::Backward;

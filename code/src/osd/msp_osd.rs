@@ -1,4 +1,4 @@
-use crate::osd::char_map_hdzero_inav::OSDSymbol;
+use crate::{hw_select::OptionalOutput, osd::char_map_hdzero_inav::OSDSymbol};
 use core::{
     cmp::{max, min},
     mem::offset_of,
@@ -525,12 +525,29 @@ async fn draw_status_osd(
     draw_display(tx).await
 }
 
+fn is_vtx_power_off_requested(command_state: &CommandState) -> bool {
+    const THRESHOLD_LOW: u16 = 1250;
+    const THRESHOLD_HIGH: u16 = 1750;
+
+    (!command_state.arming_tracker.is_armed())
+        && (command_state.commands.yaw_servo() < THRESHOLD_LOW)
+        && (command_state.commands.throttle_servo() < THRESHOLD_LOW)
+        && (command_state.commands.pitch_servo() < THRESHOLD_LOW)
+        && (command_state.commands.roll_servo() > THRESHOLD_HIGH)
+}
+
 #[embassy_executor::task]
-async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static SharedState) {
+async fn osd_refresh_task(
+    mut tx: UartTx<'static, Async>,
+    mut vtx_power_toggle: OptionalOutput,
+    shared_state: &'static SharedState,
+) {
     info!("OSD task start");
     let mut home: Option<SpherePosition> = None;
 
     loop {
+        Timer::after_millis(200).await;
+
         let command_state = shared_state.command_snapshot().await;
         let armed = command_state.arming_tracker.is_armed();
         let gps_state = shared_state.get_gps_state().await;
@@ -541,21 +558,28 @@ async fn osd_refresh_task(mut tx: UartTx<'static, Async>, shared_state: &'static
             }
         }
 
+        if armed {
+            vtx_power_toggle.set_high();
+        } else if is_vtx_power_off_requested(&command_state) {
+            vtx_power_toggle.set_low();
+            continue;
+        }
+
         let _ = set_resolution(&mut tx, HDZeroResolution::HD_5018).await;
         let _ = transmit_fc_variant(&mut tx).await;
         let _ = transmit_sticks(&mut tx, &command_state).await;
         let _ = transmit_status(&mut tx, armed).await;
         let _ = draw_status_osd(&mut tx, shared_state, &command_state, &gps_state, &home).await;
-        Timer::after_millis(200).await;
     }
 }
 
 pub fn init_msp_osd(
     msp_uart: impl UartMaker,
+    vtx_power_toggle: OptionalOutput,
     spawner: &SendSpawner,
     shared_state: &'static SharedState,
 ) {
     let (_, msp_tx) = make_msp_uart_pair(msp_uart);
 
-    spawner.must_spawn(osd_refresh_task(msp_tx, shared_state));
+    spawner.must_spawn(osd_refresh_task(msp_tx, vtx_power_toggle, shared_state));
 }
