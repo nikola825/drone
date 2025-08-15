@@ -68,8 +68,8 @@ features = ["libm"]
 [features]
 default = ["usb-logging", "stm32h743"]
 stm32f411 = ["embassy-stm32/stm32f411ce"]
-stm32h723 = ["embassy-stm32/stm32h723vg", "flash_storage"]
-stm32h743 = ["embassy-stm32/stm32h743vi", "flash_storage"]
+stm32h723 = ["embassy-stm32/stm32h723vg"]
+stm32h743 = ["embassy-stm32/stm32h743vi"]
 rtt-logging = ["dep:defmt-rtt", "dep:defmt", "embassy-stm32/defmt"]
 usb-logging = [
     "dep:embassy-usb",

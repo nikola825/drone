@@ -2,7 +2,7 @@ use embassy_executor::SendSpawner;
 use embassy_time::{Duration, Ticker};
 
 use crate::logging::info;
-use crate::{hw_select::BatteryMeter, shared_state::SharedState};
+use crate::{hal::BatteryMeter, shared_state::SharedState};
 
 #[embassy_executor::task]
 async fn battery_monitor_task(mut battery_meter: BatteryMeter, shared_state: &'static SharedState) {

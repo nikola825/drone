@@ -1,15 +1,14 @@
-use crate::{
-    dshot_nop_0, dshot_nop_0_to_1, dshot_nop_remainder,
-    mcu_utils::{run_with_paused_icache, ICachePause},
-    nopdelays::*,
-};
-use core::arch::asm;
 use embassy_stm32::pac::{
     common::{Reg, W},
     gpio::regs::Bsrr,
 };
 
 use cortex_m::interrupt::{free, CriticalSection};
+
+use crate::hal::{
+    dshot_delay_0, dshot_delay_0_to_1, dshot_delay_remainder,
+    mcu_utils::{run_with_paused_icache, ICachePause},
+};
 
 fn add_telemetry_bit_and_checksum(value: u16) -> u16 {
     let telemetry = value < 48;
@@ -123,16 +122,14 @@ fn write_dshot_series(
 ) {
     // Icache causes unreliable timings, so we temporarily disable it
     // while sending dshot commands
-    unsafe {
-        run_with_paused_icache(critical_section, |_: &ICachePause| {
-            for bsrr in mid_bsrrs {
-                port_bsrr.write_value(start_bsrr);
-                dshot_nop_0!();
-                port_bsrr.write_value(bsrr);
-                dshot_nop_0_to_1!();
-                port_bsrr.write_value(end_bsrr);
-                dshot_nop_remainder!();
-            }
-        });
-    }
+    run_with_paused_icache(critical_section, |icache_pause: &ICachePause| {
+        for bsrr in mid_bsrrs {
+            port_bsrr.write_value(start_bsrr);
+            dshot_delay_0(critical_section, icache_pause);
+            port_bsrr.write_value(bsrr);
+            dshot_delay_0_to_1(critical_section, icache_pause);
+            port_bsrr.write_value(end_bsrr);
+            dshot_delay_remainder(critical_section, icache_pause);
+        }
+    });
 }

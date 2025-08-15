@@ -1,7 +1,7 @@
 use core::panic::PanicInfo;
 
 use crate::{
-    hw_select::{Irqs, USB_DM, USB_DP, USB_PERIPHERAL},
+    hal::{Irqs, USB_DM, USB_DP, USB_PERIPHERAL},
     make_static_buffer,
 };
 use embassy_executor::SendSpawner;

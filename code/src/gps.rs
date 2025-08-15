@@ -15,7 +15,7 @@ use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned,
 };
 
-use crate::{hw_select::UartMaker, shared_state::SharedState};
+use crate::{hal::UartMaker, shared_state::SharedState};
 
 const UBX_SYNC_1: u8 = 0xb5;
 const UBX_SYNC_2: u8 = 0x62;

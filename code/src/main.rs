@@ -2,53 +2,51 @@
 #![no_main]
 
 use battery_monitor::init_battery_monitor;
-use config_storage::read_stored_config;
 use cortex_m_rt::entry;
 use crsf::init_crsf_communication;
 use embassy_executor::SendSpawner;
-use embassy_stm32::flash::Flash;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_sync::lazy_lock::LazyLock;
 use embassy_time::{Duration, Instant, Ticker, Timer};
 use gps::init_gps_receiver;
-use hw_select::get_spawners;
+use hal::get_spawners;
 use icm42688::ICM42688;
 use logging::{info, init_logging};
 use motors::{disarm, drive_motors, Motor, MotorsContext};
 use osd::init_osd;
 use pid::{do_pid_iteration, PidContext};
 use shared_state::SharedState;
+use stored_config::read_stored_config;
 
 // These are used only during calibration
-#[allow(unused_imports)]
-use crate::config_storage::reconfigure_and_store;
-use crate::hw_select::make_hardware;
+use crate::hal::make_hardware;
 #[allow(unused_imports)]
 use crate::icm42688::calibrate_gyro_offsets;
 #[allow(unused_imports)]
 use crate::motors::do_motor_mapping;
+#[allow(unused_imports)]
+use crate::stored_config::reconfigure_and_store;
 
 mod ahrs_wrapper;
 mod arming;
 mod battery_monitor;
 mod channel_mapping;
-mod config_storage;
 mod crc8;
 mod crsf;
 mod dshot;
 mod expo_rates;
 mod gps;
-mod hw_select;
+mod hal;
 mod icm42688;
 mod logging;
 mod math_stuff;
-mod mcu_utils;
 mod motors;
 mod nopdelays;
 mod osd;
 mod pid;
 mod shared_state;
 mod static_buffer;
+mod stored_config;
 
 struct DroneContext {
     motor_context: MotorsContext,
@@ -78,8 +76,6 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
     let mut green = Output::new(hardware.green_pin, Level::Low, Speed::VeryHigh);
     let mut yellow = Output::new(hardware.yellow_pin, Level::Low, Speed::VeryHigh);
 
-    let mut flash = Flash::new_blocking(hardware.flash);
-
     init_logging!(hardware, spawner_low);
 
     green.set_high();
@@ -90,10 +86,10 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     yellow.set_high();
 
-    // reconfigure_and_store(&mut flash).await;
-    // dump_config(&mut flash).await;
+    // reconfigure_and_store(&mut hardware.config_store).await;
+    //dump_config(&mut hardware.config_store).await;
 
-    let stored_config = read_stored_config(&mut flash).await;
+    let stored_config = read_stored_config(&mut hardware.config_store).await;
 
     let mut motors: [Option<Motor>; 4] = [
         Some(Motor::new(hardware.motor0_pin)),

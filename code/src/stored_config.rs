@@ -1,9 +1,10 @@
-use crate::{crc8::crc8_calculate, logging::error, motors::MotorDirection};
+use crate::{
+    crc8::crc8_calculate,
+    hal::{ConfigStorageError, ConfigStore},
+    logging::error,
+    motors::MotorDirection,
+};
 
-#[cfg(feature = "flash_storage")]
-use crate::hw_select::STORED_CONFIG_START;
-
-use embassy_stm32::flash::{Blocking, Flash};
 use embassy_time::Timer;
 use log::info;
 use zerocopy::{little_endian::F32, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
@@ -13,8 +14,7 @@ pub const STORED_CONFIG_STRUCT_SIZE: u32 = 64;
 #[derive(Debug)]
 pub enum StoredConfigError {
     #[allow(dead_code)]
-    FlashError(embassy_stm32::flash::Error),
-    FailedToDeserialize,
+    StorageError(ConfigStorageError),
     ChecksumFailed,
     #[allow(dead_code)]
     ValidationError(&'static str),
@@ -91,7 +91,7 @@ impl StoredConfig {
         }
     }
 
-    fn update_checksum(&mut self) {
+    pub fn update_checksum(&mut self) {
         let bytes = self.as_bytes();
         let checksum = crc8_calculate(&bytes[1..]);
 
@@ -107,8 +107,7 @@ impl StoredConfig {
 }
 
 #[allow(dead_code, clippy::field_reassign_with_default)]
-#[cfg(feature = "flash_storage")]
-pub async fn reconfigure_and_store(flash: &mut Flash<'static, Blocking>) {
+pub async fn reconfigure_and_store(storage: &mut impl ConfigStore) {
     let mut config = StoredConfig::default();
     //let mut config = read_stored_config(flash).await;
 
@@ -124,67 +123,34 @@ pub async fn reconfigure_and_store(flash: &mut Flash<'static, Blocking>) {
     config.pitch_offset = (0.51241034).into();
     config.roll_offset = (-0.051307525).into();
 
-    store_config(flash, config).await;
+    store_config(storage, config).await;
 }
 
-pub async fn read_stored_config(flash: &mut Flash<'static, Blocking>) -> StoredConfig {
-    #[cfg(feature = "flash_storage")]
-    {
-        Timer::after_millis(300).await;
+pub async fn read_stored_config(storage: &mut impl ConfigStore) -> StoredConfig {
+    Timer::after_millis(300).await;
 
-        let mut buffer = [0u8; STORED_CONFIG_STRUCT_SIZE as usize];
+    let stored_config_result = storage
+        .read_stored_config()
+        .map_err(StoredConfigError::StorageError)
+        .and_then(StoredConfig::validate);
 
-        let stored_config_result = flash
-            .blocking_read(STORED_CONFIG_START, &mut buffer)
-            .map_err(StoredConfigError::FlashError)
-            .and_then(|_| {
-                StoredConfig::try_read_from_bytes(&buffer)
-                    .map_err(|_| StoredConfigError::FailedToDeserialize)
-            })
-            .and_then(StoredConfig::validate);
-
-        match stored_config_result {
-            Ok(stored_config) => stored_config,
-            Err(err) => loop {
-                error!("Failed to read stored configuration {:?}", err);
-                Timer::after_millis(100).await;
-            },
-        }
-    }
-
-    #[cfg(not(feature = "flash_storage"))]
-    {
-        StoredConfig {
-            front_left_motor: 2,
-            front_right_motor: 3,
-            rear_left_motor: 1,
-            rear_right_motor: 0,
-            front_left_direction: MotorDirection::Forward,
-            front_right_direction: MotorDirection::Backward,
-            rear_left_direction: MotorDirection::Backward,
-            rear_right_direction: MotorDirection::Forward,
-            yaw_offset: (-0.11099324f32).into(),
-            pitch_offset: (0.51241034).into(),
-            roll_offset: (-0.051307525).into(),
-            checksum: 0,
-            ..Default::default()
-        }
+    match stored_config_result {
+        Ok(stored_config) => stored_config,
+        Err(err) => loop {
+            error!("Failed to read stored configuration {:?}", err);
+            Timer::after_millis(100).await;
+        },
     }
 }
 
-#[cfg(feature = "flash_storage")]
-pub async fn store_config(flash: &mut Flash<'static, Blocking>, mut config: StoredConfig) {
-    use crate::hw_select::{FLASH_ERASE_START, FLASH_SIZE};
-
+pub async fn store_config(storage: &mut impl ConfigStore, mut config: StoredConfig) {
     config.update_checksum();
     Timer::after_millis(300).await;
 
     let store_result = config.validate().and_then(|config| {
-        let bytes = config.as_bytes();
-        flash
-            .blocking_erase(FLASH_ERASE_START, FLASH_SIZE)
-            .and_then(|_| flash.blocking_write(STORED_CONFIG_START, bytes))
-            .map_err(StoredConfigError::FlashError)
+        storage
+            .store_config(&config)
+            .map_err(StoredConfigError::StorageError)
     });
 
     if let Err(err) = store_result {
@@ -194,9 +160,8 @@ pub async fn store_config(flash: &mut Flash<'static, Blocking>, mut config: Stor
 }
 
 #[allow(dead_code)]
-#[cfg(feature = "flash_storage")]
-pub async fn dump_config(flash: &mut Flash<'static, Blocking>) {
-    let config = read_stored_config(flash).await;
+pub async fn dump_config(storage: &mut impl ConfigStore) {
+    let config = read_stored_config(storage).await;
 
     loop {
         info!("CFG DUMP={:?}", config);

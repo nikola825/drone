@@ -1,3 +1,6 @@
+#![cfg(feature = "stm32f411")]
+
+use cortex_m::interrupt::CriticalSection;
 use embassy_executor::InterruptExecutor;
 use embassy_stm32::{
     adc::AdcChannel,
@@ -19,12 +22,17 @@ pub use embassy_stm32::peripherals::USB_OTG_FS as USB_PERIPHERAL;
 
 use crate::{
     generic_hardware_type,
-    hw_select::{
-        Hardware, OptionalOutput, SpiHardware, SpiMaker, UartHardware, UartMaker, VoltageReader,
+    hal::{
+        config_storage::{ConfigStore, HardcodedConfigStore},
+        mcu_utils::ICachePause,
+        optional_output::OptionalOutput,
+        spi_port::{SpiMaker, SpiPort},
+        uart_port::{UartMaker, UartPort, UnimplementedUartMaker},
+        voltage_reader::VoltageReader,
+        FcHardware, Spawners,
     },
+    stored_config::StoredConfig,
 };
-
-use super::Spawners;
 
 bind_interrupts!(pub struct Irqs {
     USART2 => usart::InterruptHandler<embassy_stm32::peripherals::USART2>;
@@ -83,7 +91,7 @@ pub fn make_peripherals() -> Peripherals {
 pub fn make_hardware() -> generic_hardware_type!() {
     let peripherals = make_peripherals();
 
-    Hardware {
+    FcHardware {
         blue_pin: peripherals.PA14,
         green_pin: peripherals.PA4,
         yellow_pin: peripherals.PA13,
@@ -94,7 +102,7 @@ pub fn make_hardware() -> generic_hardware_type!() {
 
         battery_meter: BatteryMeter::new(peripherals.PA5.degrade_adc(), peripherals.ADC1),
 
-        imu_spi: SpiHardware {
+        imu_spi: SpiPort {
             peripheral: peripherals.SPI3,
             sck_pin: peripherals.PB3,
             miso_pin: peripherals.PB4,
@@ -110,10 +118,9 @@ pub fn make_hardware() -> generic_hardware_type!() {
         motor2_pin: peripherals.PA7,
         motor3_pin: peripherals.PA6,
 
-        flash: peripherals.FLASH,
         vtx_power_toggle: OptionalOutput::unimplemented(),
 
-        radio_uart: UartHardware {
+        radio_uart: UartPort {
             peripheral: peripherals.USART2,
             rx_pin: peripherals.PA3,
             tx_pin: peripherals.PA2,
@@ -122,8 +129,12 @@ pub fn make_hardware() -> generic_hardware_type!() {
             irqs: Irqs,
         },
 
-        gps_uart: None,
-        msp_uart: None,
+        gps_uart: None::<UnimplementedUartMaker>,
+        msp_uart: None::<UnimplementedUartMaker>,
+
+        config_store: HardcodedConfigStore {
+            config: StoredConfig::default(),
+        },
     }
 }
 
@@ -140,23 +151,26 @@ pub fn get_spawners() -> Spawners {
     }
 }
 
-#[macro_export]
-macro_rules! dshot_nop_0 {
-    () => {
+#[inline(always)]
+pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
+    use crate::nopdelays::*;
+    unsafe {
         nop29!();
-    };
+    }
 }
 
-#[macro_export]
-macro_rules! dshot_nop_0_to_1 {
-    () => {
+#[inline(always)]
+pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
+    use crate::nopdelays::*;
+    unsafe {
         nop29!();
-    };
+    }
 }
 
-#[macro_export]
-macro_rules! dshot_nop_remainder {
-    () => {
+#[inline(always)]
+pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
+    use crate::nopdelays::*;
+    unsafe {
         nop19!();
-    };
+    }
 }

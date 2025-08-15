@@ -8,7 +8,7 @@ use embassy_time::Timer;
 use nalgebra::Vector3;
 use zerocopy::{big_endian, FromBytes, Immutable, KnownLayout};
 
-use crate::{config_storage::StoredConfig, hw_select::SpiMaker, logging::info};
+use crate::{hal::SpiMaker, logging::info, stored_config::StoredConfig};
 
 // Gyro results will be multiplied with this vector to align controller inputs with orientation
 // Expected gyro outputs are:

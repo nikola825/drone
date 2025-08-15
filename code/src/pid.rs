@@ -4,11 +4,11 @@ use embassy_time::Instant;
 
 use crate::{
     ahrs_wrapper::AhrsWrapper,
-    config_storage::StoredConfig,
     crsf::CRSFChannels,
     icm42688::ICM42688,
     math_stuff::{angle_add, angle_sub},
     motors::MotorInputs,
+    stored_config::StoredConfig,
 };
 
 // At our PID rate of 1000Hz, this gives a 3dB dropoff at around 100Hz

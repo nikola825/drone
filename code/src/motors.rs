@@ -6,10 +6,10 @@ use embassy_time::{Duration, Instant, Timer};
 use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
 
 use crate::{
-    config_storage::StoredConfig,
     dshot::{dshot_send_parallel, dshot_send_single},
-    hw_select::get_pin_gpio,
+    hal::mcu_utils::get_pin_gpio,
     logging::info,
+    stored_config::StoredConfig,
 };
 
 #[derive(Clone, Copy)]

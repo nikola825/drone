@@ -1,4 +1,4 @@
-use crate::{hw_select::OptionalOutput, osd::char_map_hdzero_inav::OSDSymbol};
+use crate::{hal::OptionalOutput, osd::char_map_hdzero_inav::OSDSymbol};
 use core::{
     cmp::{max, min},
     mem::offset_of,
@@ -9,7 +9,7 @@ use zerocopy::{little_endian, Immutable, IntoBytes, KnownLayout, Unaligned};
 
 use crate::{
     gps::{GPSState, SpherePosition},
-    hw_select::UartMaker,
+    hal::UartMaker,
     logging::info,
     shared_state::{CommandState, SharedState},
 };
