@@ -20,6 +20,7 @@ const FLASH_SIZE: u32 =
 const STORED_CONFIG_START: u32 = FLASH_SIZE - STORED_CONFIG_STRUCT_SIZE;
 const FLASH_ERASE_SIZE: u32 = embassy_stm32::flash::BANK2_REGION.erase_size;
 const FLASH_ERASE_START: u32 = FLASH_SIZE - FLASH_ERASE_SIZE;
+pub const USB_DEVICE_PRODUCT: &str = "STM32H743 flight controller";
 
 use embassy_stm32::interrupt;
 
@@ -142,6 +143,33 @@ fn make_peripherals() -> Peripherals {
 pub fn make_hardware() -> generic_hardware_type!() {
     let peripherals = make_peripherals();
 
+    let uart4 = UartPort {
+        peripheral: peripherals.UART4,
+        tx_pin: peripherals.PA0,
+        rx_pin: peripherals.PA1,
+        rx_dma: peripherals.DMA1_CH4,
+        tx_dma: peripherals.DMA1_CH5,
+        irqs: Irqs,
+    };
+
+    let uart7 = UartPort {
+        peripheral: peripherals.UART7,
+        tx_pin: peripherals.PE8,
+        rx_pin: peripherals.PE7,
+        rx_dma: peripherals.DMA1_CH6,
+        tx_dma: peripherals.DMA1_CH7,
+        irqs: Irqs,
+    };
+
+    let uart2 = UartPort {
+        peripheral: peripherals.USART2,
+        rx_pin: peripherals.PA3,
+        tx_pin: peripherals.PA2,
+        tx_dma: peripherals.DMA1_CH2,
+        rx_dma: peripherals.DMA1_CH3,
+        irqs: Irqs,
+    };
+
     FcHardware {
         blue_pin: peripherals.PE3,
         green_pin: peripherals.PE2,
@@ -169,32 +197,11 @@ pub fn make_hardware() -> generic_hardware_type!() {
         motor2_pin: peripherals.PE14,
         motor3_pin: peripherals.PE15,
 
-        radio_uart: UartPort {
-            peripheral: peripherals.UART4,
-            tx_pin: peripherals.PA0,
-            rx_pin: peripherals.PA1,
-            rx_dma: peripherals.DMA1_CH4,
-            tx_dma: peripherals.DMA1_CH5,
-            irqs: Irqs,
-        },
+        radio_uart: uart4,
 
         vtx_power_toggle: OptionalOutput::new(peripherals.PD8, embassy_stm32::gpio::Level::Low),
-        msp_uart: Some(UartPort {
-            peripheral: peripherals.UART7,
-            tx_pin: peripherals.PE8,
-            rx_pin: peripherals.PE7,
-            rx_dma: peripherals.DMA1_CH6,
-            tx_dma: peripherals.DMA1_CH7,
-            irqs: Irqs,
-        }),
-        gps_uart: Some(UartPort {
-            peripheral: peripherals.USART2,
-            rx_pin: peripherals.PA3,
-            tx_pin: peripherals.PA2,
-            tx_dma: peripherals.DMA1_CH2,
-            rx_dma: peripherals.DMA1_CH3,
-            irqs: Irqs,
-        }),
+        msp_uart: Some(uart7),
+        gps_uart: Some(uart2),
         config_store: FlashConfigStore::new(
             Flash::new_blocking(peripherals.FLASH),
             FLASH_ERASE_START,

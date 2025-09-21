@@ -536,6 +536,17 @@ fn is_vtx_power_off_requested(command_state: &CommandState) -> bool {
         && (command_state.commands.roll_servo() > THRESHOLD_HIGH)
 }
 
+fn is_vtx_power_on_requested(command_state: &CommandState) -> bool {
+    const THRESHOLD_LOW: u16 = 1250;
+    const THRESHOLD_HIGH: u16 = 1750;
+
+    (!command_state.arming_tracker.is_armed())
+        && (command_state.commands.yaw_servo() < THRESHOLD_LOW)
+        && (command_state.commands.throttle_servo() > THRESHOLD_HIGH)
+        && (command_state.commands.pitch_servo() > THRESHOLD_HIGH)
+        && (command_state.commands.roll_servo() > THRESHOLD_HIGH)
+}
+
 #[embassy_executor::task]
 async fn osd_refresh_task(
     mut tx: UartTx<'static, Async>,
@@ -562,7 +573,9 @@ async fn osd_refresh_task(
             vtx_power_toggle.set_high();
         } else if is_vtx_power_off_requested(&command_state) {
             vtx_power_toggle.set_low();
-            continue;
+        }
+        else if is_vtx_power_on_requested(&command_state) {
+            vtx_power_toggle.set_high();
         }
 
         let _ = set_resolution(&mut tx, HDZeroResolution::HD_5018).await;

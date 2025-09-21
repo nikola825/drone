@@ -14,7 +14,7 @@ mod voltage_reader;
 
 pub use implementations::{
     dshot_delay_0, dshot_delay_0_to_1, dshot_delay_remainder, get_spawners, make_hardware,
-    BatteryMeter, Irqs, USB_DM, USB_DP, USB_PERIPHERAL,
+    BatteryMeter, Irqs, USB_DEVICE_PRODUCT, USB_DM, USB_DP, USB_PERIPHERAL,
 };
 
 pub use optional_output::OptionalOutput;

@@ -1,15 +1,12 @@
 use core::panic::PanicInfo;
 
 use crate::{
-    hal::{Irqs, USB_DM, USB_DP, USB_PERIPHERAL},
+    hal::{Irqs, USB_DEVICE_PRODUCT, USB_DM, USB_DP, USB_PERIPHERAL},
     make_static_buffer,
 };
 use embassy_executor::SendSpawner;
 use embassy_futures::join::join;
-use embassy_stm32::{
-    peripherals::{PA11, PA12},
-    usb::Driver,
-};
+use embassy_stm32::usb::Driver;
 use embassy_usb::{
     class::cdc_acm::{CdcAcmClass, State},
     Builder,
@@ -17,7 +14,6 @@ use embassy_usb::{
 pub use log::{error, info};
 
 const USB_DEVICE_MANUFACTURER: &str = "nikola825";
-const USB_DEVICE_PRODUCT: &str = "STM32F4 flight controller";
 const USB_DEVICE_SERIAL: &str = "12345678";
 
 const USB_DEVICE_VID: u16 = 0xdead;
@@ -34,8 +30,8 @@ fn custom_panic(_: &PanicInfo) -> ! {
 
 pub async fn init_usb_logging(
     peripheral: USB_PERIPHERAL,
-    dp_pin: PA12,
-    dm_pin: PA11,
+    dp_pin: USB_DP,
+    dm_pin: USB_DM,
     spawner: &SendSpawner,
 ) {
     spawner.must_spawn(usb_task(peripheral, dp_pin, dm_pin));

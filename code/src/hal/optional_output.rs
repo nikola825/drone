@@ -14,7 +14,7 @@ impl OptionalOutput {
             output: Some(Output::new(
                 pin,
                 initial_level,
-                embassy_stm32::gpio::Speed::High,
+                embassy_stm32::gpio::Speed::VeryHigh,
             )),
         }
     }

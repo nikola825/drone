@@ -15,8 +15,8 @@ impl<AdcType: embassy_stm32::adc::Instance> VoltageReader<AdcType> {
     pub fn new(pin: AnyAdcChannel<AdcType>, adc: AdcType) -> Self {
         let mut adc = Adc::new(adc);
 
-        //adc.set_averaging(embassy_stm32::adc::Averaging::Samples16);
-        //adc.set_sample_time(embassy_stm32::adc::SampleTime::CYCLES32_5);
+        adc.set_averaging(embassy_stm32::adc::Averaging::Samples16);
+        adc.set_sample_time(embassy_stm32::adc::SampleTime::CYCLES32_5);
 
         adc.set_resolution(embassy_stm32::adc::Resolution::BITS12);
 

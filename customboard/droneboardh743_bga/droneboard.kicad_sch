@@ -3029,155 +3029,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Diode:MBR1020VL"
-			(pin_numbers
-				(hide yes)
-			)
-			(pin_names
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "D"
-				(at 0 2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "MBR1020VL"
-				(at 0 -2.54 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "Diode_SMD:D_SOD-123F"
-				(at 0 -4.445 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "https://www.onsemi.com/pub/Collateral/MBR1020VL-D.PDF"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "20V, 1A, 340 mV, Schottky Diode Rectifier, SOD-123F"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "forward voltage diode"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "D*SOD?123F*"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "MBR1020VL_0_1"
-				(polyline
-					(pts
-						(xy -1.905 0.635) (xy -1.905 1.27) (xy -1.27 1.27) (xy -1.27 -1.27) (xy -0.635 -1.27) (xy -0.635 -0.635)
-					)
-					(stroke
-						(width 0.2032)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.27 1.27) (xy 1.27 -1.27) (xy -1.27 0) (xy 1.27 1.27)
-					)
-					(stroke
-						(width 0.2032)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.27 0) (xy -1.27 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "MBR1020VL_1_1"
-				(pin passive line
-					(at -3.81 0 0)
-					(length 2.54)
-					(name "K"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 3.81 0 180)
-					(length 2.54)
-					(name "A"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "ICM42688P:ICM-42688-P"
 			(pin_names
 				(offset 0.254)
@@ -7481,6 +7332,12 @@
 		)
 	)
 	(junction
+		(at 72.39 237.49)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0150ccb9-0201-4b9d-8479-28669649922c")
+	)
+	(junction
 		(at 228.6 120.65)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -8136,13 +7993,13 @@
 	)
 	(wire
 		(pts
-			(xy 405.13 35.56) (xy 416.56 35.56)
+			(xy 72.39 237.49) (xy 166.37 237.49)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "0e45c933-afee-4537-a897-69ec70648777")
+		(uuid "0e3258d6-c56c-41f4-b076-1249b11d5b29")
 	)
 	(wire
 		(pts
@@ -8153,16 +8010,6 @@
 			(type default)
 		)
 		(uuid "0e7757f7-2306-4451-9855-c1947a6a8922")
-	)
-	(wire
-		(pts
-			(xy 275.59 144.78) (xy 266.7 144.78)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0f439e14-0246-43f3-ae00-f6a8272b61ed")
 	)
 	(wire
 		(pts
@@ -8383,16 +8230,6 @@
 			(type default)
 		)
 		(uuid "23fea07e-bc59-4db8-89ba-0902c71dd4ec")
-	)
-	(wire
-		(pts
-			(xy 424.18 35.56) (xy 441.96 35.56)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "24285418-1300-4110-af11-442a862574e4")
 	)
 	(wire
 		(pts
@@ -8676,7 +8513,7 @@
 	)
 	(wire
 		(pts
-			(xy 40.64 237.49) (xy 166.37 237.49)
+			(xy 40.64 237.49) (xy 72.39 237.49)
 		)
 		(stroke
 			(width 0)
@@ -8723,16 +8560,6 @@
 			(type default)
 		)
 		(uuid "45b60b8d-52e3-440d-91a5-cbafd0b4ca38")
-	)
-	(wire
-		(pts
-			(xy 156.21 153.67) (xy 163.83 153.67)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "470bb6e3-342e-4fa5-8258-98735a8735e8")
 	)
 	(wire
 		(pts
@@ -9116,6 +8943,16 @@
 	)
 	(wire
 		(pts
+			(xy 72.39 237.49) (xy 72.39 242.57)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "736fb2eb-ae69-4721-9d37-79c9597cf27a")
+	)
+	(wire
+		(pts
 			(xy 113.03 41.91) (xy 123.19 41.91)
 		)
 		(stroke
@@ -9203,6 +9040,16 @@
 			(type default)
 		)
 		(uuid "78414974-7199-4e7c-a92e-2c45d67e92cd")
+	)
+	(wire
+		(pts
+			(xy 266.7 144.78) (xy 275.59 144.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "79ddaa93-38a2-404f-a16b-8e64079d3ea2")
 	)
 	(wire
 		(pts
@@ -9743,16 +9590,6 @@
 			(type default)
 		)
 		(uuid "a30c2d39-adbe-4529-b527-9e73fd9c8654")
-	)
-	(wire
-		(pts
-			(xy 63.5 242.57) (xy 72.39 242.57)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a3abec7b-67e0-4d53-a673-72f11e955219")
 	)
 	(wire
 		(pts
@@ -10954,16 +10791,6 @@
 		)
 		(uuid "0eb7f438-08c2-49df-8abd-8e2a20023c96")
 	)
-	(label "VUSB"
-		(at 163.83 153.67 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "0f03f0c1-4cf1-46ee-8741-d44a1e08996d")
-	)
 	(label "GND"
 		(at 172.72 40.64 0)
 		(effects
@@ -10973,6 +10800,16 @@
 			(justify left bottom)
 		)
 		(uuid "11aec744-a006-45ab-8f8c-59165f367cf0")
+	)
+	(label "NOVBUS"
+		(at 156.21 153.67 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "12ede7d4-bd77-4b8f-a8e8-accb538d9225")
 	)
 	(label "GND"
 		(at 232.41 120.65 0)
@@ -11044,7 +10881,7 @@
 		)
 		(uuid "19a3d798-afbf-4433-b9b0-9c5de3dc264e")
 	)
-	(label "VUSB"
+	(label "5V"
 		(at 245.11 53.34 0)
 		(effects
 			(font
@@ -11474,16 +11311,6 @@
 		)
 		(uuid "75e52bbc-37e0-446d-803e-f3a52d80057b")
 	)
-	(label "VUSB"
-		(at 63.5 242.57 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "788265e0-9b3a-4dc1-bd10-117a1d6e8d20")
-	)
 	(label "GREEN"
 		(at 181.61 198.12 0)
 		(effects
@@ -11854,7 +11681,7 @@
 		)
 		(uuid "b748fba5-7249-4a8c-9589-c16913cc466c")
 	)
-	(label "VUSB"
+	(label "5V"
 		(at 181.61 185.42 0)
 		(effects
 			(font
@@ -11943,16 +11770,6 @@
 			(justify left bottom)
 		)
 		(uuid "c11c609a-85e4-460f-a978-0e0513f72837")
-	)
-	(label "5V"
-		(at 405.13 35.56 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "c565f726-3ab7-41cd-8a22-a7afb2096977")
 	)
 	(label "GND"
 		(at 125.73 166.37 180)
@@ -12134,7 +11951,7 @@
 		)
 		(uuid "dc92564d-4e24-4c84-9a5d-f3c9ebdee9a9")
 	)
-	(label "VUSB"
+	(label "5V"
 		(at 245.11 73.66 0)
 		(effects
 			(font
@@ -12173,16 +11990,6 @@
 			(justify right bottom)
 		)
 		(uuid "e0fad55c-908a-4e71-bef2-28a5d91cc28e")
-	)
-	(label "VUSB"
-		(at 441.96 35.56 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "e18361a1-e478-47d2-9d7e-55912796efa7")
 	)
 	(label "GND"
 		(at 125.73 184.15 180)
@@ -17273,74 +17080,6 @@
 			(project "droneboard"
 				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
 					(reference "C20")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Diode:MBR1020VL")
-		(at 420.37 35.56 180)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "f2232a1a-971b-4d48-9d5d-3ba06434d40c")
-		(property "Reference" "D5"
-			(at 420.6875 29.21 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "MBR120VLSFT1G"
-			(at 420.6875 31.75 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Diode_SMD:D_SOD-123F"
-			(at 420.37 31.115 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://www.onsemi.com/pub/Collateral/MBR1020VL-D.PDF"
-			(at 420.37 35.56 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "20V, 1A, 340 mV, Schottky Diode Rectifier, SOD-123F"
-			(at 420.37 35.56 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "a5756c5e-b8df-49e5-998f-e8ae6726562a")
-		)
-		(pin "2"
-			(uuid "0e993c0d-45d4-4f4c-84ee-50edba798f97")
-		)
-		(instances
-			(project ""
-				(path "/04179b3e-2b25-41d4-a9af-8911a5c82cad"
-					(reference "D5")
 					(unit 1)
 				)
 			)

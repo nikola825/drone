@@ -39,6 +39,8 @@ bind_interrupts!(pub struct Irqs {
     OTG_FS => usb::InterruptHandler<USB_PERIPHERAL>;
 });
 
+pub const USB_DEVICE_PRODUCT: &str = "STM32F411 flight controller";
+
 // High-priority executor used mainly for PID loop
 pub static EXECUTOR_HIGH: InterruptExecutor = InterruptExecutor::new();
 // Low-priority executor used for less important tasks
@@ -91,6 +93,15 @@ pub fn make_peripherals() -> Peripherals {
 pub fn make_hardware() -> generic_hardware_type!() {
     let peripherals = make_peripherals();
 
+    let uart2 = UartPort {
+        peripheral: peripherals.USART2,
+        rx_pin: peripherals.PA3,
+        tx_pin: peripherals.PA2,
+        tx_dma: peripherals.DMA1_CH6,
+        rx_dma: peripherals.DMA1_CH7,
+        irqs: Irqs,
+    };
+
     FcHardware {
         blue_pin: peripherals.PA14,
         green_pin: peripherals.PA4,
@@ -120,14 +131,7 @@ pub fn make_hardware() -> generic_hardware_type!() {
 
         vtx_power_toggle: OptionalOutput::unimplemented(),
 
-        radio_uart: UartPort {
-            peripheral: peripherals.USART2,
-            rx_pin: peripherals.PA3,
-            tx_pin: peripherals.PA2,
-            tx_dma: peripherals.DMA1_CH6,
-            rx_dma: peripherals.DMA1_CH7,
-            irqs: Irqs,
-        },
+        radio_uart: uart2,
 
         gps_uart: None::<UnimplementedUartMaker>,
         msp_uart: None::<UnimplementedUartMaker>,
