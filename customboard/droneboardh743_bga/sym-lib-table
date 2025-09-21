@@ -4,4 +4,5 @@
   (lib (name "CSTNE16M0V530000R0")(type "KiCad")(uri "${KIPRJMOD}/components/symbols/CSTNE16M0V530000R0.kicad_sym")(options "")(descr ""))
   (lib (name "ICM42688P")(type "KiCad")(uri "${KIPRJMOD}/components/symbols/ICM42688P.kicad_sym")(options "")(descr ""))
   (lib (name "AP64350")(type "KiCad")(uri "${KIPRJMOD}/components/symbols/AP64350.kicad_sym")(options "")(descr ""))
+  (lib (name "DMC25D0UVT-7")(type "KiCad")(uri "${KIPRJMOD}/components/symbols/DMC25D0UVT-7.kicad_sym")(options "")(descr ""))
 )
