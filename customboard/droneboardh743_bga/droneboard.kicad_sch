@@ -8264,16 +8264,6 @@
 	)
 	(wire
 		(pts
-			(xy 137.16 256.54) (xy 137.16 259.08)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0ced9843-0d1f-4970-91bb-51c5a4809a9c")
-	)
-	(wire
-		(pts
 			(xy 43.18 191.77) (xy 54.61 191.77)
 		)
 		(stroke
@@ -8831,16 +8821,6 @@
 			(type default)
 		)
 		(uuid "44ebc8ba-5a9d-48cf-99da-2a1999d3d39f")
-	)
-	(wire
-		(pts
-			(xy 125.73 256.54) (xy 137.16 256.54)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "454e28dd-8c9d-49c1-84fb-8e7d1895eeb7")
 	)
 	(wire
 		(pts
@@ -11783,12 +11763,12 @@
 		(uuid "836815aa-143c-47fe-83fd-9e4b33fc417f")
 	)
 	(label "VTX_GATE"
-		(at 130.81 289.56 0)
+		(at 139.7 289.56 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
 		(uuid "85d9f649-ed94-4f93-a77f-c4d81804c01c")
 	)
@@ -11972,16 +11952,6 @@
 		)
 		(uuid "a7dce223-fc78-4e97-88e4-c49203cf2737")
 	)
-	(label "VTX_PWR"
-		(at 125.73 256.54 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "a85fbc40-9337-4add-8e57-647f902a99a5")
-	)
 	(label "12V"
 		(at 311.15 143.51 0)
 		(effects
@@ -12091,16 +12061,6 @@
 			(justify left bottom)
 		)
 		(uuid "b26fd536-bbc3-4e4a-b38d-7342bb42567a")
-	)
-	(label "VTX_GND"
-		(at 144.78 254 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "b33c0e0f-7f1c-4fa8-95db-7855b1138fc5")
 	)
 	(label "GND"
 		(at 125.73 173.99 180)
