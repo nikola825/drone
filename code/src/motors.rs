@@ -49,6 +49,7 @@ impl BeepTone {
     }
 }
 
+#[allow(dead_code)]
 #[derive(IntoBytes, Immutable, TryFromBytes, KnownLayout, Unaligned, Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum MotorDirection {

@@ -108,8 +108,8 @@ impl StoredConfig {
 
 #[allow(dead_code, clippy::field_reassign_with_default)]
 pub async fn reconfigure_and_store(storage: &mut impl ConfigStore) {
-    let mut config = StoredConfig::default();
-    //let mut config = read_stored_config(flash).await;
+    // let mut config = StoredConfig::default();
+    let mut config = read_stored_config(storage).await;
 
     config.front_left_motor = 1;
     config.front_right_motor = 2;

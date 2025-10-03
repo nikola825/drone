@@ -35,6 +35,38 @@ const fn crsf_linear_transform(
     }
 }
 
+const fn crsf_linear_transform_float(
+    value: u16,
+    out_low: f32,
+    out_high: f32,
+    out_deadpoint: f32,
+    out_deadrange: f32,
+) -> f32 {
+    let value = if value > CRSF_COMMAND_MAX {
+        CRSF_COMMAND_MAX
+    } else if value < CRSF_COMMAND_MIN {
+        CRSF_COMMAND_MIN
+    } else {
+        value
+    };
+
+    let offset: f32 = (value - CRSF_COMMAND_MIN) as f32;
+    let out_range: f32 = out_high - out_low;
+
+    let mut mapped = (out_low) + (offset * out_range) / CRSF_COMMAND_RANGE;
+    if (mapped - out_deadpoint).abs() < out_deadrange {
+        mapped = out_deadpoint
+    }
+
+    if mapped > out_high {
+        out_high
+    } else if mapped < out_low {
+        out_low
+    } else {
+        mapped
+    }
+}
+
 macro_rules! define_channel {
     ($name: ident, $index: expr) => {
         pub const fn $name(&self) -> u16 {
@@ -50,6 +82,18 @@ macro_rules! define_channel {
 
     ($type: ident, $name: ident, $index: expr, $low: expr, $high: expr) => {
         define_channel!($type, $name, $index, $low, $high, 0, -1);
+    };
+
+    (f32, $name: ident, $index: expr, $low: expr, $high: expr, $dead_point: expr, $dead_range: expr) => {
+        pub const fn $name(&self) -> f32 {
+            crsf_linear_transform_float(
+                self.unpacked_channels[$index],
+                $low as f32,
+                $high as f32,
+                $dead_point as f32,
+                $dead_range as f32,
+            )
+        }
     };
 
     ($type: ident, $name: ident, $index: expr, $low: expr, $high: expr, $dead_point: expr, $dead_range: expr) => {
@@ -94,8 +138,8 @@ impl CRSFChannels {
     define_channel!(f32, roll_angle, 0, -30, 30, 0, -1);
     define_channel!(f32, pitch_angle, 1, -30, 30, 0, -1);
 
-    define_channel!(f32, aux1, 5, 0, 15);
-    define_channel!(u16, aux2, 6, 0, 30);
+    define_channel!(f32, master_pi, 5, 1, 4);
+    define_channel!(f32, master_d, 6, 0, 2);
     define_channel!(bool, beep, 7);
     define_channel!(u16, mode, 8, 0, 100);
 }

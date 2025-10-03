@@ -192,6 +192,16 @@ pub struct CRSFFrameLinkStatistics {
     pub telemetry_snr: i8,
 }
 
+impl CRSFFrameLinkStatistics {
+    pub fn best_rssi(&self) -> u8 {
+        if self.rssi2 != 0 && self.rssi2 < self.rssi1 {
+            self.rssi2
+        } else {
+            self.rssi1
+        }
+    }
+}
+
 impl CRSFFramePackedChannels {
     fn unpack(&self) -> CRSFChannels {
         let mut channels = CRSFChannels {

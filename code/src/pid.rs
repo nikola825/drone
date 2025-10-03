@@ -7,6 +7,7 @@ use crate::{
     crsf::CRSFChannels,
     icm42688::ICM42688,
     math_stuff::{angle_add, angle_sub},
+    model::{PITCH_KD, PITCH_KI, PITCH_KP, ROLL_KD, ROLL_KI, ROLL_KP, YAW_KD, YAW_KI, YAW_KP},
     motors::MotorInputs,
     stored_config::StoredConfig,
 };
@@ -132,18 +133,14 @@ pub async fn do_pid_iteration(
                 angle_mode_target_angular_velocity(
                     euler.yaw,
                     angle_add(context.current_yaw_angle, inputs.yaw_angle()),
-                    inputs.aux1(),
+                    10f32,
                 )
             };
 
             (
                 yaw_target_velocity,
-                angle_mode_target_angular_velocity(
-                    euler.pitch,
-                    inputs.pitch_angle(),
-                    inputs.aux1(),
-                ),
-                angle_mode_target_angular_velocity(euler.roll, inputs.roll_angle(), inputs.aux1()),
+                angle_mode_target_angular_velocity(euler.pitch, inputs.pitch_angle(), 10f32),
+                angle_mode_target_angular_velocity(euler.roll, inputs.roll_angle(), 10f32),
             )
         } else {
             (inputs.yaw_expo(), inputs.pitch_expo(), inputs.roll_expo())
@@ -158,7 +155,7 @@ pub async fn do_pid_iteration(
 
     let motor_thrust = inputs.throttle() as u32;
 
-    let thrust_scaled = (motor_thrust * (100 - inputs.aux2() as u32)) / 100;
+    let thrust_scaled = motor_thrust;
 
     let motor_thrust = thrust_scaled as u16;
 
@@ -173,17 +170,31 @@ pub async fn do_pid_iteration(
     } else {
         let yaw_input = context
             .yaw_pid
-            .calculate(100f32, 72f32, 0f32, yaw_error, dt, command_limit)
+            .calculate(YAW_KP, YAW_KI, YAW_KD, yaw_error, dt, command_limit)
             .clamp(-command_limit, command_limit) as i16;
 
         let pitch_input = context
             .pitch_pid
-            .calculate(12.6f32, 60f32, 0.045f32, pitch_error, dt, command_limit)
+            .calculate(
+                PITCH_KP * inputs.master_pi(),
+                PITCH_KI * inputs.master_pi(),
+                PITCH_KD * inputs.master_d(),
+                pitch_error,
+                dt,
+                command_limit,
+            )
             .clamp(-command_limit, command_limit) as i16;
 
         let roll_input = context
             .roll_pid
-            .calculate(12.6f32, 60f32, 0.045f32, roll_error, dt, command_limit)
+            .calculate(
+                ROLL_KP * inputs.master_pi(),
+                ROLL_KI * inputs.master_pi(),
+                ROLL_KD * inputs.master_d(),
+                roll_error,
+                dt,
+                command_limit,
+            )
             .clamp(-command_limit, command_limit) as i16;
 
         MotorInputs {

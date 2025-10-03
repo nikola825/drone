@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use crate::hal::make_hardware;
 use battery_monitor::init_battery_monitor;
 use cortex_m_rt::entry;
 use crsf::init_crsf_communication;
@@ -18,15 +19,6 @@ use pid::{do_pid_iteration, PidContext};
 use shared_state::SharedState;
 use stored_config::read_stored_config;
 
-// These are used only during calibration
-use crate::hal::make_hardware;
-#[allow(unused_imports)]
-use crate::icm42688::calibrate_gyro_offsets;
-#[allow(unused_imports)]
-use crate::motors::do_motor_mapping;
-#[allow(unused_imports)]
-use crate::stored_config::reconfigure_and_store;
-
 mod ahrs_wrapper;
 mod arming;
 mod battery_monitor;
@@ -40,6 +32,7 @@ mod hal;
 mod icm42688;
 mod logging;
 mod math_stuff;
+mod model;
 mod motors;
 mod nopdelays;
 mod osd;
@@ -86,8 +79,8 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     yellow.set_high();
 
-    // reconfigure_and_store(&mut hardware.config_store).await;
-    //dump_config(&mut hardware.config_store).await;
+    // stored_config::reconfigure_and_store(&mut hardware.config_store).await;
+    // stored_config::dump_config(&mut hardware.config_store).await;
 
     let stored_config = read_stored_config(&mut hardware.config_store).await;
 
@@ -98,9 +91,8 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
         Some(Motor::new(hardware.motor3_pin)),
     ];
 
-    // do_motor_mapping(motors, &stored_config).await;
-    // calibrate_gyro_offsets(imu, &stored_config, true).await;
-    // apply_motor_directions(&front_left, &front_right, &rear_left, &rear_right).await;
+    // motors::do_motor_mapping(motors, &stored_config).await;
+    // icm42688::calibrate_gyro_offsets(imu, &stored_config, true).await;
 
     let front_left = motors[stored_config.front_left_motor as usize]
         .take()
@@ -114,6 +106,7 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
     let rear_right = motors[stored_config.rear_right_motor as usize]
         .take()
         .unwrap();
+    // motors::apply_motor_directions(&front_left, &front_right, &rear_left, &rear_right, &stored_config).await;
 
     init_crsf_communication(hardware.radio_uart, &spawner_low, STORE.get());
     init_battery_monitor(hardware.battery_meter, STORE.get(), &spawner_low);

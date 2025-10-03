@@ -447,7 +447,7 @@ async fn draw_status_osd(
 
     let bat_voltage = shared_state.get_voltage().await;
     let link_stats = shared_state.get_link_state().await;
-    let rssi = max(link_stats.rssi1, link_stats.rssi2);
+    let rssi = link_stats.best_rssi();
     let link_quality = link_stats.link_quality;
     let throttle_percentage = command_state.commands.throttle_percent();
     let arming_message = command_state.arming_tracker.arming_message();
@@ -573,8 +573,7 @@ async fn osd_refresh_task(
             vtx_power_toggle.set_high();
         } else if is_vtx_power_off_requested(&command_state) {
             vtx_power_toggle.set_low();
-        }
-        else if is_vtx_power_on_requested(&command_state) {
+        } else if is_vtx_power_on_requested(&command_state) {
             vtx_power_toggle.set_high();
         }
 
