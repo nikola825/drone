@@ -149,46 +149,41 @@ impl Motor {
         self.send_command(command);
     }
 
-    #[allow(dead_code)]
-    async fn set_setting_and_save(&self, setting: DshotCommand) {
-        for _ in 1..100 {
-            self.send_command(DshotCommand::DSHOT_CMD_STOP);
-            Timer::after_millis(2).await;
+    async fn multi_set_setting(motors: [&Self; 4], settings: [DshotCommand; 4]) {
+        let settings_as_u16 = settings.map(|setting| setting as u16);
+
+        for _ in 1..1000 {
+            Motor::multi_send(motors, [DshotCommand::DSHOT_CMD_STOP as u16; 4]);
+            Timer::after_millis(1).await;
         }
 
-        Timer::after_millis(2).await;
-        for _ in 1..100 {
-            self.send_command(setting);
-            Timer::after_millis(2).await;
+        for _ in 1..10 {
+            Motor::multi_send(motors, settings_as_u16);
+            Timer::after_millis(1).await;
         }
 
-        Timer::after_millis(2).await;
-        for _ in 1..100 {
-            self.send_command(DshotCommand::DSHOT_CMD_SAVE_SETTINGS);
-            Timer::after_millis(2).await;
+        for _ in 1..10 {
+            Motor::multi_send(motors, [DshotCommand::DSHOT_CMD_SAVE_SETTINGS as u16; 4]);
+            Timer::after_millis(1).await;
         }
-
-        Timer::after_millis(2).await;
-        for _ in 1..100 {
-            self.send_command(DshotCommand::DSHOT_CMD_STOP);
-            Timer::after_millis(2).await;
+        Timer::after_millis(12).await;
+        for _ in 1..1000 {
+            Motor::multi_send(motors, [DshotCommand::DSHOT_CMD_STOP as u16; 4]);
+            Timer::after_millis(1).await;
         }
     }
 
-    #[allow(dead_code)]
-    async fn set_direction(&self, direction: MotorDirection) {
-        let direction_command = match direction {
+    async fn multi_set_direction(motors: [&Self; 4], directions: [MotorDirection; 4]) {
+        let directions_as_commands = directions.map(|direction| match direction {
             MotorDirection::Forward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_1,
             MotorDirection::Backward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_2,
-        };
+        });
 
-        self.set_setting_and_save(direction_command).await;
+        Self::multi_set_setting(motors, directions_as_commands).await
     }
 
-    #[allow(dead_code)]
-    async fn disable_3d_mode(&self) {
-        self.set_setting_and_save(DshotCommand::DSHOT_CMD_3D_MODE_OFF)
-            .await;
+    async fn multi_disable_3d_mode(motors: [&Self; 4]) {
+        Self::multi_set_setting(motors, [DshotCommand::DSHOT_CMD_3D_MODE_OFF; 4]).await
     }
 
     fn multi_throttle(motors: [&Self; 4], mut throttles: [u16; 4]) {
@@ -371,27 +366,18 @@ pub async fn apply_motor_directions(
     rear_right: &Motor,
     config: &StoredConfig,
 ) {
-    for _ in 0..5 {
-        info!("Applying directions");
-        info!("Front left");
-        front_left.disable_3d_mode().await;
-        front_left.set_direction(config.front_left_direction).await;
+    let motors = [front_left, front_right, rear_left, rear_right];
 
-        info!("Front right");
-        front_right.disable_3d_mode().await;
-        front_right
-            .set_direction(config.front_right_direction)
-            .await;
+    let directions = [
+        config.front_left_direction,
+        config.front_right_direction,
+        config.rear_left_direction,
+        config.rear_right_direction,
+    ];
+    for i in 0..5 {
+        info!("Applying directions {i} of 5");
 
-        info!("Rear left");
-        rear_left.disable_3d_mode().await;
-        rear_left.set_direction(config.rear_left_direction).await;
-
-        info!("Rear right");
-        rear_right.disable_3d_mode().await;
-        rear_right.set_direction(config.rear_right_direction).await;
-
-        info!("Apply end");
-        Timer::after_millis(100).await;
+        Motor::multi_disable_3d_mode(motors).await;
+        Motor::multi_set_direction(motors, directions).await;
     }
 }

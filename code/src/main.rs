@@ -65,6 +65,13 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     let mut hardware = make_hardware();
 
+    let mut motors: [Option<Motor>; 4] = [
+        Some(Motor::new(hardware.motor0_pin)),
+        Some(Motor::new(hardware.motor1_pin)),
+        Some(Motor::new(hardware.motor2_pin)),
+        Some(Motor::new(hardware.motor3_pin)),
+    ];
+
     let mut blue = Output::new(hardware.blue_pin, Level::Low, Speed::VeryHigh);
     let mut green = Output::new(hardware.green_pin, Level::Low, Speed::VeryHigh);
     let mut yellow = Output::new(hardware.yellow_pin, Level::Low, Speed::VeryHigh);
@@ -83,13 +90,6 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
     // stored_config::dump_config(&mut hardware.config_store).await;
 
     let stored_config = read_stored_config(&mut hardware.config_store).await;
-
-    let mut motors: [Option<Motor>; 4] = [
-        Some(Motor::new(hardware.motor0_pin)),
-        Some(Motor::new(hardware.motor1_pin)),
-        Some(Motor::new(hardware.motor2_pin)),
-        Some(Motor::new(hardware.motor3_pin)),
-    ];
 
     // motors::do_motor_mapping(motors, &stored_config).await;
     // icm42688::calibrate_gyro_offsets(imu, &stored_config, true).await;

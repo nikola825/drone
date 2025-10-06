@@ -228,7 +228,7 @@ pub fn get_spawners() -> Spawners {
 pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
     use crate::nopdelays::*;
     unsafe {
-        nop250!();
+        nop225!();
     }
 }
 
@@ -236,7 +236,7 @@ pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
 pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
     use crate::nopdelays::*;
     unsafe {
-        nop250!();
+        nop225!();
     }
 }
 
@@ -244,6 +244,6 @@ pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
 pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
     use crate::nopdelays::*;
     unsafe {
-        nop100!();
+        nop175!();
     }
 }
