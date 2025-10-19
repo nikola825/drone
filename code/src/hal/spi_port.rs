@@ -1,4 +1,5 @@
-use embassy_stm32::Peripheral as Stm32Peripheral;
+use embassy_stm32::gpio::AnyPin;
+use embassy_stm32::Peri;
 use embassy_stm32::{
     gpio::Output,
     mode::Async,
@@ -17,34 +18,29 @@ pub trait SpiMaker {
 
 pub struct SpiPort<
     Stm32SpiInstance: embassy_stm32::spi::Instance + 'static,
-    Peripheral: Stm32Peripheral<P = Stm32SpiInstance> + 'static,
     SckPin: embassy_stm32::spi::SckPin<Stm32SpiInstance> + 'static,
     MosiPin: embassy_stm32::spi::MosiPin<Stm32SpiInstance> + 'static,
     MisoPin: embassy_stm32::spi::MisoPin<Stm32SpiInstance> + 'static,
     TxDma: embassy_stm32::spi::TxDma<Stm32SpiInstance> + 'static,
     RxDma: embassy_stm32::spi::RxDma<Stm32SpiInstance> + 'static,
-    CsPin: embassy_stm32::gpio::Pin + 'static,
 > {
-    pub peripheral: Peripheral,
-    pub sck_pin: SckPin,
-    pub mosi_pin: MosiPin,
-    pub miso_pin: MisoPin,
-    pub rx_dma: RxDma,
-    pub tx_dma: TxDma,
-    pub cs_pin: CsPin,
+    pub peripheral: Peri<'static, Stm32SpiInstance>,
+    pub sck_pin: Peri<'static, SckPin>,
+    pub mosi_pin: Peri<'static, MosiPin>,
+    pub miso_pin: Peri<'static, MisoPin>,
+    pub rx_dma: Peri<'static, RxDma>,
+    pub tx_dma: Peri<'static, TxDma>,
+    pub cs_pin: Peri<'static, AnyPin>,
 }
 
 impl<
         Stm32SpiInstance: embassy_stm32::spi::Instance + 'static,
-        Peripheral: Stm32Peripheral<P = Stm32SpiInstance> + 'static,
         SckPin: embassy_stm32::spi::SckPin<Stm32SpiInstance> + 'static,
         MosiPin: embassy_stm32::spi::MosiPin<Stm32SpiInstance> + 'static,
         MisoPin: embassy_stm32::spi::MisoPin<Stm32SpiInstance> + 'static,
         TxDma: embassy_stm32::spi::TxDma<Stm32SpiInstance> + 'static,
         RxDma: embassy_stm32::spi::RxDma<Stm32SpiInstance> + 'static,
-        CsPin: embassy_stm32::gpio::Pin + 'static,
-    > SpiMaker
-    for SpiPort<Stm32SpiInstance, Peripheral, SckPin, MosiPin, MisoPin, TxDma, RxDma, CsPin>
+    > SpiMaker for SpiPort<Stm32SpiInstance, SckPin, MosiPin, MisoPin, TxDma, RxDma>
 {
     fn make_spi(
         self,

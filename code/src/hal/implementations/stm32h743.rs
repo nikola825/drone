@@ -6,7 +6,6 @@ use embassy_stm32::{
     adc::AdcChannel,
     bind_interrupts,
     flash::Flash,
-    gpio::Pin,
     interrupt::{InterruptExt, Priority},
     peripherals::ADC1,
     time::Hertz,
@@ -171,9 +170,9 @@ pub fn make_hardware() -> generic_hardware_type!() {
     };
 
     FcHardware {
-        blue_pin: peripherals.PE3,
-        green_pin: peripherals.PE2,
-        yellow_pin: peripherals.PE4,
+        blue_pin: peripherals.PE3.into(),
+        green_pin: peripherals.PE2.into(),
+        yellow_pin: peripherals.PE4.into(),
 
         usb_peripheral: peripherals.USB_OTG_FS,
         usb_dp: peripherals.PA12,
@@ -189,17 +188,20 @@ pub fn make_hardware() -> generic_hardware_type!() {
 
             rx_dma: peripherals.DMA1_CH0,
             tx_dma: peripherals.DMA1_CH1,
-            cs_pin: peripherals.PB7,
+            cs_pin: peripherals.PB7.into(),
         },
 
-        motor0_pin: peripherals.PE12,
-        motor1_pin: peripherals.PE13,
-        motor2_pin: peripherals.PE14,
-        motor3_pin: peripherals.PE15,
+        motor0_pin: peripherals.PE12.into(),
+        motor1_pin: peripherals.PE13.into(),
+        motor2_pin: peripherals.PE14.into(),
+        motor3_pin: peripherals.PE15.into(),
 
         radio_uart: uart4,
 
-        vtx_power_toggle: OptionalOutput::new(peripherals.PD8, embassy_stm32::gpio::Level::Low),
+        vtx_power_toggle: OptionalOutput::new(
+            peripherals.PD8.into(),
+            embassy_stm32::gpio::Level::Low,
+        ),
         msp_uart: Some(uart7),
         gps_uart: Some(uart2),
         config_store: FlashConfigStore::new(

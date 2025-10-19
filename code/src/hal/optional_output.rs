@@ -1,4 +1,7 @@
-use embassy_stm32::gpio::{Output, Pin};
+use embassy_stm32::{
+    gpio::{AnyPin, Output},
+    Peri,
+};
 
 pub struct OptionalOutput {
     output: Option<Output<'static>>,
@@ -6,10 +9,7 @@ pub struct OptionalOutput {
 
 impl OptionalOutput {
     #[allow(dead_code)]
-    pub fn new<PinType: Pin + 'static>(
-        pin: PinType,
-        initial_level: embassy_stm32::gpio::Level,
-    ) -> Self {
+    pub fn new(pin: Peri<'static, AnyPin>, initial_level: embassy_stm32::gpio::Level) -> Self {
         Self {
             output: Some(Output::new(
                 pin,

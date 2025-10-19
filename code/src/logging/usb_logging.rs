@@ -6,7 +6,7 @@ use crate::{
 };
 use embassy_executor::SendSpawner;
 use embassy_futures::join::join;
-use embassy_stm32::usb::Driver;
+use embassy_stm32::{usb::Driver, Peri};
 use embassy_usb::{
     class::cdc_acm::{CdcAcmClass, State},
     Builder,
@@ -29,16 +29,20 @@ fn custom_panic(_: &PanicInfo) -> ! {
 }
 
 pub async fn init_usb_logging(
-    peripheral: USB_PERIPHERAL,
-    dp_pin: USB_DP,
-    dm_pin: USB_DM,
+    peripheral: Peri<'static, USB_PERIPHERAL>,
+    dp_pin: Peri<'static, USB_DP>,
+    dm_pin: Peri<'static, USB_DM>,
     spawner: &SendSpawner,
 ) {
     spawner.must_spawn(usb_task(peripheral, dp_pin, dm_pin));
 }
 
 #[embassy_executor::task]
-async fn usb_task(peripheral: USB_PERIPHERAL, dp_pin: USB_DP, dm_pin: USB_DM) {
+async fn usb_task(
+    peripheral: Peri<'static, USB_PERIPHERAL>,
+    dp_pin: Peri<'static, USB_DP>,
+    dm_pin: Peri<'static, USB_DM>,
+) {
     let usb_buffer = make_static_buffer!(256);
 
     let mut config = embassy_stm32::usb::Config::default();

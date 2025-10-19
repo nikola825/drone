@@ -1,5 +1,5 @@
 use cortex_m::{interrupt::CriticalSection, peripheral::SCB};
-use embassy_stm32::gpio::Pin;
+use embassy_stm32::{gpio::Pin, Peri};
 
 // The icache toggle bit is the 17th bit of SCB CCR
 pub const SCB_CCR_IC_MASK: u32 = 1 << 17;
@@ -59,7 +59,7 @@ pub fn run_with_paused_icache(
     }
 }
 
-pub fn get_pin_gpio<T: Pin>(pin: &T) -> embassy_stm32::pac::gpio::Gpio {
+pub fn get_pin_gpio<T: Pin>(pin: &Peri<'static, T>) -> embassy_stm32::pac::gpio::Gpio {
     {
         unsafe {
             {

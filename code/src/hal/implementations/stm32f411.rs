@@ -5,7 +5,6 @@ use embassy_executor::InterruptExecutor;
 use embassy_stm32::{
     adc::AdcChannel,
     bind_interrupts,
-    gpio::Pin,
     interrupt::{InterruptExt, Priority},
     peripherals::ADC1,
     time::Hertz,
@@ -103,9 +102,9 @@ pub fn make_hardware() -> generic_hardware_type!() {
     };
 
     FcHardware {
-        blue_pin: peripherals.PA14,
-        green_pin: peripherals.PA4,
-        yellow_pin: peripherals.PA13,
+        blue_pin: peripherals.PA14.into(),
+        green_pin: peripherals.PA4.into(),
+        yellow_pin: peripherals.PA13.into(),
 
         usb_dm: peripherals.PA11,
         usb_dp: peripherals.PA12,
@@ -121,13 +120,13 @@ pub fn make_hardware() -> generic_hardware_type!() {
 
             rx_dma: peripherals.DMA1_CH0,
             tx_dma: peripherals.DMA1_CH5,
-            cs_pin: peripherals.PB9,
+            cs_pin: peripherals.PB9.into(),
         },
 
-        motor0_pin: peripherals.PB1,
-        motor1_pin: peripherals.PB0,
-        motor2_pin: peripherals.PA7,
-        motor3_pin: peripherals.PA6,
+        motor0_pin: peripherals.PB1.into(),
+        motor1_pin: peripherals.PB0.into(),
+        motor2_pin: peripherals.PA7.into(),
+        motor3_pin: peripherals.PA6.into(),
 
         vtx_power_toggle: OptionalOutput::unimplemented(),
 

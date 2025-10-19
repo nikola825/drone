@@ -3,14 +3,13 @@ use embassy_stm32::{
     mode::Async,
     pac::gpio::vals::Pupdr,
     usart::{InterruptHandler, Parity, StopBits, Uart, UartRx, UartTx},
-    Peripheral as Stm32Peripheral,
+    Peri,
 };
 
 use crate::hal::mcu_utils::get_pin_gpio;
 
 pub struct UartPort<
     Stm32UartInstance: embassy_stm32::usart::Instance + 'static,
-    Peripheral: Stm32Peripheral<P = Stm32UartInstance> + 'static,
     RxPin: embassy_stm32::usart::RxPin<Stm32UartInstance> + 'static,
     TxPin: embassy_stm32::usart::TxPin<Stm32UartInstance> + 'static,
     RxDma: embassy_stm32::usart::RxDma<Stm32UartInstance> + 'static,
@@ -20,11 +19,11 @@ pub struct UartPort<
             InterruptHandler<Stm32UartInstance>,
         > + 'static,
 > {
-    pub peripheral: Peripheral,
-    pub rx_pin: RxPin,
-    pub tx_pin: TxPin,
-    pub rx_dma: RxDma,
-    pub tx_dma: TxDma,
+    pub peripheral: Peri<'static, Stm32UartInstance>,
+    pub rx_pin: Peri<'static, RxPin>,
+    pub tx_pin: Peri<'static, TxPin>,
+    pub rx_dma: Peri<'static, RxDma>,
+    pub tx_dma: Peri<'static, TxDma>,
     pub irqs: IrqType,
 }
 
@@ -40,7 +39,6 @@ pub trait UartMaker {
 
 impl<
         Stm32UartInstance: embassy_stm32::usart::Instance + 'static,
-        Peripheral: Stm32Peripheral<P = Stm32UartInstance> + 'static,
         RxPin: embassy_stm32::usart::RxPin<Stm32UartInstance> + 'static,
         TxPin: embassy_stm32::usart::TxPin<Stm32UartInstance> + 'static,
         RxDma: embassy_stm32::usart::RxDma<Stm32UartInstance> + 'static,
@@ -49,7 +47,7 @@ impl<
                 Stm32UartInstance::Interrupt,
                 InterruptHandler<Stm32UartInstance>,
             > + 'static,
-    > UartMaker for UartPort<Stm32UartInstance, Peripheral, RxPin, TxPin, RxDma, TxDma, IrqType>
+    > UartMaker for UartPort<Stm32UartInstance, RxPin, TxPin, RxDma, TxDma, IrqType>
 {
     fn make_uart(
         self,

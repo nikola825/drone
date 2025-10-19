@@ -1,7 +1,8 @@
 use embassy_executor::SendSpawner;
 use embassy_stm32::{
-    gpio::Pin,
+    gpio::AnyPin,
     usb::{DmPin, DpPin},
+    Peri,
 };
 
 mod config_storage;
@@ -25,36 +26,29 @@ pub use config_storage::{ConfigStorageError, ConfigStore};
 
 #[allow(dead_code)]
 pub struct FcHardware<
-    BluePin: Pin,
-    GreenPin: Pin,
-    YellowPin: Pin,
     UsbDp: DpPin<USB_PERIPHERAL>,
     UsbDm: DmPin<USB_PERIPHERAL>,
     ImuSpiMaker: SpiMaker,
-    Motor0Pin: Pin,
-    Motor1Pin: Pin,
-    Motor2Pin: Pin,
-    Motor3Pin: Pin,
     RadioUartMaker: UartMaker,
     MspUartMaker: UartMaker,
     GpsUartMaker: UartMaker,
     ConfigStoreType: ConfigStore,
 > {
-    pub blue_pin: BluePin,
-    pub green_pin: GreenPin,
-    pub yellow_pin: YellowPin,
-    pub usb_peripheral: USB_PERIPHERAL,
-    pub usb_dp: UsbDp,
-    pub usb_dm: UsbDm,
+    pub blue_pin: Peri<'static, AnyPin>,
+    pub green_pin: Peri<'static, AnyPin>,
+    pub yellow_pin: Peri<'static, AnyPin>,
+    pub usb_peripheral: Peri<'static, USB_PERIPHERAL>,
+    pub usb_dp: Peri<'static, UsbDp>,
+    pub usb_dm: Peri<'static, UsbDm>,
 
     pub battery_meter: BatteryMeter,
 
     pub imu_spi: ImuSpiMaker,
 
-    pub motor0_pin: Motor0Pin,
-    pub motor1_pin: Motor1Pin,
-    pub motor2_pin: Motor2Pin,
-    pub motor3_pin: Motor3Pin,
+    pub motor0_pin: Peri<'static, AnyPin>,
+    pub motor1_pin: Peri<'static, AnyPin>,
+    pub motor2_pin: Peri<'static, AnyPin>,
+    pub motor3_pin: Peri<'static, AnyPin>,
 
     pub radio_uart: RadioUartMaker,
 
@@ -73,16 +67,9 @@ pub struct FcHardware<
 macro_rules! generic_hardware_type {
     () => {
         FcHardware<
-            impl Pin,
-            impl Pin,
-            impl Pin,
             USB_DP,
             USB_DM,
             impl SpiMaker,
-            impl Pin,
-            impl Pin,
-            impl Pin,
-            impl Pin,
             impl UartMaker,
             impl UartMaker,
             impl UartMaker,

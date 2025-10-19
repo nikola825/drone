@@ -1,6 +1,7 @@
 use embassy_stm32::{
-    gpio::{Level, Output, Pin},
+    gpio::{AnyPin, Level, Output, Pin},
     pac::gpio::Gpio,
+    Peri,
 };
 use embassy_time::{Duration, Instant, Timer};
 use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
@@ -106,7 +107,7 @@ pub struct Motor {
 }
 
 impl Motor {
-    pub fn new(pin: impl Pin + 'static) -> Self {
+    pub fn new(pin: Peri<'static, AnyPin>) -> Self {
         let port = get_pin_gpio(&pin);
         let pin_number = pin.pin();
         let output = Output::new(pin, Level::Low, embassy_stm32::gpio::Speed::VeryHigh);

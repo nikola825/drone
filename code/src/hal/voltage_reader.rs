@@ -1,6 +1,9 @@
 use core::ops::RangeInclusive;
 
-use embassy_stm32::adc::{Adc, AnyAdcChannel};
+use embassy_stm32::{
+    adc::{Adc, AnyAdcChannel},
+    Peri,
+};
 
 pub struct VoltageReader<AdcType: embassy_stm32::adc::Instance> {
     pub adc: Adc<'static, AdcType>,
@@ -12,7 +15,7 @@ pub struct VoltageReader<AdcType: embassy_stm32::adc::Instance> {
 }
 
 impl<AdcType: embassy_stm32::adc::Instance> VoltageReader<AdcType> {
-    pub fn new(pin: AnyAdcChannel<AdcType>, adc: AdcType) -> Self {
+    pub fn new(pin: AnyAdcChannel<AdcType>, adc: Peri<'static, AdcType>) -> Self {
         let mut adc = Adc::new(adc);
 
         adc.set_averaging(embassy_stm32::adc::Averaging::Samples16);

@@ -5,7 +5,6 @@ use embassy_stm32::{
     adc::AdcChannel,
     bind_interrupts,
     flash::Flash,
-    gpio::Pin,
     interrupt::{InterruptExt, Priority},
     pac::VREFBUF,
     peripherals::ADC1,
@@ -172,9 +171,9 @@ pub fn make_hardware() -> generic_hardware_type!() {
     };
 
     FcHardware {
-        blue_pin: peripherals.PE3,
-        yellow_pin: peripherals.PE4,
-        green_pin: peripherals.PE2,
+        blue_pin: peripherals.PE3.into(),
+        yellow_pin: peripherals.PE4.into(),
+        green_pin: peripherals.PE2.into(),
 
         usb_dm: peripherals.PA11,
         usb_dp: peripherals.PA12,
@@ -188,15 +187,15 @@ pub fn make_hardware() -> generic_hardware_type!() {
 
             rx_dma: peripherals.DMA1_CH0,
             tx_dma: peripherals.DMA1_CH1,
-            cs_pin: peripherals.PB7,
+            cs_pin: peripherals.PB7.into(),
         },
 
         battery_meter: BatteryMeter::new(peripherals.PA4.degrade_adc(), peripherals.ADC1),
 
-        motor0_pin: peripherals.PE12,
-        motor1_pin: peripherals.PE13,
-        motor2_pin: peripherals.PE14,
-        motor3_pin: peripherals.PE15,
+        motor0_pin: peripherals.PE12.into(),
+        motor1_pin: peripherals.PE13.into(),
+        motor2_pin: peripherals.PE14.into(),
+        motor3_pin: peripherals.PE15.into(),
 
         radio_uart: uart7,
 
