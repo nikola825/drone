@@ -1,3 +1,6 @@
+// We do a lot of byte array manipulation here. Forbid indexing on things of uknown size
+#![forbid(clippy::indexing_slicing)]
+
 use crate::{
     hal::OptionalOutput,
     msp::{transmit_fc_variant, transmit_status, transmit_sticks},
