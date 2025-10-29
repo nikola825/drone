@@ -2,6 +2,7 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
 
 use crate::{
     arming::ArmingTracker,
+    battery_monitor::BatteryInformation,
     crsf::{CRSFChannels, CRSFFrameLinkStatistics},
     gps::GPSState,
 };
@@ -14,7 +15,7 @@ pub struct CommandState {
 
 pub struct SharedState {
     channel_state: Mutex<CriticalSectionRawMutex, CommandState>,
-    battery_voltage: Mutex<CriticalSectionRawMutex, f32>,
+    battery_state: Mutex<CriticalSectionRawMutex, BatteryInformation>,
     link_state: Mutex<CriticalSectionRawMutex, CRSFFrameLinkStatistics>,
     gps_state: Mutex<CriticalSectionRawMutex, GPSState>,
 }
@@ -23,7 +24,7 @@ impl SharedState {
     pub fn new() -> Self {
         SharedState {
             channel_state: Mutex::new(CommandState::default()),
-            battery_voltage: Mutex::new(0f32),
+            battery_state: Mutex::new(BatteryInformation::default()),
             link_state: Mutex::new(CRSFFrameLinkStatistics::default()),
             gps_state: Mutex::new(GPSState::default()),
         }
@@ -40,13 +41,18 @@ impl SharedState {
         guard.commands = channels;
     }
 
-    pub async fn update_voltage(&self, voltage: f32) {
-        let mut guard = self.battery_voltage.lock().await;
-        *guard = voltage;
+    pub async fn update_battery_voltage(&self, voltage: f32) {
+        let mut guard = self.battery_state.lock().await;
+        guard.update_voltage(voltage);
     }
 
-    pub async fn get_voltage(&self) -> f32 {
-        let guard = self.battery_voltage.lock().await;
+    pub async fn get_battery_voltage(&self) -> f32 {
+        let guard = self.battery_state.lock().await;
+        guard.get_total_voltage()
+    }
+
+    pub async fn get_battery_information(&self) -> BatteryInformation {
+        let guard = self.battery_state.lock().await;
         *guard
     }
 

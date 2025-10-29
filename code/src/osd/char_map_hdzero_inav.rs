@@ -15,6 +15,8 @@ pub enum OSDSymbol {
     Heading = b'\x0c',
     Home = b'\x0a',
     DistanceMeters = b'\x7a',
+    ArrowLeft = b'\x1d',
+    ArrowRight = b'\x19',
 }
 
 impl From<OSDSymbol> for u8 {

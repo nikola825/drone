@@ -351,7 +351,7 @@ async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, shared_state: &'sta
     let mut ticker = Ticker::every(Duration::from_millis(200));
 
     loop {
-        let measured_battery_voltage = shared_state.get_voltage().await;
+        let measured_battery_voltage = shared_state.get_battery_voltage().await;
 
         let packet = BatteryInfo::new(measured_battery_voltage);
 
