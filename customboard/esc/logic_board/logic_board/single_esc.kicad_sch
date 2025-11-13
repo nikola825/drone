@@ -3,7 +3,7 @@
 	(generator "eeschema")
 	(generator_version "9.0")
 	(uuid "8e34e6c2-557e-473c-a645-06a30f35adb4")
-	(paper "A0")
+	(paper "A3")
 	(lib_symbols
 		(symbol "Connector:TestPoint"
 			(pin_numbers
@@ -2303,7 +2303,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 44.45) (xy 289.56 44.45)
+			(xy 158.75 118.11) (xy 180.34 118.11)
 		)
 		(stroke
 			(width 0)
@@ -2343,7 +2343,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 29.21) (xy 289.56 29.21)
+			(xy 158.75 102.87) (xy 180.34 102.87)
 		)
 		(stroke
 			(width 0)
@@ -2353,7 +2353,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 39.37) (xy 289.56 39.37)
+			(xy 158.75 113.03) (xy 180.34 113.03)
 		)
 		(stroke
 			(width 0)
@@ -2403,7 +2403,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 52.07) (xy 289.56 52.07)
+			(xy 158.75 125.73) (xy 180.34 125.73)
 		)
 		(stroke
 			(width 0)
@@ -2423,7 +2423,7 @@
 	)
 	(wire
 		(pts
-			(xy 309.88 40.64) (xy 322.58 40.64)
+			(xy 200.66 114.3) (xy 213.36 114.3)
 		)
 		(stroke
 			(width 0)
@@ -2443,7 +2443,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 34.29) (xy 289.56 34.29)
+			(xy 158.75 107.95) (xy 180.34 107.95)
 		)
 		(stroke
 			(width 0)
@@ -2633,7 +2633,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 31.75) (xy 289.56 31.75)
+			(xy 158.75 105.41) (xy 180.34 105.41)
 		)
 		(stroke
 			(width 0)
@@ -2783,7 +2783,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 46.99) (xy 289.56 46.99)
+			(xy 158.75 120.65) (xy 180.34 120.65)
 		)
 		(stroke
 			(width 0)
@@ -2813,7 +2813,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 36.83) (xy 289.56 36.83)
+			(xy 158.75 110.49) (xy 180.34 110.49)
 		)
 		(stroke
 			(width 0)
@@ -2833,7 +2833,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 41.91) (xy 289.56 41.91)
+			(xy 158.75 115.57) (xy 180.34 115.57)
 		)
 		(stroke
 			(width 0)
@@ -2853,7 +2853,7 @@
 	)
 	(wire
 		(pts
-			(xy 309.88 35.56) (xy 322.58 35.56)
+			(xy 200.66 109.22) (xy 213.36 109.22)
 		)
 		(stroke
 			(width 0)
@@ -2873,7 +2873,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 49.53) (xy 289.56 49.53)
+			(xy 158.75 123.19) (xy 180.34 123.19)
 		)
 		(stroke
 			(width 0)
@@ -3092,7 +3092,7 @@
 		(uuid "0a13af2d-2f0f-437a-9ff3-aede1063050e")
 	)
 	(label "GHA"
-		(at 267.97 41.91 0)
+		(at 158.75 115.57 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3112,7 +3112,7 @@
 		(uuid "2373baa1-e9a7-4d3c-adcb-13b2c0c701af")
 	)
 	(label "GLC"
-		(at 267.97 49.53 0)
+		(at 158.75 123.19 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3122,7 +3122,7 @@
 		(uuid "28a3060f-781a-4b55-9fb5-14a46b0e9715")
 	)
 	(label "MOTORC"
-		(at 267.97 29.21 0)
+		(at 158.75 102.87 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3202,7 +3202,7 @@
 		(uuid "48866b2d-f7bb-47b0-a445-e0e88ba53f7c")
 	)
 	(label "SWDIO"
-		(at 309.88 40.64 0)
+		(at 200.66 114.3 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3242,7 +3242,7 @@
 		(uuid "5217dde2-aa0d-46b6-b9c0-bec3e61b0ab9")
 	)
 	(label "GLA"
-		(at 267.97 44.45 0)
+		(at 158.75 118.11 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3322,7 +3322,7 @@
 		(uuid "72dc21f6-4438-4ac2-a53d-4683d187bcc6")
 	)
 	(label "GLB"
-		(at 267.97 46.99 0)
+		(at 158.75 120.65 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3372,7 +3372,7 @@
 		(uuid "8423a34a-4eed-4fad-b2d2-fef3d5667a85")
 	)
 	(label "SIGNAL_INPUT"
-		(at 267.97 52.07 0)
+		(at 158.75 125.73 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3392,7 +3392,7 @@
 		(uuid "89a0792b-05d2-4635-af07-eef969219fba")
 	)
 	(label "GHC"
-		(at 267.97 31.75 0)
+		(at 158.75 105.41 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3412,7 +3412,7 @@
 		(uuid "9507ea58-f7a3-4f46-be2c-53674780142b")
 	)
 	(label "SWCLK"
-		(at 309.88 35.56 0)
+		(at 200.66 109.22 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3452,7 +3452,7 @@
 		(uuid "a10d56c2-0a2f-4af9-9cd8-3f9d8b4302c4")
 	)
 	(label "MOTORA"
-		(at 267.97 39.37 0)
+		(at 158.75 113.03 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3502,7 +3502,7 @@
 		(uuid "b7c655d8-81ae-41c8-81b7-59f31a1025e4")
 	)
 	(label "GHB"
-		(at 267.97 36.83 0)
+		(at 158.75 110.49 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3532,7 +3532,7 @@
 		(uuid "c55c37de-94b5-422a-b790-ec63066f1f7a")
 	)
 	(label "MOTORB"
-		(at 267.97 34.29 0)
+		(at 158.75 107.95 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3624,7 +3624,7 @@
 	)
 	(hierarchical_label "MOTORB"
 		(shape output)
-		(at 289.56 34.29 0)
+		(at 180.34 107.95 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3635,7 +3635,7 @@
 	)
 	(hierarchical_label "GLC"
 		(shape output)
-		(at 289.56 49.53 0)
+		(at 180.34 123.19 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3646,7 +3646,7 @@
 	)
 	(hierarchical_label "MOTORC"
 		(shape output)
-		(at 289.56 29.21 0)
+		(at 180.34 102.87 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3657,7 +3657,7 @@
 	)
 	(hierarchical_label "GLA"
 		(shape output)
-		(at 289.56 44.45 0)
+		(at 180.34 118.11 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3668,7 +3668,7 @@
 	)
 	(hierarchical_label "GHC"
 		(shape output)
-		(at 289.56 31.75 0)
+		(at 180.34 105.41 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3679,7 +3679,7 @@
 	)
 	(hierarchical_label "SIGNAL_INPUT"
 		(shape input)
-		(at 289.56 52.07 0)
+		(at 180.34 125.73 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3690,7 +3690,7 @@
 	)
 	(hierarchical_label "MOTORA"
 		(shape output)
-		(at 289.56 39.37 0)
+		(at 180.34 113.03 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3701,7 +3701,7 @@
 	)
 	(hierarchical_label "GHA"
 		(shape output)
-		(at 289.56 41.91 0)
+		(at 180.34 115.57 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3712,7 +3712,7 @@
 	)
 	(hierarchical_label "GHB"
 		(shape output)
-		(at 289.56 36.83 0)
+		(at 180.34 110.49 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3723,7 +3723,7 @@
 	)
 	(hierarchical_label "GLB"
 		(shape output)
-		(at 289.56 46.99 0)
+		(at 180.34 120.65 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5814,7 +5814,7 @@
 	)
 	(symbol
 		(lib_id "Connector:TestPoint")
-		(at 322.58 35.56 270)
+		(at 213.36 109.22 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5823,7 +5823,7 @@
 		(fields_autoplaced yes)
 		(uuid "947d4b4c-0197-48c4-8582-72f421295ef7")
 		(property "Reference" "TP3"
-			(at 327.66 34.2899 90)
+			(at 218.44 107.9499 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5832,7 +5832,7 @@
 			)
 		)
 		(property "Value" "TestPoint"
-			(at 327.66 36.8299 90)
+			(at 218.44 110.4899 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5841,7 +5841,7 @@
 			)
 		)
 		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
-			(at 322.58 40.64 0)
+			(at 213.36 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5850,7 +5850,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 322.58 40.64 0)
+			(at 213.36 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5859,7 +5859,7 @@
 			)
 		)
 		(property "Description" "test point"
-			(at 322.58 35.56 0)
+			(at 213.36 109.22 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5975,7 +5975,7 @@
 	)
 	(symbol
 		(lib_id "Connector:TestPoint")
-		(at 322.58 40.64 270)
+		(at 213.36 114.3 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -5984,7 +5984,7 @@
 		(fields_autoplaced yes)
 		(uuid "9c4a1479-53f9-4a38-bc7b-72a5c5f22d9b")
 		(property "Reference" "TP1"
-			(at 327.66 39.3699 90)
+			(at 218.44 113.0299 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5993,7 +5993,7 @@
 			)
 		)
 		(property "Value" "TestPoint"
-			(at 327.66 41.9099 90)
+			(at 218.44 115.5699 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6002,7 +6002,7 @@
 			)
 		)
 		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
-			(at 322.58 45.72 0)
+			(at 213.36 119.38 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6011,7 +6011,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 322.58 45.72 0)
+			(at 213.36 119.38 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6020,7 +6020,7 @@
 			)
 		)
 		(property "Description" "test point"
-			(at 322.58 40.64 0)
+			(at 213.36 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
