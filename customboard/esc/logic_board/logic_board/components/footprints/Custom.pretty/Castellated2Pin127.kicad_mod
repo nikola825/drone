@@ -1,0 +1,147 @@
+(footprint "Castellated2Pin127"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(descr "Through hole straight pin header, 1x02, 1.27mm pitch, single row")
+	(tags "Through hole pin header THT 1x02 1.27mm single row")
+	(property "Reference" "J6"
+		(at 0 -1.745 180)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "fcb762a8-fa86-42a6-a962-7e42cb443284")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Conn_01x02"
+		(at 0 3.015 180)
+		(layer "F.Fab")
+		(uuid "5772026a-9799-44c1-97b0-881eb1b86310")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" "~"
+		(at 0 0 180)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "85ab6aee-5e7c-4040-a938-c53e023a9181")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Generic connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)"
+		(at 0 0 180)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "2d3fa5d8-fdfa-4dd7-99e8-4b10e5bc608f")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(fp_line
+		(start -1.05 -0.11)
+		(end -0.525 -0.635)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "dc46fe3c-03cf-4afa-866f-783e6e5d58a9")
+	)
+	(fp_line
+		(start -1.05 1.905)
+		(end -1.05 -0.11)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "5405d9fe-7e9c-43a5-bac1-56751dbfac5a")
+	)
+	(fp_line
+		(start -0.525 -0.635)
+		(end 1.05 -0.635)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "c5a8af77-7d40-48da-a40e-044e7a716fec")
+	)
+	(fp_line
+		(start 1.05 -0.635)
+		(end 1.05 1.905)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "c1ef6f86-f7f0-4887-9b7d-38c014d166a6")
+	)
+	(fp_line
+		(start 1.05 1.905)
+		(end -1.05 1.905)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "386e5764-8504-4dcb-9216-71ccbe0c74b6")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0.635 90)
+		(layer "F.Fab")
+		(uuid "bed94b91-3272-4186-993e-d02bb6d4fcd7")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "1" thru_hole circle
+		(at 0 0)
+		(size 1 1)
+		(drill 0.65)
+		(property pad_prop_castellated)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "508646ca-f2cd-4a56-abd1-8db34771fc3a")
+	)
+	(pad "2" thru_hole circle
+		(at 0 1.27)
+		(size 1 1)
+		(drill 0.65)
+		(property pad_prop_castellated)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "c5ddaa77-6232-4801-bbd9-0b4fe0a21112")
+	)
+	(embedded_fonts no)
+	(model "${KICAD9_3DMODEL_DIR}/Connector_PinHeader_1.27mm.3dshapes/PinHeader_1x02_P1.27mm_Vertical.step"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)

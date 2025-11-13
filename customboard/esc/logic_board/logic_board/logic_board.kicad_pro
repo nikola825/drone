@@ -38,14 +38,14 @@
         "other_text_upright": false,
         "pads": {
           "drill": 0.0,
-          "height": 0.95,
-          "width": 0.9
+          "height": 0.62,
+          "width": 0.56
         },
         "silk_line_width": 0.1,
         "silk_text_italic": false,
-        "silk_text_size_h": 1.0,
-        "silk_text_size_v": 1.0,
-        "silk_text_thickness": 0.1,
+        "silk_text_size_h": 0.8,
+        "silk_text_size_v": 0.8,
+        "silk_text_thickness": 0.15,
         "silk_text_upright": false,
         "zones": {
           "min_clearance": 0.15
@@ -464,7 +464,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "esc.kicad_pro",
+    "filename": "logic_board.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -542,19 +542,19 @@
       },
       {
         "netclass": "GATE_DRIVE",
-        "pattern": "/GH*"
+        "pattern": "*/GH*"
       },
       {
         "netclass": "GATE_DRIVE",
-        "pattern": "/GL*"
+        "pattern": "*/GL*"
       },
       {
         "netclass": "GATE_DRIVE",
-        "pattern": "/MOTOR*"
+        "pattern": "*/MOTOR*"
       },
       {
         "netclass": "GATE_DRIVE",
-        "pattern": "/BOOST*"
+        "pattern": "*/BOOST*"
       }
     ]
   },
@@ -689,6 +689,22 @@
     [
       "42312c29-ac8b-461a-b58b-ac49287ed3f3",
       "Root"
+    ],
+    [
+      "97a9a163-8eb6-44fd-b320-4d1b4f4a0da0",
+      "Esc1"
+    ],
+    [
+      "13cb8608-bedf-491a-b1ec-2ab011b3202c",
+      "Esc2"
+    ],
+    [
+      "ceb631f1-0d08-4424-a6aa-ea080f729a80",
+      "Esc3"
+    ],
+    [
+      "dceceb5a-1956-4d1e-895c-9f53784be5f2",
+      "Esc4"
     ]
   ],
   "text_variables": {}
