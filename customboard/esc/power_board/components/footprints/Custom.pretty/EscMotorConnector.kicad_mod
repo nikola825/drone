@@ -1,0 +1,141 @@
+(footprint "EscMotorConnector"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(descr "Soldered wire connection, for 3 times 1 mm² wires, reinforced insulation, conductor diameter 1.4mm, outer diameter 3.9mm, size source Multi-Contact FLEXI-xV 1.0 (https://www.staubli.com/content/dam/ecs/catalogs-brochures/TM/CAB-Main-11014119-en.pdf#page=11), bend radius 3 times outer diameter, generated with kicad-footprint-generator")
+	(tags "connector wire 1sqmm")
+	(property "Reference" "J10"
+		(at 7.8 -3.15 0)
+		(layer "F.SilkS")
+		(uuid "7627caba-43b6-487f-bf98-31630e6d6103")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Conn_01x03_Pin"
+		(at 7.8 3.15 0)
+		(layer "F.Fab")
+		(uuid "e443524c-3f02-40fb-a40d-2337fdf0f839")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" "~"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "1f1d9ded-5afd-411c-a7dc-b2a86d099689")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Generic connector, single row, 01x03, script generated"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "6c30685c-29f3-44d0-8c2d-fc6844830496")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr exclude_from_pos_files)
+	(fp_circle
+		(center 1.4 0)
+		(end 3.35 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "b6a1162a-4bfa-4b74-95ae-afaaa467a962")
+	)
+	(fp_circle
+		(center 7.8 0)
+		(end 9.75 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "1cfb20a8-00d0-4d7b-afa4-ec4d3c8d75d2")
+	)
+	(fp_circle
+		(center 14.2 0)
+		(end 16.15 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "077b90aa-5d40-4b1d-86b6-e0ee6fbf89e8")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 7.8 0 0)
+		(layer "F.Fab")
+		(uuid "16597c81-5115-435b-9f79-36f5f6a0d6e8")
+		(effects
+			(font
+				(size 0.98 0.98)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "1" thru_hole rect
+		(at 1.4 0)
+		(size 3.9 3.9)
+		(drill 1.75)
+		(property pad_prop_castellated)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(zone_connect 2)
+		(uuid "6f8c2fee-5aab-4d87-89ba-3bef29677a19")
+	)
+	(pad "2" thru_hole rect
+		(at 7.8 0)
+		(size 3.9 3.9)
+		(drill 1.75)
+		(property pad_prop_castellated)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(zone_connect 2)
+		(uuid "c1e27c8c-777e-42fd-959c-80e8f7fc7586")
+	)
+	(pad "3" thru_hole rect
+		(at 14.2 0)
+		(size 3.9 3.9)
+		(drill 1.75)
+		(property pad_prop_castellated)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(zone_connect 2)
+		(uuid "1b6366c4-97fb-4622-829e-62ff5b9dc7ac")
+	)
+	(embedded_fonts no)
+	(model "${KICAD9_3DMODEL_DIR}/Connector_Wire.3dshapes/SolderWire-1sqmm_1x03_P7.8mm_D1.4mm_OD3.9mm.step"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)

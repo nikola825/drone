@@ -2,4 +2,5 @@
   (version 7)
   (lib (name "DRV8300")(type "KiCad")(uri "${KIPRJMOD}/components/symbols/DRV8300.kicad_sym")(options "")(descr ""))
   (lib (name "wdfn8_mosfets")(type "KiCad")(uri "${KIPRJMOD}/components/symbols/wdfn8_mosfets.kicad_sym")(options "")(descr ""))
+  (lib (name "custom")(type "KiCad")(uri "${KIPRJMOD}/components/symbols/custom.kicad_sym")(options "")(descr ""))
 )

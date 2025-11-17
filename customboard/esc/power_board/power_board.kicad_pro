@@ -43,12 +43,12 @@
         },
         "silk_line_width": 0.1,
         "silk_text_italic": false,
-        "silk_text_size_h": 1.0,
-        "silk_text_size_v": 1.0,
+        "silk_text_size_h": 0.8,
+        "silk_text_size_v": 0.8,
         "silk_text_thickness": 0.1,
         "silk_text_upright": false,
         "zones": {
-          "min_clearance": 0.15
+          "min_clearance": 0.2
         }
       },
       "diff_pair_dimensions": [
@@ -123,7 +123,7 @@
       },
       "rules": {
         "max_error": 0.005,
-        "min_clearance": 0.127,
+        "min_clearance": 0.18,
         "min_connection": 0.127,
         "min_copper_edge_clearance": 0.25,
         "min_groove_width": 0.0,
@@ -136,7 +136,7 @@
         "min_text_height": 0.8,
         "min_text_thickness": 0.08,
         "min_through_hole_diameter": 0.2,
-        "min_track_width": 0.127,
+        "min_track_width": 0.18,
         "min_via_annular_width": 0.15,
         "min_via_diameter": 0.5,
         "solder_mask_to_copper_clearance": 0.0,
@@ -464,7 +464,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "esc.kicad_pro",
+    "filename": "power_board.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -493,7 +493,7 @@
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "priority": 0,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.25,
+        "track_width": 0.3,
         "via_diameter": 0.8,
         "via_drill": 0.3
       },
@@ -530,11 +530,11 @@
       },
       {
         "netclass": "LVPOWER",
-        "pattern": "+3.3V"
+        "pattern": "/3V3_*"
       },
       {
         "netclass": "LVPOWER",
-        "pattern": "+5V"
+        "pattern": "/5V_*"
       },
       {
         "netclass": "LVPOWER",
@@ -542,15 +542,15 @@
       },
       {
         "netclass": "GATE_DRIVE",
-        "pattern": "/GH*"
+        "pattern": "*/GH*"
       },
       {
         "netclass": "GATE_DRIVE",
-        "pattern": "/GL*"
+        "pattern": "*/GL*"
       },
       {
         "netclass": "GATE_DRIVE",
-        "pattern": "/MOTOR*"
+        "pattern": "*/MOTOR*"
       },
       {
         "netclass": "GATE_DRIVE",
@@ -689,6 +689,22 @@
     [
       "42312c29-ac8b-461a-b58b-ac49287ed3f3",
       "Root"
+    ],
+    [
+      "ddc4e826-74e6-4f92-85dc-195bd888f199",
+      "EscMotor1"
+    ],
+    [
+      "9d7b8b22-9b1a-4ea1-bb3c-955a50928200",
+      "EscMotor2"
+    ],
+    [
+      "11c68d50-dbcb-4001-a315-e32c78e0736d",
+      "EscMotor3"
+    ],
+    [
+      "00b49384-9497-49ff-919c-9c24c5c86039",
+      "EscMotor4"
     ]
   ],
   "text_variables": {}
