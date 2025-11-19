@@ -5840,7 +5840,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
+		(property "Footprint" "Custom:SW_Testpoint"
 			(at 213.36 114.3 0)
 			(effects
 				(font
@@ -6001,7 +6001,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
+		(property "Footprint" "Custom:SW_Testpoint"
 			(at 213.36 119.38 0)
 			(effects
 				(font
