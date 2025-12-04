@@ -5,11 +5,11 @@
 	(layer "F.Cu")
 	(descr "Soldered wire connection, for a single 1 mm² wire, basic insulation, conductor diameter 1.4mm, outer diameter 2.7mm, size source Multi-Contact FLEXI-E 1.0 (https://www.staubli.com/content/dam/ecs/catalogs-brochures/TM/CAB-Main-11014119-en.pdf#page=9), bend radius 3 times outer diameter, generated with kicad-footprint-generator")
 	(tags "connector wire 1sqmm")
-	(property "Reference" "J5"
+	(property "Reference" "J3"
 		(at 0 -2.58 0)
 		(layer "F.SilkS")
 		(hide yes)
-		(uuid "9f24fc3d-b1df-4af9-8c3a-84b7cc978d6c")
+		(uuid "406aeb59-1d02-4a18-bfdd-93aaaf41a291")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -17,10 +17,10 @@
 			)
 		)
 	)
-	(property "Value" "Conn_01x01_Pin"
+	(property "Value" "Conn_01x01"
 		(at 0 2.58 0)
 		(layer "F.Fab")
-		(uuid "bbc6d56b-06e5-4071-8a5d-aa69bd910947")
+		(uuid "59a5ccdd-a9eb-468c-b4e2-17efceb30c8e")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -32,7 +32,7 @@
 		(at 0 0 0)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "27f38a37-a138-47d5-83fa-9b54d05deda3")
+		(uuid "af12bd4f-3ce0-40b0-91db-1370daa8b072")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -40,11 +40,11 @@
 			)
 		)
 	)
-	(property "Description" "Generic connector, single row, 01x01, script generated"
+	(property "Description" "Generic connector, single row, 01x01, script generated (kicad-library-utils/schlib/autogen/connector/)"
 		(at 0 0 0)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "3cf84252-df04-47a1-9b7e-c32528d6df32")
+		(uuid "25a6f0b8-5100-4ec1-b22f-bce10eabc159")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -53,46 +53,6 @@
 		)
 	)
 	(attr exclude_from_pos_files)
-	(fp_line
-		(start -1.45 -1.397)
-		(end -1.45 1.38)
-		(stroke
-			(width 0.05)
-			(type solid)
-		)
-		(layer "F.CrtYd")
-		(uuid "1c6617d0-9b9c-49c6-957f-51b2820e0f36")
-	)
-	(fp_line
-		(start -1.45 1.38)
-		(end 1.45 1.38)
-		(stroke
-			(width 0.05)
-			(type solid)
-		)
-		(layer "F.CrtYd")
-		(uuid "d45c234e-6d36-4a77-a088-75e1aac4b607")
-	)
-	(fp_line
-		(start 1.45 -1.405)
-		(end -1.45 -1.405)
-		(stroke
-			(width 0.05)
-			(type solid)
-		)
-		(layer "F.CrtYd")
-		(uuid "0d3ba9ce-dbdf-4c58-93b0-78b9123bd1e2")
-	)
-	(fp_line
-		(start 1.45 1.38)
-		(end 1.45 -1.4)
-		(stroke
-			(width 0.05)
-			(type solid)
-		)
-		(layer "F.CrtYd")
-		(uuid "72d5943c-11c4-479a-b2d6-faf5fc42ea48")
-	)
 	(fp_circle
 		(center 0 0)
 		(end 1.35 0)
@@ -102,12 +62,12 @@
 		)
 		(fill no)
 		(layer "F.Fab")
-		(uuid "ca99e08d-f8b9-4bcb-9a4e-96a088fb3613")
+		(uuid "c52cac89-c611-45b3-bb71-07635c1d9f28")
 	)
 	(fp_text user "${REFERENCE}"
 		(at 0 0 0)
 		(layer "F.Fab")
-		(uuid "cd087a68-2176-4799-a44b-2cc07f45bf2f")
+		(uuid "f67d55a6-b247-4079-814c-316d75b22518")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -117,13 +77,13 @@
 	)
 	(pad "1" thru_hole roundrect
 		(at 0 0)
-		(size 2.75 2.75)
-		(drill 1.75)
+		(size 3 3)
+		(drill 2)
 		(layers "*.Cu" "*.Mask")
 		(remove_unused_layers no)
 		(roundrect_rratio 0.090909)
 		(zone_connect 2)
-		(uuid "92c1ae57-86b5-4a69-ae0e-d74fe5bf299d")
+		(uuid "3a1b55b1-0e03-47cd-9b0f-3d7ae47a4717")
 	)
 	(embedded_fonts no)
 	(model "${KICAD9_3DMODEL_DIR}/Connector_Wire.3dshapes/SolderWire-1sqmm_1x01_D1.4mm_OD2.7mm.step"
