@@ -2976,7 +2976,7 @@
 			(net 1 "/GND")
 			(pinfunction "MountPin")
 			(pintype "passive")
-			(uuid "d241efa0-aa90-421c-91a3-c803266ade4c")
+			(uuid "87ce2f0c-dea4-4abc-9794-8e736ae72f13")
 		)
 		(embedded_fonts no)
 		(model "${KICAD9_3DMODEL_DIR}/Connector_JST.3dshapes/JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal.step"
@@ -2988,6 +2988,17 @@
 			)
 			(rotate
 				(xyz 0 0 0)
+			)
+		)
+		(model "${KIPRJMOD}/components/3dmodels/SM04B-SRSS-TB_LF__SN_.stp"
+			(offset
+				(xyz 0 1.5 -0.3)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 -0)
 			)
 		)
 	)
@@ -3245,6 +3256,7 @@
 		)
 		(embedded_fonts no)
 		(model "${KICAD9_3DMODEL_DIR}/Connector_PinHeader_2.00mm.3dshapes/PinHeader_1x03_P2.00mm_Vertical.step"
+			(hide yes)
 			(offset
 				(xyz 0 0 0)
 			)
@@ -4161,14 +4173,14 @@
 			(at -2.89 -2.605 90)
 			(size 0.65 0.65)
 			(drill 0.65)
-			(layers "F&B.Cu" "*.Mask")
+			(layers "*.Cu" "*.Mask")
 			(uuid "f6bb2936-2674-40d7-8f7d-06258da47711")
 		)
 		(pad "" np_thru_hole circle
 			(at 2.89 -2.605 90)
 			(size 0.65 0.65)
 			(drill 0.65)
-			(layers "F&B.Cu" "*.Mask")
+			(layers "*.Cu" "*.Mask")
 			(uuid "3d7e4c06-f93e-49b2-8da2-40d1e9144284")
 		)
 		(pad "A1" smd roundrect
@@ -6151,7 +6163,7 @@
 			(net 1 "/GND")
 			(pinfunction "MountPin")
 			(pintype "passive")
-			(uuid "584df7d2-d605-4265-aa8a-3e29fc7a67ab")
+			(uuid "d46d7183-d851-40b3-b5b0-c85c05b21022")
 		)
 		(embedded_fonts no)
 		(model "${KICAD9_3DMODEL_DIR}/Connector_JST.3dshapes/JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal.step"
@@ -6163,6 +6175,17 @@
 			)
 			(rotate
 				(xyz 0 0 0)
+			)
+		)
+		(model "${KIPRJMOD}/components/3dmodels/SM04B-SRSS-TB_LF__SN_.stp"
+			(offset
+				(xyz 0 1.5 -0.3)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 -0)
 			)
 		)
 	)
@@ -11100,7 +11123,7 @@
 			(net 1 "/GND")
 			(pinfunction "MountPin")
 			(pintype "passive")
-			(uuid "46c5607c-4e0b-427c-9ef9-334f8d035ee6")
+			(uuid "bbdcea14-ad5e-4a49-87ca-77a97ebb83be")
 		)
 		(embedded_fonts no)
 		(model "${KICAD9_3DMODEL_DIR}/Connector_JST.3dshapes/JST_SH_SM06B-SRSS-TB_1x06-1MP_P1.00mm_Horizontal.step"
@@ -11112,6 +11135,17 @@
 			)
 			(rotate
 				(xyz 0 0 0)
+			)
+		)
+		(model "${KIPRJMOD}/components/3dmodels/SM06B-SRSS-TB--3DModel-STEP-269445.STEP"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 -0)
 			)
 		)
 	)
@@ -11797,7 +11831,7 @@
 			(net 1 "/GND")
 			(pinfunction "MountPin")
 			(pintype "passive")
-			(uuid "7ee934fb-7ab1-4bd0-ae08-62ebf7510e6c")
+			(uuid "3d698630-dee1-49a3-bb7d-e77225670cd8")
 		)
 		(embedded_fonts no)
 		(model "${KICAD9_3DMODEL_DIR}/Connector_JST.3dshapes/JST_SH_SM08B-SRSS-TB_1x08-1MP_P1.00mm_Horizontal.step"
@@ -11809,6 +11843,17 @@
 			)
 			(rotate
 				(xyz 0 0 0)
+			)
+		)
+		(model "${KIPRJMOD}/components/3dmodels/SM08B-SRSS-TB (LF)(SN)--3DModel-STEP-269445.STEP"
+			(offset
+				(xyz 0 -2.5 1.5)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 -0)
 			)
 		)
 	)
@@ -12244,7 +12289,7 @@
 			(net 1 "/GND")
 			(pinfunction "MountPin")
 			(pintype "passive")
-			(uuid "2e81b080-50d8-4514-9fef-ec847f4cfa1c")
+			(uuid "245a5b5b-0096-41df-941b-a717e81cb241")
 		)
 		(embedded_fonts no)
 		(model "${KICAD9_3DMODEL_DIR}/Connector_JST.3dshapes/JST_SH_SM06B-SRSS-TB_1x06-1MP_P1.00mm_Horizontal.step"
@@ -12256,6 +12301,17 @@
 			)
 			(rotate
 				(xyz 0 0 0)
+			)
+		)
+		(model "${KIPRJMOD}/components/3dmodels/SM06B-SRSS-TB--3DModel-STEP-269445.STEP"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 -0)
 			)
 		)
 	)
@@ -14331,7 +14387,7 @@
 			(net 1 "/GND")
 			(pinfunction "MountPin")
 			(pintype "passive")
-			(uuid "518ab273-b789-4a28-b81d-65a26da44c4f")
+			(uuid "468f04a0-db7c-4a95-a8d5-ed5dc2003309")
 		)
 		(embedded_fonts no)
 		(model "${KICAD9_3DMODEL_DIR}/Connector_JST.3dshapes/JST_SH_SM08B-SRSS-TB_1x08-1MP_P1.00mm_Horizontal.step"
@@ -14343,6 +14399,17 @@
 			)
 			(rotate
 				(xyz 0 0 0)
+			)
+		)
+		(model "${KIPRJMOD}/components/3dmodels/SM08B-SRSS-TB (LF)(SN)--3DModel-STEP-269445.STEP"
+			(offset
+				(xyz 0 -2.5 1.5)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 -0 -0)
 			)
 		)
 	)

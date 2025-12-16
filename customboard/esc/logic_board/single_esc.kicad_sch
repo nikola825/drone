@@ -3637,7 +3637,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "10n"
+		(property "Value" "10n 16V"
 			(at 104.14 25.3999 0)
 			(effects
 				(font
@@ -3797,7 +3797,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "1u"
+		(property "Value" "1u 10V"
 			(at 232.41 25.3999 0)
 			(effects
 				(font
@@ -4037,7 +4037,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100n 10V"
 			(at 167.64 25.3999 0)
 			(effects
 				(font
@@ -4430,7 +4430,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "10u"
+		(property "Value" "10u 10V"
 			(at 57.15 24.1299 0)
 			(effects
 				(font
@@ -4594,7 +4594,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1u"
+		(property "Value" "1u 10V"
 			(at 86.36 25.3999 0)
 			(effects
 				(font
@@ -4990,7 +4990,7 @@
 				)
 			)
 		)
-		(property "Value" "100n"
+		(property "Value" "100n 10V"
 			(at 48.26 34.29 90)
 			(effects
 				(font
@@ -5071,7 +5071,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "10u"
+		(property "Value" "10u 10V"
 			(at 152.4 25.3999 0)
 			(effects
 				(font
@@ -5231,7 +5231,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "1u"
+		(property "Value" "1u 10V"
 			(at 232.41 38.0999 0)
 			(effects
 				(font
@@ -5395,7 +5395,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "1u"
+		(property "Value" "1u 10V"
 			(at 232.41 50.7999 0)
 			(effects
 				(font
@@ -5625,7 +5625,7 @@
 		(at 213.36 109.22 270)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
@@ -5707,7 +5707,6 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "94b00145-2492-4833-a01f-98d9a673876c")
 		(property "Reference" "C14"
 			(at 43.18 21.5899 0)
@@ -5718,8 +5717,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "100n"
-			(at 43.18 24.1299 0)
+		(property "Value" "100n 10V"
+			(at 41.656 24.892 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5786,7 +5785,7 @@
 		(at 213.36 114.3 270)
 		(unit 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
@@ -6424,7 +6423,6 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "e3e56ea5-4567-429e-9582-5b846e71f3b6")
 		(property "Reference" "C15"
 			(at 30.48 21.5899 0)
@@ -6435,8 +6433,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "100n"
-			(at 30.48 24.1299 0)
+		(property "Value" "100n 10V"
+			(at 28.448 24.892 0)
 			(effects
 				(font
 					(size 1.27 1.27)

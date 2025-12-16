@@ -566,7 +566,7 @@
       "plot": "gerber/",
       "pos_files": "",
       "specctra_dsn": "",
-      "step": "",
+      "step": "../../../../../power_board.step",
       "svg": "",
       "vrml": ""
     },
