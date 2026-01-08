@@ -8,14 +8,16 @@ use embassy_stm32::{
 mod config_storage;
 mod implementations;
 pub mod mcu_utils;
+mod motor_layout;
 mod optional_output;
+mod servo;
 mod spi_port;
 mod uart_port;
 mod voltage_reader;
 
 pub use implementations::{
-    dshot_delay_0, dshot_delay_0_to_1, dshot_delay_remainder, get_spawners, make_hardware,
-    BatteryMeter, Irqs, USB_DEVICE_PRODUCT, USB_DM, USB_DP, USB_PERIPHERAL,
+    dshot_delays, get_spawners, make_hardware, BatteryMeter, Irqs, SERVO_TIMER, USB_DEVICE_PRODUCT,
+    USB_DM, USB_DP, USB_PERIPHERAL,
 };
 
 pub use optional_output::OptionalOutput;
@@ -23,6 +25,10 @@ pub use spi_port::SpiMaker;
 pub use uart_port::UartMaker;
 
 pub use config_storage::{ConfigStorageError, ConfigStore};
+
+pub use servo::ServoDriver;
+
+use crate::hal::motor_layout::MotorLayout;
 
 #[allow(dead_code)]
 pub struct FcHardware<
@@ -45,10 +51,7 @@ pub struct FcHardware<
 
     pub imu_spi: ImuSpiMaker,
 
-    pub motor0_pin: Peri<'static, AnyPin>,
-    pub motor1_pin: Peri<'static, AnyPin>,
-    pub motor2_pin: Peri<'static, AnyPin>,
-    pub motor3_pin: Peri<'static, AnyPin>,
+    pub motor_layout: MotorLayout,
 
     pub radio_uart: RadioUartMaker,
 
@@ -73,7 +76,7 @@ macro_rules! generic_hardware_type {
             impl UartMaker,
             impl UartMaker,
             impl UartMaker,
-            impl ConfigStore
+            impl ConfigStore,
         >
     };
 }

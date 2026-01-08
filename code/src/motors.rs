@@ -10,6 +10,7 @@ use crate::{
     dshot::{dshot_send_parallel, dshot_send_single},
     hal::mcu_utils::get_pin_gpio,
     logging::info,
+    mixer::MotorMix,
     stored_config::StoredConfig,
 };
 
@@ -29,7 +30,7 @@ enum DshotCommand {
 }
 
 #[derive(Clone, Copy)]
-enum BeepTone {
+pub enum BeepTone {
     Tone1,
     Tone2,
     Tone3,
@@ -59,22 +60,16 @@ pub enum MotorDirection {
 }
 
 pub struct MotorsContext {
-    front_left: Motor,
-    front_right: Motor,
-    rear_left: Motor,
-    rear_right: Motor,
+    motors: MotorMix,
     running: bool,
     beep_interval_start: Instant,
     beep_tone: BeepTone,
 }
 
 impl MotorsContext {
-    pub fn new(front_left: Motor, front_right: Motor, rear_left: Motor, rear_right: Motor) -> Self {
+    pub fn new(motors: MotorMix) -> Self {
         MotorsContext {
-            front_left,
-            front_right,
-            rear_left,
-            rear_right,
+            motors,
             running: false,
             beep_interval_start: Instant::MIN,
             beep_tone: BeepTone::Tone1,
@@ -87,6 +82,10 @@ pub struct MotorInputs {
     pub yaw_input: i16,
     pub roll_input: i16,
     pub pitch_input: i16,
+
+    pub left_aileron: i16,
+    pub right_aileron: i16,
+    pub elevator: i16,
 }
 
 impl MotorInputs {
@@ -96,6 +95,9 @@ impl MotorInputs {
             yaw_input: 0,
             roll_input: 0,
             pitch_input: 0,
+            right_aileron: 0,
+            left_aileron: 0,
+            elevator: 0,
         }
     }
 }
@@ -135,7 +137,7 @@ impl Motor {
         }
     }
 
-    fn beep(&self, tone: BeepTone) {
+    pub fn beep(&self, tone: BeepTone) {
         use BeepTone::*;
         use DshotCommand::*;
 
@@ -150,11 +152,14 @@ impl Motor {
         self.send_command(command);
     }
 
-    async fn multi_set_setting(motors: [&Self; 4], settings: [DshotCommand; 4]) {
+    async fn multi_set_setting<const COUNT: usize>(
+        motors: [&Self; COUNT],
+        settings: [DshotCommand; COUNT],
+    ) {
         let settings_as_u16 = settings.map(|setting| setting as u16);
 
         for _ in 1..1000 {
-            Motor::multi_send(motors, [DshotCommand::DSHOT_CMD_STOP as u16; 4]);
+            Motor::multi_send(motors, [DshotCommand::DSHOT_CMD_STOP as u16; COUNT]);
             Timer::after_millis(1).await;
         }
 
@@ -164,17 +169,23 @@ impl Motor {
         }
 
         for _ in 1..10 {
-            Motor::multi_send(motors, [DshotCommand::DSHOT_CMD_SAVE_SETTINGS as u16; 4]);
+            Motor::multi_send(
+                motors,
+                [DshotCommand::DSHOT_CMD_SAVE_SETTINGS as u16; COUNT],
+            );
             Timer::after_millis(1).await;
         }
         Timer::after_millis(12).await;
         for _ in 1..1000 {
-            Motor::multi_send(motors, [DshotCommand::DSHOT_CMD_STOP as u16; 4]);
+            Motor::multi_send(motors, [DshotCommand::DSHOT_CMD_STOP as u16; COUNT]);
             Timer::after_millis(1).await;
         }
     }
 
-    async fn multi_set_direction(motors: [&Self; 4], directions: [MotorDirection; 4]) {
+    async fn multi_set_direction<const COUNT: usize>(
+        motors: [&Self; COUNT],
+        directions: [MotorDirection; COUNT],
+    ) {
         let directions_as_commands = directions.map(|direction| match direction {
             MotorDirection::Forward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_1,
             MotorDirection::Backward => DshotCommand::DSHOT_CMD_SPIN_DIRECTION_2,
@@ -183,11 +194,11 @@ impl Motor {
         Self::multi_set_setting(motors, directions_as_commands).await
     }
 
-    async fn multi_disable_3d_mode(motors: [&Self; 4]) {
-        Self::multi_set_setting(motors, [DshotCommand::DSHOT_CMD_3D_MODE_OFF; 4]).await
+    async fn multi_disable_3d_mode<const COUNT: usize>(motors: [&Self; COUNT]) {
+        Self::multi_set_setting(motors, [DshotCommand::DSHOT_CMD_3D_MODE_OFF; COUNT]).await
     }
 
-    fn multi_throttle(motors: [&Self; 4], mut throttles: [u16; 4]) {
+    pub fn multi_throttle<const COUNT: usize>(motors: [&Self; COUNT], mut throttles: [u16; COUNT]) {
         for throttle in &mut throttles {
             if *throttle > 0 {
                 *throttle += 48;
@@ -197,29 +208,19 @@ impl Motor {
         Self::multi_send(motors, throttles);
     }
 
-    fn multi_send(motors: [&Self; 4], values: [u16; 4]) {
-        if (motors[0].port == motors[1].port)
-            && (motors[0].port == motors[2].port)
-            && (motors[0].port == motors[3].port)
-        {
-            // If all the motors are on the same port
-            // We can do a parallel bitbang
+    fn multi_send<const COUNT: usize>(motors: [&Self; COUNT], values: [u16; COUNT]) {
+        let same_port = motors.iter().all(|motor| motor.port == motors[0].port);
+
+        if same_port {
             dshot_send_parallel(
                 motors[0].port.bsrr(),
-                [
-                    motors[0].pin as _,
-                    motors[1].pin as _,
-                    motors[2].pin as _,
-                    motors[3].pin as _,
-                ],
+                motors.map(|motor| motor.pin as usize),
                 values,
             );
         } else {
-            // If the motors are on different ports, bitbang them independently
-            motors[0].send_value(values[0]);
-            motors[1].send_value(values[1]);
-            motors[2].send_value(values[2]);
-            motors[3].send_value(values[3]);
+            for (motor, value) in motors.iter().zip(values) {
+                motor.send_value(value);
+            }
         }
     }
 }
@@ -228,15 +229,7 @@ async fn gentle_stop(current_thrust: u16, context: &mut MotorsContext) {
     let mut thrust_target = current_thrust;
 
     while thrust_target > 200 {
-        Motor::multi_throttle(
-            [
-                &context.front_left,
-                &context.front_right,
-                &context.rear_left,
-                &context.rear_right,
-            ],
-            [thrust_target; 4],
-        );
+        context.motors.same_throttle(thrust_target);
 
         Timer::after_millis(100).await;
 
@@ -248,15 +241,7 @@ async fn gentle_stop(current_thrust: u16, context: &mut MotorsContext) {
 }
 
 fn zero_throttle(context: &MotorsContext) {
-    Motor::multi_throttle(
-        [
-            &context.front_left,
-            &context.front_right,
-            &context.rear_left,
-            &context.rear_right,
-        ],
-        [0; 4],
-    );
+    context.motors.zero_throttle();
 }
 
 fn beep_motors(context: &mut MotorsContext) {
@@ -273,54 +258,39 @@ fn beep_motors(context: &mut MotorsContext) {
     } else if delta_t > BEEP_DUTY {
         zero_throttle(context);
     } else {
-        context.front_left.beep(context.beep_tone);
-        context.front_right.beep(context.beep_tone);
-        context.rear_left.beep(context.beep_tone);
-        context.rear_right.beep(context.beep_tone);
+        context.motors.beep_escs(context.beep_tone);
     }
 }
 
 pub async fn disarm(context: &mut MotorsContext, inputs: &MotorInputs, beep: bool) {
     if context.running {
-        gentle_stop(inputs.motor_thrust / 4, context).await;
+        gentle_stop(
+            inputs.motor_thrust / context.motors.esc_motor_couint(),
+            context,
+        )
+        .await;
     } else if beep {
         beep_motors(context);
     } else {
         zero_throttle(context);
     }
+
+    center_servos(context);
 }
 
 pub fn drive_motors(context: &mut MotorsContext, inputs: &MotorInputs) {
     context.running = true;
     if inputs.motor_thrust > 0 {
-        let thrust = inputs.motor_thrust as i16;
-
-        let yaw_input = inputs.yaw_input;
-        let pitch_input = inputs.pitch_input;
-        let roll_input = inputs.roll_input;
-
-        let front_left: i16 = (thrust + roll_input - pitch_input - yaw_input) / 4;
-        let front_right: i16 = (thrust - roll_input - pitch_input + yaw_input) / 4;
-        let rear_left: i16 = (thrust + roll_input + pitch_input + yaw_input) / 4;
-        let rear_right: i16 = (thrust - roll_input + pitch_input - yaw_input) / 4;
-
-        Motor::multi_throttle(
-            [
-                &context.front_left,
-                &context.front_right,
-                &context.rear_left,
-                &context.rear_right,
-            ],
-            [
-                front_left.clamp(0, 1990) as u16,
-                front_right.clamp(0, 1990) as u16,
-                rear_left.clamp(0, 1990) as u16,
-                rear_right.clamp(0, 1990) as u16,
-            ],
-        );
+        context.motors.drive_escs(inputs);
     } else {
         zero_throttle(context);
     }
+
+    context.motors.drive_servos(inputs);
+}
+
+pub fn center_servos(context: &mut MotorsContext) {
+    context.motors.center_servos();
 }
 
 #[allow(dead_code)]
@@ -352,7 +322,7 @@ pub async fn do_motor_mapping(mut motors: [Option<Motor>; 4], config: &StoredCon
             let mut throttles = [0; 4];
             throttles[selected_motor as usize] = 60;
 
-            Motor::multi_throttle([&motors[0], &motors[1], &motors[2], &motors[3]], throttles);
+            Motor::multi_throttle(motors.each_ref(), throttles);
             Timer::after_micros(1005).await;
         }
         selected_motor = (selected_motor + 1) % 4;

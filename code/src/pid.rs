@@ -202,6 +202,9 @@ pub async fn do_pid_iteration(
             yaw_input,
             pitch_input,
             roll_input,
+            elevator: inputs.wing_pitch(),
+            left_aileron: inputs.wing_roll(),
+            right_aileron: -inputs.wing_roll(),
         }
     }
 }

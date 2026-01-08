@@ -6,7 +6,7 @@ use embassy_stm32::pac::{
 use cortex_m::interrupt::{free, CriticalSection};
 
 use crate::hal::{
-    dshot_delay_0, dshot_delay_0_to_1, dshot_delay_remainder,
+    dshot_delays::{dshot_delay_0, dshot_delay_0_to_1, dshot_delay_remainder},
     mcu_utils::{run_with_paused_icache, ICachePause},
 };
 
@@ -65,7 +65,11 @@ pub fn dshot_send_single(port_bsrr: Reg<Bsrr, W>, pin: usize, val: u16) {
 /// port_bsrr - the bsrr register of the port
 /// pin - numbers of the used pins on the given port
 /// val - raw values being transmitted (without checksum and telemetry bit)
-pub fn dshot_send_parallel(port_bsrr: Reg<Bsrr, W>, pins: [usize; 4], mut values: [u16; 4]) {
+pub fn dshot_send_parallel<const COUNT: usize>(
+    port_bsrr: Reg<Bsrr, W>,
+    pins: [usize; COUNT],
+    mut values: [u16; COUNT],
+) {
     for value in &mut values {
         *value = add_telemetry_bit_and_checksum(*value);
     }
@@ -89,7 +93,7 @@ pub fn dshot_send_parallel(port_bsrr: Reg<Bsrr, W>, pins: [usize; 4], mut values
     let mut mask: u16 = 32768;
 
     for bsrr in &mut mid_bsrrs {
-        for index in 0..4 {
+        for index in 0..COUNT {
             if values[index] & mask == 0 {
                 bsrr.set_br(pins[index], true);
             }

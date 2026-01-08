@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use crate::hal::make_hardware;
+use crate::{hal::make_hardware, mixer::MotorMix};
 use battery_monitor::init_battery_monitor;
 use cortex_m_rt::entry;
 use crsf::init_crsf_communication;
@@ -13,7 +13,7 @@ use gps::init_gps_receiver;
 use hal::get_spawners;
 use icm42688::ICM42688;
 use logging::{info, init_logging};
-use motors::{disarm, drive_motors, Motor, MotorsContext};
+use motors::{disarm, drive_motors, MotorsContext};
 use osd::init_osd;
 use pid::{do_pid_iteration, PidContext};
 use shared_state::SharedState;
@@ -32,6 +32,7 @@ mod hal;
 mod icm42688;
 mod logging;
 mod math_stuff;
+mod mixer;
 mod model;
 mod motors;
 mod msp;
@@ -68,13 +69,6 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     let mut hardware = make_hardware();
 
-    let mut motors: [Option<Motor>; 4] = [
-        Some(Motor::new(hardware.motor0_pin)),
-        Some(Motor::new(hardware.motor1_pin)),
-        Some(Motor::new(hardware.motor2_pin)),
-        Some(Motor::new(hardware.motor3_pin)),
-    ];
-
     let mut blue = Output::new(hardware.blue_pin, Level::Low, Speed::VeryHigh);
     let mut green = Output::new(hardware.green_pin, Level::Low, Speed::VeryHigh);
     let mut yellow = Output::new(hardware.yellow_pin, Level::Low, Speed::VeryHigh);
@@ -94,22 +88,7 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     let stored_config = read_stored_config(&mut hardware.config_store).await;
 
-    // motors::do_motor_mapping(motors, &stored_config).await;
     // icm42688::calibrate_gyro_offsets(imu, &stored_config, true).await;
-
-    let front_left = motors[stored_config.front_left_motor as usize]
-        .take()
-        .unwrap();
-    let front_right = motors[stored_config.front_right_motor as usize]
-        .take()
-        .unwrap();
-    let rear_left = motors[stored_config.rear_left_motor as usize]
-        .take()
-        .unwrap();
-    let rear_right = motors[stored_config.rear_right_motor as usize]
-        .take()
-        .unwrap();
-    // motors::apply_motor_directions(&front_left, &front_right, &rear_left, &rear_right, &stored_config).await;
 
     init_crsf_communication(hardware.radio_uart, &spawner_low, STORE.get());
     init_battery_monitor(hardware.battery_meter, STORE.get(), &spawner_low);
@@ -130,8 +109,41 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     blue.set_high();
 
+    let motor_mix: MotorMix;
+    #[cfg(feature = "quad")]
+    {
+        // motors::do_motor_mapping(motors, &stored_config).await;
+
+        let mut motors = hardware.motor_layout.motors.map(Some);
+
+        let front_left = motors[stored_config.front_left_motor as usize]
+            .take()
+            .unwrap();
+        let front_right = motors[stored_config.front_right_motor as usize]
+            .take()
+            .unwrap();
+        let rear_left = motors[stored_config.rear_left_motor as usize]
+            .take()
+            .unwrap();
+        let rear_right = motors[stored_config.rear_right_motor as usize]
+            .take()
+            .unwrap();
+
+        // motors::apply_motor_directions(&front_left, &front_right, &rear_left, &rear_right, &stored_config).await;
+
+        motor_mix = MotorMix::new(front_left, front_right, rear_left, rear_right);
+    }
+    #[cfg(feature = "wing")]
+    {
+        motor_mix = MotorMix::new(
+            hardware.motor_layout.left_winglet_servo,
+            hardware.motor_layout.right_winglet_servo,
+            hardware.motor_layout.thrust_motor,
+        );
+    }
+
     let context = DroneContext {
-        motor_context: MotorsContext::new(front_left, front_right, rear_left, rear_right),
+        motor_context: MotorsContext::new(motor_mix),
         pid_context: PidContext::new(&stored_config),
     };
 

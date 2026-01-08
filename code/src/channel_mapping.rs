@@ -138,6 +138,9 @@ impl CRSFChannels {
     define_channel!(f32, roll_angle, 0, -30, 30, 0, -1);
     define_channel!(f32, pitch_angle, 1, -30, 30, 0, -1);
 
+    define_channel!(i16, wing_pitch, 1, -45, 45, 0, -1);
+    define_channel!(i16, wing_roll, 0, -45, 45, 0, -1);
+
     define_channel!(f32, master_pi, 5, 1, 4);
     define_channel!(f32, master_d, 6, 0, 2);
     define_channel!(bool, beep, 7);
