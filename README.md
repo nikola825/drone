@@ -6,7 +6,7 @@ Hobby project, a homemade FPV drone with custom flight controller and frame.
 Folder contents (see readmes for more details):
 - `3dp` - Freecad projects with 3D printable drone parts
 - `code` - code for the flight controller
-- `customboard` - KiCad project for flight controller PCB
+- `hardware` - KiCad projects for flight controller and esc PCB
 
 Off the shelf parts you'll need:
 - screws and screw related parts for the frame - see the readme in `3dp`
