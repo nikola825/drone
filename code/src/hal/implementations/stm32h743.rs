@@ -1,6 +1,5 @@
 #![cfg(feature = "stm32h743")]
 
-use cortex_m::interrupt::CriticalSection;
 use embassy_executor::InterruptExecutor;
 use embassy_stm32::{
     adc::AdcChannel,
@@ -20,6 +19,7 @@ const STORED_CONFIG_START: u32 = FLASH_SIZE - STORED_CONFIG_STRUCT_SIZE;
 const FLASH_ERASE_SIZE: u32 = embassy_stm32::flash::BANK2_REGION.erase_size;
 const FLASH_ERASE_START: u32 = FLASH_SIZE - FLASH_ERASE_SIZE;
 pub const USB_DEVICE_PRODUCT: &str = "STM32H743 flight controller";
+pub use embassy_stm32::peripherals::TIM1 as SERVO_TIMER;
 
 use embassy_stm32::interrupt;
 
@@ -27,11 +27,15 @@ pub use embassy_stm32::peripherals::PA11 as USB_DM;
 pub use embassy_stm32::peripherals::PA12 as USB_DP;
 pub use embassy_stm32::peripherals::USB_OTG_FS as USB_PERIPHERAL;
 
+#[cfg(feature = "quad")]
+use crate::motors::Motor;
+#[cfg(feature = "wing")]
+use crate::{hal::motor_layout::WingLayout, motors::Motor};
+
 use crate::{
     generic_hardware_type,
     hal::{
         config_storage::{ConfigStore, FlashConfigStore},
-        mcu_utils::ICachePause,
         optional_output::OptionalOutput,
         spi_port::{SpiMaker, SpiPort},
         uart_port::{UartMaker, UartPort},
@@ -169,6 +173,29 @@ pub fn make_hardware() -> generic_hardware_type!() {
         irqs: Irqs,
     };
 
+    let motor_pins = (
+        peripherals.PE12,
+        peripherals.PE13,
+        peripherals.PE14,
+        peripherals.PE15,
+    );
+
+    #[cfg(feature = "wing")]
+    let mut servo_driver_maker = crate::hal::servo::ServoDriverMaker::new(
+        None,
+        None,
+        Some(embassy_stm32::timer::simple_pwm::PwmPin::new(
+            motor_pins.1,
+            embassy_stm32::gpio::OutputType::PushPull,
+        )),
+        Some(embassy_stm32::timer::simple_pwm::PwmPin::new(
+            motor_pins.2,
+            embassy_stm32::gpio::OutputType::PushPull,
+        )),
+        peripherals.TIM1,
+        Hertz(200),
+    );
+
     FcHardware {
         blue_pin: peripherals.PE3.into(),
         green_pin: peripherals.PE2.into(),
@@ -191,10 +218,30 @@ pub fn make_hardware() -> generic_hardware_type!() {
             cs_pin: peripherals.PB7.into(),
         },
 
-        motor0_pin: peripherals.PE12.into(),
-        motor1_pin: peripherals.PE13.into(),
-        motor2_pin: peripherals.PE14.into(),
-        motor3_pin: peripherals.PE15.into(),
+        #[cfg(feature = "wing")]
+        motor_layout: WingLayout {
+            left_winglet_servo: servo_driver_maker.make_channel(
+                embassy_stm32::timer::Channel::Ch4,
+                false,
+                0,
+            ),
+            right_winglet_servo: servo_driver_maker.make_channel(
+                embassy_stm32::timer::Channel::Ch3,
+                true,
+                15,
+            ),
+            thrust_motor: Motor::new(motor_pins.0.into()),
+        },
+
+        #[cfg(feature = "quad")]
+        motor_layout: crate::hal::motor_layout::QuadcopterLayout {
+            motors: [
+                Motor::new(motor_pins.0.into()),
+                Motor::new(motor_pins.1.into()),
+                Motor::new(motor_pins.2.into()),
+                Motor::new(motor_pins.3.into()),
+            ],
+        },
 
         radio_uart: uart4,
 
@@ -226,26 +273,64 @@ pub fn get_spawners() -> Spawners {
     }
 }
 
-#[inline(always)]
-pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
-    use crate::nopdelays::*;
-    unsafe {
-        nop225!();
+#[cfg(feature = "dshot300")]
+pub mod dshot_delays {
+    use cortex_m::interrupt::CriticalSection;
+
+    use crate::hal::mcu_utils::ICachePause;
+
+    #[inline(always)]
+    pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
+        use crate::nopdelays::*;
+        unsafe {
+            nop450!();
+        }
+    }
+
+    #[inline(always)]
+    pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
+        use crate::nopdelays::*;
+        unsafe {
+            nop450!();
+        }
+    }
+
+    #[inline(always)]
+    pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
+        use crate::nopdelays::*;
+        unsafe {
+            nop350!();
+        }
     }
 }
 
-#[inline(always)]
-pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
-    use crate::nopdelays::*;
-    unsafe {
-        nop225!();
-    }
-}
+#[cfg(feature = "dshot600")]
+pub mod dshot_delays {
+    use cortex_m::interrupt::CriticalSection;
 
-#[inline(always)]
-pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
-    use crate::nopdelays::*;
-    unsafe {
-        nop175!();
+    use crate::hal::mcu_utils::ICachePause;
+
+    #[inline(always)]
+    pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
+        use crate::nopdelays::*;
+        unsafe {
+            nop225!();
+        }
+    }
+
+    #[inline(always)]
+    pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
+        use crate::nopdelays::*;
+        unsafe {
+            nop225!();
+        }
+    }
+
+    #[inline(always)]
+    pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
+        use crate::nopdelays::*;
+        unsafe {
+            nop175!();
+        }
     }
 }

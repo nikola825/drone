@@ -166,7 +166,7 @@ pub async fn do_pid_iteration(
     if motor_thrust < 200 {
         context.reset(euler.yaw);
 
-        MotorInputs::idle(motor_thrust)
+        MotorInputs::idle(motor_thrust, inputs.wing_roll(), inputs.wing_pitch())
     } else {
         let yaw_input = context
             .yaw_pid
@@ -202,6 +202,8 @@ pub async fn do_pid_iteration(
             yaw_input,
             pitch_input,
             roll_input,
+            servo_pitch: inputs.wing_pitch(),
+            servo_roll: inputs.wing_roll(),
         }
     }
 }
