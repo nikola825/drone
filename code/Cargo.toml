@@ -61,7 +61,7 @@ default-features = false
 features = ["libm"]
 
 [features]
-default = ["usb-logging", "stm32h743", "wing", "dshot600"]
+default = ["usb-logging", "stm32h743", "five-inch", "dshot600"]
 stm32f411 = ["embassy-stm32/stm32f411ce"]
 stm32h723 = ["embassy-stm32/stm32h723vg"]
 stm32h743 = ["embassy-stm32/stm32h743vi"]

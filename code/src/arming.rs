@@ -8,6 +8,7 @@ const FAILSAFE_DISARM_TIMEOUT: Duration = Duration::from_millis(100);
 const DISARM_REASON_NO_SIGNAL: [u8; 3] = *b"SIG";
 const DISARM_REASON_THROTTLE: [u8; 3] = *b"THR";
 const DISARM_REASON_SWITCH: [u8; 3] = *b"SWI";
+const DISARM_REASON_PREARM: [u8; 3] = *b"PRE";
 const ARMING_MESSAGE_ARMED: [u8; 3] = *b"   ";
 
 #[derive(Clone)]
@@ -15,12 +16,14 @@ pub struct ArmingTracker {
     arming_conditions_satisfied: bool,
     timestamp: Instant,
     disarm_reason: &'static [u8; 3],
+    pre_arming_conditions_satisfied: bool,
 }
 
 impl Default for ArmingTracker {
     fn default() -> Self {
         Self {
             arming_conditions_satisfied: false,
+            pre_arming_conditions_satisfied: false,
             timestamp: Instant::MIN,
             disarm_reason: &DISARM_REASON_NO_SIGNAL,
         }
@@ -33,11 +36,18 @@ impl ArmingTracker {
             self.disarm_reason = &DISARM_REASON_SWITCH;
         } else if commands.throttle() >= ARMING_THROTTHE_THRESHOLD {
             self.disarm_reason = &DISARM_REASON_THROTTLE;
+        } else if !self.pre_arming_conditions_satisfied {
+            self.disarm_reason = &DISARM_REASON_PREARM;
         }
         let stay_armed = self.is_armed() & commands.armed();
-        let arm_at_zero = commands.armed() && commands.throttle() < ARMING_THROTTHE_THRESHOLD;
+        let arm_at_zero = self.pre_arming_conditions_satisfied
+            && commands.armed()
+            && commands.throttle() < ARMING_THROTTHE_THRESHOLD;
         self.arming_conditions_satisfied = stay_armed || arm_at_zero;
-        self.timestamp = commands.timestamp
+        self.timestamp = commands.timestamp;
+        self.pre_arming_conditions_satisfied = commands.is_fresh()
+            && !commands.armed()
+            && commands.throttle() < ARMING_THROTTHE_THRESHOLD;
     }
 
     pub fn is_armed(&self) -> bool {

@@ -6,7 +6,7 @@ use crate::{
     ahrs_wrapper::AhrsWrapper,
     crsf::CRSFChannels,
     icm42688::ICM42688,
-    math_stuff::{angle_add, angle_sub},
+    math_stuff::angle_sub,
     model::{PITCH_KD, PITCH_KI, PITCH_KP, ROLL_KD, ROLL_KI, ROLL_KP, YAW_KD, YAW_KI, YAW_KP},
     motors::MotorInputs,
     stored_config::StoredConfig,
@@ -130,11 +130,7 @@ pub async fn do_pid_iteration(
 
                 inputs.yaw_expo()
             } else {
-                angle_mode_target_angular_velocity(
-                    euler.yaw,
-                    angle_add(context.current_yaw_angle, inputs.yaw_angle()),
-                    10f32,
-                )
+                angle_mode_target_angular_velocity(euler.yaw, context.current_yaw_angle, 10f32)
             };
 
             (

@@ -5,6 +5,7 @@ use nalgebra::UnitComplex;
 pub const RAD_TO_DEG_FACTOR: f32 = 180f32 / f32::consts::PI;
 pub const DEG_TO_RAD_FACTOR: f32 = f32::consts::PI / 180f32;
 
+#[allow(dead_code)]
 pub fn angle_add(a1_deg: f32, a2_deg: f32) -> f32 {
     UnitComplex::new((a1_deg + a2_deg) * DEG_TO_RAD_FACTOR).angle() * RAD_TO_DEG_FACTOR
 }

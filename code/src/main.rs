@@ -112,6 +112,7 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
     let motor_mix: MotorMix;
     #[cfg(feature = "quad")]
     {
+        use crate::mixer::QuadcopterMix;
         // motors::do_motor_mapping(motors, &stored_config).await;
 
         let mut motors = hardware.motor_layout.motors.map(Some);
@@ -131,7 +132,7 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
         // motors::apply_motor_directions(&front_left, &front_right, &rear_left, &rear_right, &stored_config).await;
 
-        motor_mix = QuadCopterMix::new(front_left, front_right, rear_left, rear_right);
+        motor_mix = QuadcopterMix::new(front_left, front_right, rear_left, rear_right);
     }
     #[cfg(feature = "wing")]
     {
