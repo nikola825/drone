@@ -3,8 +3,7 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
 use crate::{
     arming::ArmingTracker,
     battery_monitor::BatteryInformation,
-    crsf::{CRSFChannels, CRSFFrameLinkStatistics},
-    gps::GPSState,
+    crsf::{CRSFChannels, CRSFFrameLinkStatistics}, navigation::NavigationState,
 };
 
 #[derive(Clone, Default)]
@@ -17,7 +16,7 @@ pub struct SharedState {
     channel_state: Mutex<CriticalSectionRawMutex, CommandState>,
     battery_state: Mutex<CriticalSectionRawMutex, BatteryInformation>,
     link_state: Mutex<CriticalSectionRawMutex, CRSFFrameLinkStatistics>,
-    gps_state: Mutex<CriticalSectionRawMutex, GPSState>,
+    navigation_state: Mutex<CriticalSectionRawMutex, NavigationState>,
 }
 
 impl SharedState {
@@ -26,13 +25,17 @@ impl SharedState {
             channel_state: Mutex::new(CommandState::default()),
             battery_state: Mutex::new(BatteryInformation::default()),
             link_state: Mutex::new(CRSFFrameLinkStatistics::default()),
-            gps_state: Mutex::new(GPSState::default()),
+            navigation_state: Mutex::new(NavigationState::default()),
         }
     }
 
     pub async fn command_snapshot(&self) -> CommandState {
         let guard = self.channel_state.lock().await;
         guard.clone()
+    }
+
+    pub async fn is_armed(&self) -> bool {
+        self.channel_state.lock().await.arming_tracker.is_armed()
     }
 
     pub async fn update_channels(&self, channels: CRSFChannels) {
@@ -66,13 +69,13 @@ impl SharedState {
         *guard = link_state;
     }
 
-    pub async fn update_gps_state(&self, gps_state: GPSState) {
-        let mut guard = self.gps_state.lock().await;
-        *guard = gps_state;
+    pub async fn update_navigation_state(&self, navigation_state: NavigationState) {
+        let mut guard = self.navigation_state.lock().await;
+        (*guard) = navigation_state;
     }
 
-    pub async fn get_gps_state(&self) -> GPSState {
-        let guard = self.gps_state.lock().await;
+    pub async fn get_navigation_state(&self) -> NavigationState {
+        let guard = self.navigation_state.lock().await;
         guard.clone()
     }
 }

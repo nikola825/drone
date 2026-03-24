@@ -4,7 +4,7 @@ use num_traits::float::FloatCore;
 use zerocopy::big_endian::{I16, I32, U16};
 
 use crate::crc8::crc8_calculate;
-use crate::gps::UbxNavPVTPacket;
+use crate::navigation::GPSData;
 use crate::hal::UartMaker;
 use crate::logging::{error, info};
 use crate::make_static_buffer;
@@ -135,23 +135,21 @@ struct GPSInfo {
 }
 
 impl GPSInfo {
-    pub fn new(gps_packet: &UbxNavPVTPacket) -> CRSFPacket<Self> {
-        if gps_packet.gps_data_displayable() {
-            let latitude: i32 = gps_packet.position.latitude.as_1e7();
-            let longitude: i32 = gps_packet.position.longitude.as_1e7();
+    pub fn new(gps_data: &GPSData) -> CRSFPacket<Self> {
+        if let Some(pvt_data) = &gps_data.pvt_data {
+            let latitude: i32 = pvt_data.position.latitude.as_1e7();
+            let longitude: i32 = pvt_data.position.longitude.as_1e7();
 
-            let ground_speed_km_h_10: i16 = gps_packet.ground_speed.as_kmh_multiple(10);
+            let ground_speed_km_h_10: i16 = pvt_data.ground_speed.as_kmh_multiple(10);
 
-            let altitude_m_add_1000: u16 =
-                (gps_packet.height_mean_sea_level.as_meters() + 1000) as u16;
+            let altitude_m_add_1000: u16 = (pvt_data.altitude_msl.as_meters() + 1000) as u16;
 
-            let heading_of_motion_deg_x_100: i16 =
-                gps_packet.motion_heading.as_degrees_multiple(100);
+            let heading_of_motion_deg_x_100: i16 = pvt_data.heading.as_degrees_multiple(100);
 
             CRSFPacket::new(
                 CRSFFrameType::CRSF_FRAMETYPE_GPS,
                 GPSInfo {
-                    sat_count: gps_packet.satelites_visible,
+                    sat_count: gps_data.satelites_visible,
                     latitude: latitude.into(),
                     longitude: longitude.into(),
                     ground_speed: ground_speed_km_h_10.into(),
@@ -163,7 +161,7 @@ impl GPSInfo {
             CRSFPacket::new(
                 CRSFFrameType::CRSF_FRAMETYPE_GPS,
                 GPSInfo {
-                    sat_count: gps_packet.satelites_visible,
+                    sat_count: gps_data.satelites_visible,
                     ..Default::default()
                 },
             )
@@ -357,10 +355,10 @@ async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, shared_state: &'sta
 
         let _ = tx.write_all(packet.as_bytes()).await;
 
-        let gps_state = shared_state.get_gps_state().await;
+        let navigation_state = shared_state.get_navigation_state().await;
 
-        if let Some(gps_packet) = gps_state.gps_packet {
-            let gps_info_packet = GPSInfo::new(&gps_packet);
+        if let Some(gps_data) = navigation_state.try_read_gps_data() {
+            let gps_info_packet = GPSInfo::new(gps_data);
             let _ = tx.write_all(gps_info_packet.as_bytes()).await;
         }
 

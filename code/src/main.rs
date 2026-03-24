@@ -1,7 +1,11 @@
 #![no_std]
 #![no_main]
 
-use crate::{hal::make_hardware, mixer::MotorMix};
+use crate::{
+    flight_control::{control_flight, FlightControlContext},
+    hal::make_hardware,
+    mixer::MotorMix,
+};
 use battery_monitor::init_battery_monitor;
 use cortex_m_rt::entry;
 use crsf::init_crsf_communication;
@@ -27,6 +31,7 @@ mod crc8;
 mod crsf;
 mod dshot;
 mod expo_rates;
+mod flight_control;
 mod gps;
 mod hal;
 mod icm42688;
@@ -37,7 +42,7 @@ mod model;
 mod motors;
 mod msp;
 mod msp_displayport;
-mod navigation_utils;
+mod navigation;
 mod nopdelays;
 mod osd;
 mod pid;
@@ -48,6 +53,7 @@ mod stored_config;
 struct DroneContext {
     motor_context: MotorsContext,
     pid_context: PidContext,
+    flight_control_context: FlightControlContext,
 }
 
 #[entry]
@@ -77,16 +83,21 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     green.set_high();
 
-    let mut imu = ICM42688::new(hardware.imu_spi);
-    imu.init().await;
-    Timer::after_millis(10).await;
-
-    yellow.set_high();
-
     // stored_config::reconfigure_and_store(&mut hardware.config_store).await;
     // stored_config::dump_config(&mut hardware.config_store).await;
 
     let stored_config = read_stored_config(&mut hardware.config_store).await;
+
+    yellow.set_high();
+
+    let mut imu = ICM42688::new(
+        hardware.imu_spi,
+        stored_config.yaw_offset.into(),
+        stored_config.pitch_offset.into(),
+        stored_config.roll_offset.into(),
+    );
+    imu.init().await;
+    Timer::after_millis(10).await;
 
     // icm42688::calibrate_gyro_offsets(imu, &stored_config, true).await;
 
@@ -147,10 +158,11 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
 
     let context = DroneContext {
         motor_context: MotorsContext::new(motor_mix),
-        pid_context: PidContext::new(&stored_config),
+        pid_context: PidContext::new(),
+        flight_control_context: FlightControlContext::new(imu),
     };
 
-    spawner_high.must_spawn(tick_task(blue, green, yellow, imu, context, STORE.get()));
+    spawner_high.must_spawn(tick_task(blue, green, yellow, context, STORE.get()));
 }
 
 #[embassy_executor::task]
@@ -158,7 +170,6 @@ async fn tick_task(
     mut blue_led: Output<'static>,
     mut green_led: Output<'static>,
     mut yellow_led: Output<'static>,
-    mut imu: ICM42688,
     mut context: DroneContext,
     store: &'static SharedState,
 ) {
@@ -180,7 +191,6 @@ async fn tick_task(
     loop {
         let t1 = Instant::now();
         let command_state = store.command_snapshot().await;
-
         let armed = command_state.arming_tracker.is_armed();
 
         green_led.set_level(match armed {
@@ -200,8 +210,16 @@ async fn tick_task(
 
         let t2 = Instant::now();
         print_counter += 1;
-        let motor_inputs =
-            do_pid_iteration(&mut imu, &mut context.pid_context, &command_state.commands).await;
+
+        let pid_inputs =
+            control_flight(&mut context.flight_control_context, &command_state.commands);
+
+        let motor_inputs = do_pid_iteration(
+            &mut context.pid_context,
+            &command_state.commands,
+            pid_inputs,
+        )
+        .await;
 
         if armed {
             drive_motors(&mut context.motor_context, &motor_inputs);
@@ -230,7 +248,10 @@ async fn tick_task(
             print_counter = 0;
             info!(
                 "TICK {} {} {} {}",
-                total_duration, inner_duration, min_measured_period, max_measured_period,
+                total_duration,
+                inner_duration,
+                min_measured_period,
+                max_measured_period,
             );
             max_measured_period = 0;
             min_measured_period = 10000;

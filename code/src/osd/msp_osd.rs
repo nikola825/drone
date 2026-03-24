@@ -2,19 +2,18 @@
 #![forbid(clippy::indexing_slicing)]
 
 use crate::{
+    navigation::{math::HeadingOffset, NavigationState},
     hal::OptionalOutput,
     msp::{transmit_fc_variant, transmit_status, transmit_sticks},
     msp_displayport::{
         clear_display, draw_display, set_resolution, write_string_to_screen, HDZeroResolution,
     },
-    navigation_utils::HeadingOffset,
     osd::char_map_hdzero_inav::OSDSymbol,
 };
 use embassy_executor::SendSpawner;
 use num_traits::float::FloatCore;
 
 use crate::{
-    gps::{GPSState, SpherePosition},
     hal::UartMaker,
     logging::info,
     shared_state::{CommandState, SharedState},
@@ -171,8 +170,7 @@ async fn draw_status_osd(
     tx: &mut UartTx<'static, Async>,
     shared_state: &SharedState,
     command_state: &CommandState,
-    gps_state: &GPSState,
-    home_position: &Option<SpherePosition>,
+    navigation_state: NavigationState,
 ) -> Result<(), embassy_stm32::usart::Error> {
     const LEFT_COLUMN: u8 = 0;
     const RIGHT_COLUMN: u8 = 44;
@@ -214,46 +212,44 @@ async fn draw_status_osd(
     add_string_to_column(tx, &mut right_column, link_quality_string).await?;
     add_string_to_column(tx, &mut right_column, rssi_string).await?;
 
-    if let Some(packet) = &gps_state.gps_packet {
+    if let Some(gps_data) = navigation_state.try_read_gps_data() {
         let sat_string = uint8_to_byte_string(
-            packet.satelites_visible,
+            gps_data.satelites_visible,
             OSDSymbol::SateliteLeft,
             OSDSymbol::Blank,
         );
 
         add_string_to_column(tx, &mut right_column, sat_string).await?;
 
-        if packet.gps_data_displayable() {
+        if let Some((pvt_data, home)) = navigation_state.try_read_navigation_data() {
             let speed_string = uint16_to_byte_string(
-                packet.ground_speed.as_kmh_multiple(1) as u16,
+                pvt_data.ground_speed.as_kmh_multiple(1) as u16,
                 OSDSymbol::SpeedKmh,
             );
             let altitude_string = uint16_to_byte_string(
-                packet.height_mean_sea_level.as_meters() as u16,
+                pvt_data.altitude_msl.as_meters() as u16,
                 OSDSymbol::AltitudeMeters,
             );
 
             let heading_string =
-                uint16_to_byte_string(packet.motion_heading.as_degrees_0_360(), OSDSymbol::Heading);
+                uint16_to_byte_string(pvt_data.heading.as_degrees_0_360(), OSDSymbol::Heading);
 
             add_string_to_column(tx, &mut left_column, speed_string).await?;
             add_string_to_column(tx, &mut left_column, altitude_string).await?;
             add_string_to_column(tx, &mut right_column, heading_string).await?;
 
-            if let Some(home) = home_position {
-                let home_heading = packet.position.heading_to(home);
-                let home_distance_meters =
-                    packet.position.distance_to_in_meters(home).clamp(0, 9999) as u16;
+            let home_distance_meters = pvt_data
+                .position
+                .distance_to_in_meters(&home.position)
+                .clamp(0, 9999) as u16;
 
-                let home_heading_offset = packet.motion_heading.offset_to(&home_heading);
-                let home_heading_offset_string =
-                    heading_offset_to_string(home_heading_offset, OSDSymbol::Home);
-                add_string_to_column(tx, &mut right_column, home_heading_offset_string).await?;
+            let home_heading_offset_string =
+                heading_offset_to_string(home.heading_offset_to, OSDSymbol::Home);
+            add_string_to_column(tx, &mut right_column, home_heading_offset_string).await?;
 
-                let home_distance_string =
-                    uint16_to_byte_string(home_distance_meters, OSDSymbol::DistanceMeters);
-                add_string_to_column(tx, &mut right_column, home_distance_string).await?;
-            }
+            let home_distance_string =
+                uint16_to_byte_string(home_distance_meters, OSDSymbol::DistanceMeters);
+            add_string_to_column(tx, &mut right_column, home_distance_string).await?;
         }
     }
 
@@ -291,20 +287,13 @@ async fn osd_refresh_task(
     shared_state: &'static SharedState,
 ) {
     info!("OSD task start");
-    let mut home: Option<SpherePosition> = None;
 
     loop {
         Timer::after_millis(200).await;
 
         let command_state = shared_state.command_snapshot().await;
         let armed = command_state.arming_tracker.is_armed();
-        let gps_state = shared_state.get_gps_state().await;
-
-        if let Some(packet) = &gps_state.gps_packet {
-            if packet.gps_data_displayable() && (!armed || home.is_none()) {
-                home = Some(packet.position.clone());
-            }
-        }
+        let navigation_state = shared_state.get_navigation_state().await;
 
         if armed {
             vtx_power_toggle.set_high();
@@ -318,7 +307,7 @@ async fn osd_refresh_task(
         let _ = transmit_fc_variant(&mut tx).await;
         let _ = transmit_sticks(&mut tx, &command_state).await;
         let _ = transmit_status(&mut tx, armed).await;
-        let _ = draw_status_osd(&mut tx, shared_state, &command_state, &gps_state, &home).await;
+        let _ = draw_status_osd(&mut tx, shared_state, &command_state, navigation_state).await;
     }
 }
 

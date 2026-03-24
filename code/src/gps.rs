@@ -1,7 +1,5 @@
 use crate::{
-    logging::error,
-    make_static_buffer,
-    math_stuff::{DEG_TO_RAD_FACTOR, RAD_TO_DEG_FACTOR},
+    navigation::update_navigation, logging::error, make_static_buffer, math_stuff::{DEG_TO_RAD_FACTOR, RAD_TO_DEG_FACTOR}
 };
 use embassy_executor::SendSpawner;
 use embassy_stm32::{
@@ -140,7 +138,7 @@ pub struct AdditionalFlags {
     part1: U16,
 }
 
-#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone)]
+#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone, Copy)]
 #[repr(C)]
 pub struct AngularCoordinate {
     inner_deg_1e7: I32,
@@ -160,14 +158,14 @@ impl AngularCoordinate {
     }
 }
 
-#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone)]
+#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone, Copy)]
 #[repr(C)]
 pub struct SpherePosition {
     pub longitude: AngularCoordinate,
     pub latitude: AngularCoordinate,
 }
 
-#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone)]
+#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone, Copy)]
 #[repr(C)]
 pub struct Speed {
     inner_mm_s: I32,
@@ -179,7 +177,7 @@ impl Speed {
     }
 }
 
-#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone)]
+#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone, Copy)]
 #[repr(C)]
 pub struct Altitude {
     inner_mm: I32,
@@ -191,7 +189,7 @@ impl Altitude {
     }
 }
 
-#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone)]
+#[derive(IntoBytes, Default, Immutable, FromBytes, KnownLayout, Unaligned, Clone, Copy)]
 #[repr(C)]
 pub struct Heading {
     inner_deg_1e5: I32,
@@ -211,11 +209,6 @@ impl Heading {
     pub fn as_degrees_0_360(&self) -> u16 {
         self.as_degrees_multiple(1).rem_euclid(360) as u16
     }
-}
-
-#[derive(Default, Clone)]
-pub struct GPSState {
-    pub gps_packet: Option<UbxNavPVTPacket>,
 }
 
 pub fn init_gps_receiver(uart: impl UartMaker, spawner: &SendSpawner, store: &'static SharedState) {
@@ -327,11 +320,7 @@ async fn receive_nav_pvt_packet(buffer: &[u8], store: &SharedState) -> Result<()
     let nav_packet = UbxNavPVTPacket::try_ref_from_bytes(buffer)
         .map_err(|_| GPSReceiveError::DeserializationError)?;
 
-    store
-        .update_gps_state(GPSState {
-            gps_packet: Some(nav_packet.clone()),
-        })
-        .await;
+    update_navigation(nav_packet.clone(), store).await;
 
     Ok(())
 }

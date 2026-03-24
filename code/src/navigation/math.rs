@@ -1,6 +1,5 @@
-use num_traits::Float;
-
 use crate::gps::{Heading, SpherePosition};
+use num_traits::Float;
 
 const EARTH_RADIUS_IN_METERS: f32 = 6371e3;
 
@@ -42,6 +41,7 @@ impl SpherePosition {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum HeadingOffset {
     CounterClockwise(u16),
     Clockwise(u16),
@@ -60,5 +60,20 @@ impl Heading {
         } else {
             HeadingOffset::Clockwise(delta_cw)
         }
+    }
+}
+
+impl HeadingOffset {
+    pub fn as_degrees(&self) -> f32 {
+        match self {
+            HeadingOffset::Clockwise(val) => *val as f32,
+            HeadingOffset::CounterClockwise(val) => (*val as f32) * -1.0,
+        }
+    }
+}
+
+impl Default for HeadingOffset {
+    fn default() -> Self {
+        Self::Clockwise(0)
     }
 }

@@ -62,6 +62,9 @@ pub struct ICM42688 {
     gyro_output_rate: GYRO_ODR,
     accel_output_rate: ACCEL_ODR,
     accel_fs_range: ACCEL_FS_SEL,
+    yaw_offset: f32,
+    pitch_offset: f32,
+    roll_offset: f32,
 }
 
 #[allow(dead_code)]
@@ -180,7 +183,12 @@ impl MotionData {
 }
 
 impl ICM42688 {
-    pub fn new(spi_maker: impl SpiMaker) -> ICM42688 {
+    pub fn new(
+        spi_maker: impl SpiMaker,
+        yaw_offset: f32,
+        pitch_offset: f32,
+        roll_offset: f32,
+    ) -> ICM42688 {
         let (cs_pin, spi) = spi_maker.make_spi(Hertz(20_000_000), MODE_3, BitOrder::MsbFirst);
 
         ICM42688 {
@@ -190,6 +198,9 @@ impl ICM42688 {
             gyro_fs_range: GYRO_FS_SEL::DPS_2000,
             accel_fs_range: ACCEL_FS_SEL::G_16,
             accel_output_rate: ACCEL_ODR::ODR_1KHz,
+            yaw_offset,
+            pitch_offset,
+            roll_offset,
         }
     }
 
@@ -262,14 +273,15 @@ impl ICM42688 {
         let gyro_ypr = packet.gyro.get_rotation_degrees(self.gyro_fs_range);
         let (accel_z, accel_x, accel_y) = packet.accel.get_accel_g_zxy(self.accel_fs_range);
 
-        MotionData {
+        (MotionData {
             accel_x,
             accel_y,
             accel_z,
             gyro_yaw: gyro_ypr.z,
             gyro_pitch: gyro_ypr.x,
             gyro_roll: gyro_ypr.y,
-        }
+        })
+        .apply_gyro_offsets(self.yaw_offset, self.pitch_offset, self.roll_offset)
     }
 }
 
@@ -277,7 +289,7 @@ impl ICM42688 {
 pub async fn calibrate_gyro_offsets(
     mut imu: ICM42688,
     config: &StoredConfig,
-    apply_existing_offsets: bool,
+    undo_offsets: bool,
 ) -> ! {
     const SMOOTHING_FACTOR: f32 = 0.001;
 
@@ -288,11 +300,11 @@ pub async fn calibrate_gyro_offsets(
     loop {
         for _ in 0..1000 {
             let mut data = imu.get_motion_data();
-            if apply_existing_offsets {
+            if undo_offsets {
                 data = data.apply_gyro_offsets(
-                    config.yaw_offset.into(),
-                    config.pitch_offset.into(),
-                    config.roll_offset.into(),
+                    -f32::from(config.yaw_offset),
+                    -f32::from(config.pitch_offset),
+                    -f32::from(config.roll_offset),
                 );
             }
             yaw_accumulated =

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use core::f32;
 
 use ahrs::{Ahrs, Madgwick};
@@ -15,13 +16,11 @@ pub struct AhrsWrapper {
 pub struct AhrsAngles {
     pub pitch: f32,
     pub roll: f32,
-    pub yaw: f32,
 }
 
 impl AhrsWrapper {
     pub fn new() -> Self {
         let madgwick = Madgwick::new(1f32 / 1000f32, 0.03);
-
         Self { inner: madgwick }
     }
 
@@ -49,7 +48,7 @@ impl AhrsWrapper {
         AhrsAngles {
             pitch: euler.0 * RAD_TO_DEG_FACTOR * IMU_ORIENTATION_MULTIPLIER.x,
             roll: euler.1 * RAD_TO_DEG_FACTOR * IMU_ORIENTATION_MULTIPLIER.y,
-            yaw: euler.2 * RAD_TO_DEG_FACTOR * IMU_ORIENTATION_MULTIPLIER.z,
+            // yaw: euler.2 * RAD_TO_DEG_FACTOR * IMU_ORIENTATION_MULTIPLIER.z,
         }
     }
 }
