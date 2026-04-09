@@ -211,10 +211,14 @@ async fn tick_task(
         let t2 = Instant::now();
         print_counter += 1;
 
-        let pid_inputs =
-            control_flight(&mut context.flight_control_context, &command_state.commands);
+        let pid_inputs = control_flight(
+            armed,
+            &mut context.flight_control_context,
+            &command_state.commands,
+        );
 
         let motor_inputs = do_pid_iteration(
+            armed,
             &mut context.pid_context,
             &command_state.commands,
             pid_inputs,
@@ -248,10 +252,7 @@ async fn tick_task(
             print_counter = 0;
             info!(
                 "TICK {} {} {} {}",
-                total_duration,
-                inner_duration,
-                min_measured_period,
-                max_measured_period,
+                total_duration, inner_duration, min_measured_period, max_measured_period,
             );
             max_measured_period = 0;
             min_measured_period = 10000;

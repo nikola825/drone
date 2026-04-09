@@ -1,5 +1,11 @@
 #![allow(dead_code, unused_variables)]
-use crate::{ahrs_wrapper::AhrsWrapper, crsf::CRSFChannels, gps::{Heading, SpherePosition}, math_stuff::angle_sub};
+use crate::{
+    ahrs_wrapper::{AhrsAngles, AhrsWrapper},
+    crsf::CRSFChannels,
+    flight_control::TargetAngularVelocities,
+    gps::{Heading, SpherePosition},
+    math_stuff::angle_sub,
+};
 
 fn angle_mode_target_angular_velocity(angle: f32, target_angle: f32, velocity_scale: f32) -> f32 {
     let angle_error = angle_sub(target_angle, angle);
@@ -33,26 +39,26 @@ fn nav_target_yaw(
     }
 }
 
-fn x(inputs: &CRSFChannels, ahrs: &AhrsWrapper) {
+pub fn get_target_velocities(inputs: &CRSFChannels, ahrs: &AhrsWrapper) -> TargetAngularVelocities {
     let euler = ahrs.read_ypr();
-    let (yaw_target_angular_velocity, pitch_target_angular_velocity, roll_target_angular_velocity) = match inputs.mode() {
-        crate::flight_control::FlightMode::Acro => {
-            (inputs.yaw_expo(), inputs.pitch_expo(), inputs.roll_expo())
-        }
-        crate::flight_control::FlightMode::Angle => {
-            (
-                inputs.yaw_expo(),
-                angle_mode_target_angular_velocity(
-                    euler.pitch,
-                    45f32,
-                    10f32
-                ),
-                angle_mode_target_angular_velocity(
-                    euler.roll,
-                    inputs.roll_angle(),
-                    10f32
-                ),
-            )
-        }
-    };
+
+    let (pitch, roll) =
+        calculate_angle_mode_pr_velocities(inputs.pitch_angle(), inputs.roll_angle(), euler);
+
+    TargetAngularVelocities {
+        yaw: inputs.yaw_expo(),
+        pitch,
+        roll,
+    }
+}
+
+pub fn calculate_angle_mode_pr_velocities(
+    target_pitch: f32,
+    target_roll: f32,
+    euler: AhrsAngles,
+) -> (f32, f32) {
+    (
+        angle_mode_target_angular_velocity(euler.pitch, target_pitch, 10f32),
+        angle_mode_target_angular_velocity(euler.roll, target_roll, 10f32),
+    )
 }

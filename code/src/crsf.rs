@@ -4,10 +4,10 @@ use num_traits::float::FloatCore;
 use zerocopy::big_endian::{I16, I32, U16};
 
 use crate::crc8::crc8_calculate;
-use crate::navigation::GPSData;
 use crate::hal::UartMaker;
 use crate::logging::{error, info};
 use crate::make_static_buffer;
+use crate::navigation::GPSData;
 use embassy_stm32::mode::Async;
 use embassy_stm32::usart::Parity;
 use embassy_stm32::usart::{RingBufferedUartRx, StopBits, UartRx, UartTx};

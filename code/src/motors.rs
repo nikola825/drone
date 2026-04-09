@@ -100,6 +100,17 @@ impl MotorInputs {
             servo_pitch,
         }
     }
+
+    pub fn disarmed() -> Self {
+        MotorInputs {
+            motor_thrust: 0,
+            yaw_input: 0,
+            roll_input: 0,
+            pitch_input: 0,
+            servo_roll: 0,
+            servo_pitch: 0,
+        }
+    }
 }
 
 impl Display for MotorInputs {

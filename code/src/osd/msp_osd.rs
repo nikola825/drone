@@ -2,12 +2,12 @@
 #![forbid(clippy::indexing_slicing)]
 
 use crate::{
-    navigation::{math::HeadingOffset, NavigationState},
     hal::OptionalOutput,
     msp::{transmit_fc_variant, transmit_status, transmit_sticks},
     msp_displayport::{
         clear_display, draw_display, set_resolution, write_string_to_screen, HDZeroResolution,
     },
+    navigation::{math::HeadingOffset, NavigationState},
     osd::char_map_hdzero_inav::OSDSymbol,
 };
 use embassy_executor::SendSpawner;

@@ -1,6 +1,7 @@
 use crate::{
-    crsf::{CRSF_COMMAND_MAX, CRSF_COMMAND_MIN, CRSF_COMMAND_RANGE, CRSFChannels},
-    expo_rates::map_crsf_to_expo, flight_control::{FlightMode, map_flight_mode_from_crsf},
+    crsf::{CRSFChannels, CRSF_COMMAND_MAX, CRSF_COMMAND_MIN, CRSF_COMMAND_RANGE},
+    expo_rates::map_crsf_to_expo,
+    flight_control::FlightMode,
 };
 
 const fn crsf_linear_transform(
@@ -108,7 +109,7 @@ macro_rules! define_channel {
         }
     };
 
-    ($type: ident, $name: ident, $index: expr, $transformer: ident) => {
+    ($type: ident, $name: ident, $index: expr, $transformer: expr) => {
         pub const fn $name(&self) -> $type {
             $transformer(self.unpacked_channels[$index])
         }
@@ -129,7 +130,7 @@ const fn map_crsf_to_servo(value: u16) -> u16 {
 }
 
 impl CRSFChannels {
-    define_channel!(bool, armed, 4);
+    define_channel!(bool, arming_switch, 4);
 
     define_channel!(u16, throttle, 2, 0, 6000, 0, 10);
     define_channel!(u8, throttle_percent, 2, 0, 100);
@@ -144,7 +145,7 @@ impl CRSFChannels {
     define_channel!(u16, throttle_servo, 2, map_crsf_to_servo);
 
     define_channel!(f32, roll_angle, 0, -30, 30, 0, -1);
-    // define_channel!(f32, pitch_angle, 1, -30, 30, 0, -1);
+    define_channel!(f32, pitch_angle, 1, -30, 30, 0, -1);
 
     define_channel!(i16, wing_pitch, 1, -45, 45, 0, -1);
     define_channel!(i16, wing_roll, 0, -45, 45, 0, -1);
@@ -152,5 +153,6 @@ impl CRSFChannels {
     define_channel!(f32, master_pi, 5, 1, 4);
     define_channel!(f32, master_d, 6, 0, 2);
     define_channel!(bool, beep, 7);
-    define_channel!(FlightMode, mode, 8, map_flight_mode_from_crsf);
+    define_channel!(FlightMode, mode, 8, FlightMode::from_crsf);
+    define_channel!(bool, return_to_home, 9);
 }

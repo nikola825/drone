@@ -32,21 +32,26 @@ impl Default for ArmingTracker {
 
 impl ArmingTracker {
     pub fn update(&mut self, commands: &CRSFChannels) {
-        if !commands.armed() {
+        if !commands.arming_switch() {
             self.disarm_reason = &DISARM_REASON_SWITCH;
         } else if commands.throttle() >= ARMING_THROTTHE_THRESHOLD {
             self.disarm_reason = &DISARM_REASON_THROTTLE;
         } else if !self.pre_arming_conditions_satisfied {
             self.disarm_reason = &DISARM_REASON_PREARM;
         }
-        let stay_armed = self.is_armed() & commands.armed();
+
+        let stay_armed = self.is_armed() & commands.arming_switch();
+
         let arm_at_zero = self.pre_arming_conditions_satisfied
-            && commands.armed()
+            && commands.arming_switch()
             && commands.throttle() < ARMING_THROTTHE_THRESHOLD;
+
         self.arming_conditions_satisfied = stay_armed || arm_at_zero;
+
         self.timestamp = commands.timestamp;
+
         self.pre_arming_conditions_satisfied = commands.is_fresh()
-            && !commands.armed()
+            && !commands.arming_switch()
             && commands.throttle() < ARMING_THROTTHE_THRESHOLD;
     }
 

@@ -3,7 +3,8 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
 use crate::{
     arming::ArmingTracker,
     battery_monitor::BatteryInformation,
-    crsf::{CRSFChannels, CRSFFrameLinkStatistics}, navigation::NavigationState,
+    crsf::{CRSFChannels, CRSFFrameLinkStatistics},
+    navigation::NavigationState,
 };
 
 #[derive(Clone, Default)]

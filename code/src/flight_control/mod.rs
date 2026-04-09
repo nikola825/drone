@@ -1,4 +1,5 @@
 mod angle_mode;
+mod waypoint_nav;
 
 use crate::{
     ahrs_wrapper::AhrsWrapper,
@@ -24,10 +25,6 @@ impl FlightMode {
             _ => FlightMode::Acro,
         }
     }
-
-    pub fn needs_ahrs(&self) -> bool {
-        matches!(*self, FlightMode::Angle)
-    }
 }
 
 pub struct FlightControlContext {
@@ -40,10 +37,14 @@ impl FlightControlContext {
         Self { imu, ahrs: None }
     }
 
-    pub fn update_motion(&mut self) -> MotionData {
+    pub fn update_motion(&mut self, armed: bool) -> MotionData {
         let motion_data = self.imu.get_motion_data();
-        let ahrs = self.ahrs.get_or_insert_with(|| AhrsWrapper::new());
-        ahrs.update(&motion_data);
+
+        if armed {
+            let ahrs = self.ahrs.get_or_insert_with(AhrsWrapper::new);
+            ahrs.update(&motion_data);
+        }
+
         motion_data
     }
 
@@ -52,32 +53,72 @@ impl FlightControlContext {
     }
 }
 
+pub struct TargetAngularVelocities {
+    pub yaw: f32,
+    pub pitch: f32,
+    pub roll: f32,
+}
 pub struct PidInputs {
-    pub target_yaw: f32,
-    pub target_pitch: f32,
-    pub target_roll: f32,
+    pub target_angular_velocities: TargetAngularVelocities,
     pub motion_data: MotionData,
 }
 
-impl PidInputs {
+impl TargetAngularVelocities {
     pub fn zero() -> Self {
-        PidInputs { target_yaw: 0, target_pitch: 0, target_roll: (), motion_data: () }
+        Self {
+            yaw: 0f32,
+            pitch: 0f32,
+            roll: 0f32,
+        }
     }
 }
 
-pub fn control_flight(context: &mut FlightControlContext, inputs: &CRSFChannels) -> PidInputs {
-    let motion_data = context.imu.get_motion_data();
-
-    if inputs.armed() {
-        let ahrs = context.ahrs.get_or_insert_with(|| AhrsWrapper::new());
-
-        ahrs.update(&motion_data);
-    } else {
+impl PidInputs {
+    pub fn disarmed(motion_data: MotionData) -> Self {
+        PidInputs {
+            target_angular_velocities: TargetAngularVelocities::zero(),
+            motion_data,
+        }
     }
-    PidInputs {
-        target_yaw: inputs.yaw_expo(),
-        target_pitch: inputs.pitch_expo(),
-        target_roll: inputs.roll_expo(),
-        motion_data: context.imu.get_motion_data(),
+}
+
+fn get_target_angular_velocities(
+    context: &mut FlightControlContext,
+    inputs: &CRSFChannels,
+) -> TargetAngularVelocities {
+    match inputs.mode() {
+        FlightMode::Acro => TargetAngularVelocities {
+            yaw: inputs.yaw_expo(),
+            pitch: inputs.pitch_expo(),
+            roll: inputs.roll_expo(),
+        },
+        FlightMode::Angle => {
+            if inputs.return_to_home() {
+                waypoint_nav::get_target_angular_velocities()
+            } else {
+                angle_mode::get_target_velocities(inputs, context.ahrs.as_ref().unwrap())
+            }
+        }
+    }
+}
+
+pub fn control_flight(
+    armed: bool,
+    context: &mut FlightControlContext,
+    inputs: &CRSFChannels,
+) -> PidInputs {
+    let motion_data = context.update_motion(armed);
+
+    if armed {
+        let target_angular_velocities = get_target_angular_velocities(context, inputs);
+
+        PidInputs {
+            target_angular_velocities,
+            motion_data,
+        }
+    } else {
+        context.reset();
+
+        PidInputs::disarmed(motion_data)
     }
 }

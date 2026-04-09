@@ -1,7 +1,9 @@
 pub mod math;
 
 use crate::{
-    gps::{Altitude, Heading, Speed, SpherePosition, UbxNavPVTPacket}, navigation::math::HeadingOffset, shared_state::SharedState
+    gps::{Altitude, Heading, Speed, SpherePosition, UbxNavPVTPacket},
+    navigation::math::HeadingOffset,
+    shared_state::SharedState,
 };
 
 #[derive(Default, Clone)]
