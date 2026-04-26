@@ -113,9 +113,9 @@ async fn async_main(spawner_low: SendSpawner, spawner_high: SendSpawner) {
     #[cfg(feature = "quad")]
     {
         use crate::mixer::QuadcopterMix;
-        // motors::do_motor_mapping(motors, &stored_config).await;
 
         let mut motors = hardware.motor_layout.motors.map(Some);
+        // motors::do_motor_mapping(motors, &stored_config).await;
 
         let front_left = motors[stored_config.front_left_motor as usize]
             .take()

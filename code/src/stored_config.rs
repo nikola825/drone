@@ -111,10 +111,10 @@ pub async fn reconfigure_and_store(storage: &mut impl ConfigStore) {
     // let mut config = StoredConfig::default();
     let mut config = read_stored_config(storage).await;
 
-    config.front_left_motor = 1;
-    config.front_right_motor = 2;
-    config.rear_left_motor = 0;
-    config.rear_right_motor = 3;
+    config.front_left_motor = 0;
+    config.front_right_motor = 1;
+    config.rear_left_motor = 3;
+    config.rear_right_motor = 2;
     config.front_left_direction = MotorDirection::Forward;
     config.front_right_direction = MotorDirection::Backward;
     config.rear_left_direction = MotorDirection::Backward;
@@ -154,8 +154,10 @@ pub async fn store_config(storage: &mut impl ConfigStore, mut config: StoredConf
     });
 
     if let Err(err) = store_result {
-        error!("Failed store configuration {:?}", err);
-        Timer::after_millis(100).await;
+        loop {
+            error!("Failed to store configuration {:?}", err);
+            Timer::after_millis(100).await;
+        }
     }
 }
 
