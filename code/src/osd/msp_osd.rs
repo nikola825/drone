@@ -3,10 +3,10 @@
 
 use crate::{
     hal::OptionalOutput,
-    msp::{transmit_fc_variant, transmit_status, transmit_sticks},
-    msp_displayport::{
+    msp::msp_displayport::{
         clear_display, draw_display, set_resolution, write_string_to_screen, HDZeroResolution,
     },
+    msp::protocol::{transmit_fc_variant_inav, transmit_status, transmit_sticks},
     navigation_utils::HeadingOffset,
     osd::char_map_hdzero_inav::OSDSymbol,
 };
@@ -315,7 +315,7 @@ async fn osd_refresh_task(
         }
 
         let _ = set_resolution(&mut tx, HDZeroResolution::HD_5018).await;
-        let _ = transmit_fc_variant(&mut tx).await;
+        let _ = transmit_fc_variant_inav(&mut tx).await; // Pretend to be INAV - I like the character map
         let _ = transmit_sticks(&mut tx, &command_state).await;
         let _ = transmit_status(&mut tx, armed).await;
         let _ = draw_status_osd(&mut tx, shared_state, &command_state, &gps_state, &home).await;

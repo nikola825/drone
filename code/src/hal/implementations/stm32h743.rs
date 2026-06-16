@@ -27,20 +27,15 @@ pub use embassy_stm32::peripherals::PA11 as USB_DM;
 pub use embassy_stm32::peripherals::PA12 as USB_DP;
 pub use embassy_stm32::peripherals::USB_OTG_FS as USB_PERIPHERAL;
 
-#[cfg(feature = "quad")]
-use crate::motors::Motor;
 #[cfg(feature = "wing")]
 use crate::{hal::motor_layout::WingLayout, motors::Motor};
 
 use crate::{
     generic_hardware_type,
     hal::{
-        config_storage::{ConfigStore, FlashConfigStore},
-        optional_output::OptionalOutput,
-        spi_port::{SpiMaker, SpiPort},
-        uart_port::{UartMaker, UartPort},
-        voltage_reader::VoltageReader,
-        FcHardware, Spawners,
+        config_storage::FlashConfigStore, leds::LedPins, optional_output::OptionalOutput,
+        spi_port::SpiPort, uart_port::UartPort, usb_port::UsbPeripheral,
+        voltage_reader::VoltageReader, FcHardware, Spawners,
     },
     stored_config::STORED_CONFIG_STRUCT_SIZE,
 };
@@ -197,13 +192,17 @@ pub fn make_hardware() -> generic_hardware_type!() {
     );
 
     FcHardware {
-        blue_pin: peripherals.PE3.into(),
-        green_pin: peripherals.PE2.into(),
-        yellow_pin: peripherals.PE4.into(),
+        led_pins: LedPins {
+            blue: peripherals.PE3.into(),
+            green: peripherals.PE2.into(),
+            yellow: peripherals.PE4.into(),
+        },
 
-        usb_peripheral: peripherals.USB_OTG_FS,
-        usb_dp: peripherals.PA12,
-        usb_dm: peripherals.PA11,
+        usb: UsbPeripheral {
+            dm_pin: peripherals.PA11,
+            dp_pin: peripherals.PA12,
+            peripheral: peripherals.USB_OTG_FS,
+        },
 
         battery_meter: BatteryMeter::new(peripherals.PA4.degrade_adc(), peripherals.ADC1),
 
@@ -235,12 +234,10 @@ pub fn make_hardware() -> generic_hardware_type!() {
 
         #[cfg(feature = "quad")]
         motor_layout: crate::hal::motor_layout::QuadcopterLayout {
-            motors: [
-                Motor::new(motor_pins.0.into()),
-                Motor::new(motor_pins.1.into()),
-                Motor::new(motor_pins.2.into()),
-                Motor::new(motor_pins.3.into()),
-            ],
+            motor0: motor_pins.0.into(),
+            motor1: motor_pins.1.into(),
+            motor2: motor_pins.2.into(),
+            motor3: motor_pins.3.into(),
         },
 
         radio_uart: uart4,

@@ -1,7 +1,7 @@
 use embassy_stm32::{mode::Async, usart::UartTx};
 use zerocopy::{Immutable, IntoBytes, KnownLayout, Unaligned};
 
-use crate::msp::{transmit_msp_message, MSPMessage, MSPMessagePayload, MSPMessageType};
+use crate::msp::protocol::{transmit_msp_message, MSPMessage, MSPMessagePayload, MSPMessageType};
 
 trait MSPDisplayPortmessagePayload: IntoBytes + Immutable + KnownLayout + Unaligned {
     fn message_type() -> MSPDisplayportMessageType;

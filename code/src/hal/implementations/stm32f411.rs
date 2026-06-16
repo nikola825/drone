@@ -1,6 +1,5 @@
 #![cfg(feature = "stm32f411")]
 
-use cortex_m::interrupt::CriticalSection;
 use embassy_executor::InterruptExecutor;
 use embassy_stm32::{
     adc::AdcChannel,
@@ -22,13 +21,13 @@ pub use embassy_stm32::peripherals::USB_OTG_FS as USB_PERIPHERAL;
 use crate::{
     generic_hardware_type,
     hal::{
-        config_storage::{ConfigStore, HardcodedConfigStore},
-        mcu_utils::ICachePause,
+        config_storage::HardcodedConfigStore,
+        leds::LedPins,
         optional_output::OptionalOutput,
-        spi_port::{SpiMaker, SpiPort},
-        uart_port::{UartMaker, UartPort, UnimplementedUartMaker},
+        spi_port::SpiPort,
+        uart_port::{UartPort, UnimplementedUartMaker},
         voltage_reader::VoltageReader,
-        FcHardware, Spawners,
+        FcHardware, Spawners, UsbPeripheral,
     },
     stored_config::StoredConfig,
 };
@@ -101,14 +100,25 @@ pub fn make_hardware() -> generic_hardware_type!() {
         irqs: Irqs,
     };
 
-    FcHardware {
-        blue_pin: peripherals.PA14.into(),
-        green_pin: peripherals.PA4.into(),
-        yellow_pin: peripherals.PA13.into(),
+    let motor_pins = (
+        peripherals.PB1,
+        peripherals.PB0,
+        peripherals.PA7,
+        peripherals.PA6,
+    );
 
-        usb_dm: peripherals.PA11,
-        usb_dp: peripherals.PA12,
-        usb_peripheral: peripherals.USB_OTG_FS,
+    FcHardware {
+        led_pins: LedPins {
+            blue: peripherals.PA14.into(),
+            green: peripherals.PA4.into(),
+            yellow: peripherals.PA13.into(),
+        },
+
+        usb: UsbPeripheral {
+            dm_pin: peripherals.PA11,
+            dp_pin: peripherals.PA12,
+            peripheral: peripherals.USB_OTG_FS,
+        },
 
         battery_meter: BatteryMeter::new(peripherals.PA5.degrade_adc(), peripherals.ADC1),
 
@@ -123,10 +133,12 @@ pub fn make_hardware() -> generic_hardware_type!() {
             cs_pin: peripherals.PB9.into(),
         },
 
-        motor0_pin: peripherals.PB1.into(),
-        motor1_pin: peripherals.PB0.into(),
-        motor2_pin: peripherals.PA7.into(),
-        motor3_pin: peripherals.PA6.into(),
+        motor_layout: crate::hal::motor_layout::QuadcopterLayout {
+            motor0: motor_pins.0.into(),
+            motor1: motor_pins.1.into(),
+            motor2: motor_pins.2.into(),
+            motor3: motor_pins.3.into(),
+        },
 
         vtx_power_toggle: OptionalOutput::unimplemented(),
 
@@ -154,26 +166,33 @@ pub fn get_spawners() -> Spawners {
     }
 }
 
-#[inline(always)]
-pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
-    use crate::nopdelays::*;
-    unsafe {
-        nop29!();
-    }
-}
+#[cfg(feature = "dshot600")]
+pub mod dshot_delays {
+    use cortex_m::interrupt::CriticalSection;
 
-#[inline(always)]
-pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
-    use crate::nopdelays::*;
-    unsafe {
-        nop29!();
-    }
-}
+    use crate::hal::mcu_utils::ICachePause;
 
-#[inline(always)]
-pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
-    use crate::nopdelays::*;
-    unsafe {
-        nop19!();
+    #[inline(always)]
+    pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
+        use crate::nopdelays::*;
+        unsafe {
+            nop29!();
+        }
+    }
+
+    #[inline(always)]
+    pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
+        use crate::nopdelays::*;
+        unsafe {
+            nop29!();
+        }
+    }
+
+    #[inline(always)]
+    pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
+        use crate::nopdelays::*;
+        unsafe {
+            nop19!();
+        }
     }
 }

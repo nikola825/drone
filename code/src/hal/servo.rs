@@ -1,3 +1,4 @@
+#![cfg(feature = "servo-support")]
 use embassy_stm32::{
     time::Hertz,
     timer::{

@@ -1,6 +1,6 @@
 #[macro_export]
 macro_rules! make_static_buffer {
-    ($size: expr) => {{
+    ($size: literal) => {{
         use static_cell::StaticCell;
 
         #[allow(non_upper_case_globals)]
@@ -11,5 +11,16 @@ macro_rules! make_static_buffer {
 
             unsafe { &mut *(&raw mut BUFFER) }
         })
+    }};
+}
+
+#[macro_export]
+macro_rules! make_static_object {
+    ($type: ident, $value: expr) => {{
+        use static_cell::StaticCell;
+
+        #[allow(non_upper_case_globals)]
+        static buffer_cell: StaticCell<$type> = StaticCell::new();
+        buffer_cell.init_with(|| $value)
     }};
 }

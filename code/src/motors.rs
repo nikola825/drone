@@ -352,7 +352,7 @@ pub async fn apply_motor_directions(
         config.rear_right_direction,
     ];
     for i in 0..5 {
-        info!("Applying directions {i} of 5");
+        info!("Applying directions {i} of 5 {directions:?}");
 
         Motor::multi_disable_3d_mode(motors).await;
         Motor::multi_set_direction(motors, directions).await;

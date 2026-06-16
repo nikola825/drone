@@ -14,14 +14,8 @@ compile_error!("Can't do usb and rtt at the same time");
 #[cfg(feature = "usb-logging")]
 macro_rules! init_logging {
     ($hardware:ident, $spawner:ident) => {{
-        use logging::init_usb_logging;
-        init_usb_logging(
-            $hardware.usb_peripheral,
-            $hardware.usb_dp,
-            $hardware.usb_dm,
-            &$spawner,
-        )
-        .await;
+        use crate::logging::init_usb_logging;
+        init_usb_logging($hardware.usb, &$spawner).await;
     }};
 }
 
