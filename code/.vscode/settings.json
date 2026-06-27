@@ -1,7 +1,11 @@
 {
     "rust-analyzer.linkedProjects": [
-        "./Cargo.toml",
+
+        "./flight_controller/Cargo.toml",
+        "./common/Cargo.toml",
+        "./configurator/Cargo.toml",
     ],
-    "rust-analyzer.cargo.target": "thumbv7em-none-eabihf",
+    //"rust-analyzer.cargo.target": "thumbv7em-none-eabihf",
+    "rust-analyzer.cargo.target": "x86_64-unknown-linux-gnu",
     "rust-analyzer.check.allTargets": false
 }

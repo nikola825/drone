@@ -1,0 +1,77 @@
+[package]
+edition = "2021"
+name = "flight-controller"
+version = "0.1.0"
+license = "MIT"
+
+[[bin]]
+name = "flight-controller"
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+embassy-stm32 = { version = "0.4.0", features = [
+    "unstable-pac",
+    "memory-x",
+    "time-driver-any",
+    "exti",
+    "chrono",
+    "defmt"
+] }
+
+embassy-sync = { version = "0.7.2" }
+
+embassy-executor = { version = "0.9.0", features = [
+    "arch-cortex-m",
+    "executor-interrupt",
+] }
+
+embassy-futures = { version = "0.1.2" }
+embassy-time = { version = "0.5.0", features = ["tick-hz-1_000_000"] }
+embassy-usb = { version = "0.5.1", features = []}
+
+defmt = { version = "1.0.1" }
+defmt-rtt = { version = "1.0.0" }
+
+cortex-m = { version = "0.7.7", features = [
+    "inline-asm",
+    "critical-section-single-core",
+] }
+cortex-m-rt = "0.7.5"
+embedded-hal = "1.0.0"
+embedded-io = { version = "0.6.0" }
+embedded-io-async = { version = "0.6.1" }
+panic-probe = { version = "0.3", features = ["print-defmt"]}
+zerocopy = { version = "0.8.24", features = ["derive"] }
+static_cell = "2.1.0"
+ahrs = { version = "0.7.0", default-features = false }
+nalgebra = { version = "0.33.2", default-features = false }
+
+common = {path="../common"}
+
+[profile.release]
+debug = 2
+lto = true
+codegen-units = 1
+opt-level = 3
+
+[dependencies.num-traits]
+version = "0.2"
+default-features = false
+features = ["libm"]
+
+[features]
+default = ["stm32h743", "five-inch", "dshot600"]
+stm32f411 = ["embassy-stm32/stm32f411ce"]
+stm32h723 = ["embassy-stm32/stm32h723vg", "servo-support", "flash-storage"]
+stm32h743 = ["embassy-stm32/stm32h743vi", "servo-support", "flash-storage"]
+dummy_osd = []
+flash-storage = []
+five-inch = ["quad"]
+seven-inch = ["quad"]
+quad = []
+wing = []
+dshot600 =[]
+dshot300 = []
+servo-support = []

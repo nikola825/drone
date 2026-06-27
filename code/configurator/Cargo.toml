@@ -1,0 +1,11 @@
+[package]
+name = "configurator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+zerocopy = { version = "0.8.24"}
+fltk = {version = "1.5.23", features=["use-wayland"]}
+fltk-theme = "0.7.9"
+common = {path="../common"}
+serialport = "4.9.0"
