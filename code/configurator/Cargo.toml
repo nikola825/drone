@@ -1,0 +1,14 @@
+[package]
+name = "configurator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+zerocopy = { version = "0.8.24"}
+common = {path="../common"}
+serialport = "4.9.0"
+iced = {version="0.14.0", default-features=false, features=["tiny-skia", "wgpu", "wayland", "x11", "linux-theme-detection", "smol", "advanced"]}
+
+[profile.release]
+lto = "thin"
+opt-level = 3

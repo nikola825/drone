@@ -1,12 +1,12 @@
-## Flight controller implementation
+## Flight controller and configurator tool
 
-Software needed - rust and cargo set up.
-- `src` contains the flight controller code
-- `embassy-vendored` contains the vendored code from the embassy project https://embassy.dev/
-- `.vscode` contains settings for VS Code, the rust-analyzer settings from there can be applied to other development setups
-  
-You'll need an ST-Link programmer to flash this.
+This folder contains the flight_controller project to be flashed to the hardware in this repo.
+It also contains the configurator GUI tool to configure motor mapping and directions of the flight controller.
 
-1. Default target is `stm32f411ce`. If you have a different chip, edit Cargo.toml, Embed.toml and .cargo/config.toml
-2. Power the PCB and connect the programmer
-3. `cargo run` or `cargo run --release`
+### Contents
+- `flight_controller` - Rust crate using the [Embassy](https://embassy.dev) implementing the flight control code
+  - Cargo.toml contains feature flags for various variants of the FC PCB
+  - Can be flashed through STM32 Cube programmer, dfu-util or probe-rs
+- `configurator` - gui tool for configuring the motor mapping and directions
+- `common` - stuff shared between configurator and FC
+- `.vscode` and `.zed` - configurations for Rust analyzer for VSCode and Zed editors

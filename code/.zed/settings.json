@@ -1,0 +1,16 @@
+{
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "linkedProjects": [
+          "./flight_controller/Cargo.toml",
+          "./common/Cargo.toml",
+          "./configurator/Cargo.toml",
+        ],
+        "cargo": {
+          "allTargets": false
+        },
+      }
+    }
+  }
+}
