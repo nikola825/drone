@@ -3,9 +3,9 @@ use core::mem::offset_of;
 use zerocopy::{big_endian, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
 
 use crate::{
-    esc::{EscMotor, FourWayMotorSet, serial::EscCommunicationError},
+    esc::{serial::EscCommunicationError, EscMotor, FourWayMotorSet},
     four_way::esc_control::{device_init_flash, device_read, device_reset, device_write},
-    hal::{Disconnected, ESC_COUNT, Leds, PacketHeaderType, UsbSerialWrapper, mcu_utils::reset_fc},
+    hal::{mcu_utils::reset_fc, Disconnected, Leds, PacketHeaderType, UsbSerialWrapper, ESC_COUNT},
 };
 
 pub struct FourWayParameters {

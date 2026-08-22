@@ -71,13 +71,9 @@ impl core::ops::Index<MotorPosition> for MotorPositions {
 
 impl MotorPositions {
     pub fn get_position_of(&self, motor: u8) -> Option<MotorPosition> {
-        for position in MotorPosition::all_values() {
-            if self[position] == motor {
-                return Some(position);
-            }
-        }
-
-        return None;
+        MotorPosition::all_values()
+            .into_iter()
+            .find(|position| self[*position] == motor)
     }
 }
 

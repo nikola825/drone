@@ -130,7 +130,8 @@ impl DshotDmaPacket {
             unknown_lints,
             unsafe_code,
             forget_copy,
-            useless_transmute,
+            clippy::useless_transmute,
+            clippy::forget_non_drop,
             forgetting_copy_types
         )]
         unsafe {
@@ -138,11 +139,17 @@ impl DshotDmaPacket {
             use core::ptr;
 
             let mut copy = ptr::read(packet);
-            ptr::write(&mut copy, mem::transmute(ptr::read(packet_inner)));
+            ptr::write(
+                &mut copy,
+                mem::transmute::<DshotDmaPacketInner, DshotDmaPacket>(ptr::read(packet_inner)),
+            );
             mem::forget(copy);
 
             let mut copy = ptr::read(packet_inner);
-            ptr::write(&mut copy, mem::transmute(ptr::read(buffer)));
+            ptr::write(
+                &mut copy,
+                mem::transmute::<DshotDmaBuffer, DshotDmaPacketInner>(ptr::read(buffer)),
+            );
             mem::forget(copy);
         }
     }

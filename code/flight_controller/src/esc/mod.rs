@@ -31,7 +31,7 @@ impl EscMotorSet {
         dshot_gpio_port: Gpio,
     ) -> Self {
         let pin_numbers: [u8; ESC_COUNT] = pins.each_ref().map(|x| x.pin());
-        let motors = pins.map(|x| EscMotor::new(x));
+        let motors = pins.map(EscMotor::new);
 
         let mut motor_set = EscMotorSet {
             pins: pin_numbers,

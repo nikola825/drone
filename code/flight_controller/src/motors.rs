@@ -2,7 +2,7 @@ use core::fmt::Display;
 
 use embassy_time::{Duration, Instant, Timer};
 
-use crate::{mixer::MotorMix, esc::motor_control::BeepTone};
+use crate::{esc::motor_control::BeepTone, mixer::MotorMix};
 
 pub struct MotorsContext {
     motors: MotorMix,

@@ -114,7 +114,7 @@ impl ReceivedMspMessage {
 
             Ok(ReceivedMspMessage {
                 header,
-                payload: payload,
+                payload,
             })
         }
     }

@@ -21,9 +21,9 @@ const STORED_CONFIG_START: u32 = FLASH_SIZE - STORED_CONFIG_STRUCT_SIZE;
 const FLASH_ERASE_SIZE: u32 = embassy_stm32::flash::BANK2_REGION.erase_size;
 const FLASH_ERASE_START: u32 = FLASH_SIZE - FLASH_ERASE_SIZE;
 pub const USB_DEVICE_PRODUCT: &str = "STM32H743 flight controller";
+pub use embassy_stm32::peripherals::DMA2_CH0 as DSHOT_DMA;
 pub use embassy_stm32::peripherals::TIM1 as SERVO_TIMER;
 pub use embassy_stm32::peripherals::TIM1 as DSHOT_TIMER;
-pub use embassy_stm32::peripherals::DMA2_CH0 as DSHOT_DMA;
 
 use embassy_stm32::interrupt;
 

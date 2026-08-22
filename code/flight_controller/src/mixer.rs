@@ -1,8 +1,8 @@
 use common::shared_objects::{MotorPosition, StoredConfig};
 
 use crate::{
-    esc::{EscMotorSet, motor_control::BeepTone},
-    hal::{ESC_COUNT, ServoDriver},
+    esc::{motor_control::BeepTone, EscMotorSet},
+    hal::{ServoDriver, ESC_COUNT},
     motors::MotorInputs,
 };
 
@@ -45,8 +45,8 @@ impl QuadcopterMix {
     pub fn new(motor_set: EscMotorSet, config: &StoredConfig) -> Self {
         let mut esc_motors: [ThrustMotor; 4] = Default::default();
 
-        for index in 0..4 {
-            esc_motors[index].motor_index = index;
+        for (index, motor) in esc_motors.iter_mut().enumerate() {
+            motor.motor_index = index;
         }
 
         esc_motors[config.motor_positions[MotorPosition::FrontLeft] as usize].coefficients =

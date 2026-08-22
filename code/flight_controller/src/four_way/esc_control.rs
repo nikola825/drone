@@ -2,8 +2,8 @@ use embassy_time::Timer;
 use zerocopy::{big_endian, Immutable, IntoBytes, KnownLayout, Unaligned};
 
 use crate::{
-    four_way::four_way_esc::FourWayResponsePayload,
     esc::{serial::EscCommunicationError, EscMotor},
+    four_way::four_way_esc::FourWayResponsePayload,
 };
 
 #[allow(non_camel_case_types)]
