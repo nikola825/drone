@@ -1,7 +1,7 @@
 use core::ops::DerefMut;
 
 use common::{
-    configurator_protocol::messages::{FcPhase, FcStatus, MotorDirectionSetting},
+    configurator_protocol::messages::{FcStatus, MotorDirectionSetting},
     shared_objects::StoredConfig,
 };
 use embassy_sync::{
@@ -14,8 +14,7 @@ use crate::{
     crsf::{CRSFChannels, CRSFFrameLinkStatistics},
     four_way::four_way_esc::FourWayParameters,
     gps::GPSState,
-    hal::{ConfigStoreType, Leds, ESC_COUNT},
-    motor::Motor,
+    hal::ConfigStoreType,
     stored_config::read_stored_config,
 };
 
@@ -103,15 +102,6 @@ impl SharedState {
 
     pub fn is_four_way_mode_requested(&self) -> bool {
         self.enter_four_way_mode_signal.try_get().unwrap()
-    }
-
-    pub fn init_fail(&self, motors: [Motor; ESC_COUNT], leds: Leds, fc_phase: FcPhase) {
-        self.push_four_way_mode_parameters(FourWayParameters { motors, leds });
-        self.publish_status(FcStatus {
-            valid: true,
-            fc_phase,
-            ..Default::default()
-        });
     }
 
     pub fn push_four_way_mode_parameters(&self, parameters: FourWayParameters) {

@@ -2,7 +2,7 @@ use core::fmt::Display;
 
 use embassy_time::{Duration, Instant, Timer};
 
-use crate::{mixer::MotorMix, motor::esc_dshot::BeepTone};
+use crate::{mixer::MotorMix, esc::motor_control::BeepTone};
 
 pub struct MotorsContext {
     motors: MotorMix,
@@ -65,22 +65,22 @@ async fn gentle_stop(current_thrust: u16, context: &mut MotorsContext) {
     let mut thrust_target = current_thrust;
 
     while thrust_target > 200 {
-        context.motors.same_throttle(thrust_target);
+        context.motors.same_throttle(thrust_target).await;
 
         Timer::after_millis(100).await;
 
         thrust_target = thrust_target * 70 / 100;
     }
 
-    zero_throttle(context);
+    zero_throttle(context).await;
     context.running = false;
 }
 
-fn zero_throttle(context: &MotorsContext) {
-    context.motors.zero_throttle();
+async fn zero_throttle(context: &mut MotorsContext) {
+    context.motors.zero_throttle().await;
 }
 
-fn beep_motors(context: &mut MotorsContext) {
+async fn beep_motors(context: &mut MotorsContext) {
     const BEEP_INTERVAL: Duration = Duration::from_millis(500);
     const BEEP_DUTY: Duration = Duration::from_millis(100);
 
@@ -90,11 +90,11 @@ fn beep_motors(context: &mut MotorsContext) {
     if delta_t > BEEP_INTERVAL {
         context.beep_tone = context.beep_tone.next();
         context.beep_interval_start = now;
-        zero_throttle(context);
+        zero_throttle(context).await;
     } else if delta_t > BEEP_DUTY {
-        zero_throttle(context);
+        zero_throttle(context).await;
     } else {
-        context.motors.beep_escs(context.beep_tone);
+        context.motors.beep_escs(context.beep_tone).await;
     }
 }
 
@@ -106,20 +106,20 @@ pub async fn disarm(context: &mut MotorsContext, inputs: &MotorInputs, beep: boo
         )
         .await;
     } else if beep {
-        beep_motors(context);
+        beep_motors(context).await;
     } else {
-        zero_throttle(context);
+        zero_throttle(context).await;
     }
 
     center_servos(context);
 }
 
-pub fn drive_motors(context: &mut MotorsContext, inputs: &MotorInputs) {
+pub async fn drive_motors(context: &mut MotorsContext, inputs: &MotorInputs) {
     context.running = true;
     if inputs.motor_thrust > 0 {
-        context.motors.drive_escs(inputs);
+        context.motors.drive_escs(inputs).await;
     } else {
-        zero_throttle(context);
+        zero_throttle(context).await;
     }
 
     context.motors.drive_servos(inputs);

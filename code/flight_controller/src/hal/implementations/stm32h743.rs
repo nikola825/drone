@@ -1,6 +1,8 @@
 #![cfg(feature = "stm32h743")]
 
 use embassy_executor::InterruptExecutor;
+#[cfg(feature = "quad")]
+use embassy_stm32::pac::GPIOE;
 use embassy_stm32::{
     adc::AdcChannel,
     bind_interrupts,
@@ -20,6 +22,8 @@ const FLASH_ERASE_SIZE: u32 = embassy_stm32::flash::BANK2_REGION.erase_size;
 const FLASH_ERASE_START: u32 = FLASH_SIZE - FLASH_ERASE_SIZE;
 pub const USB_DEVICE_PRODUCT: &str = "STM32H743 flight controller";
 pub use embassy_stm32::peripherals::TIM1 as SERVO_TIMER;
+pub use embassy_stm32::peripherals::TIM1 as DSHOT_TIMER;
+pub use embassy_stm32::peripherals::DMA2_CH0 as DSHOT_DMA;
 
 use embassy_stm32::interrupt;
 
@@ -190,7 +194,6 @@ pub fn make_hardware() -> generic_hardware_type!() {
         peripherals.TIM1,
         Hertz(200),
     );
-
     FcHardware {
         led_pins: LedPins {
             blue: peripherals.PE3.into(),
@@ -238,6 +241,9 @@ pub fn make_hardware() -> generic_hardware_type!() {
             motor1: motor_pins.1.into(),
             motor2: motor_pins.2.into(),
             motor3: motor_pins.3.into(),
+            dshot_dma: peripherals.DMA2_CH0,
+            dshot_timer: peripherals.TIM1,
+            dshot_gpio: GPIOE,
         },
 
         radio_uart: uart4,
@@ -267,67 +273,5 @@ pub fn get_spawners() -> Spawners {
     Spawners {
         spawner_high,
         spawner_low,
-    }
-}
-
-#[cfg(feature = "dshot300")]
-pub mod dshot_delays {
-    use cortex_m::interrupt::CriticalSection;
-
-    use crate::hal::mcu_utils::ICachePause;
-
-    #[inline(always)]
-    pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop450!();
-        }
-    }
-
-    #[inline(always)]
-    pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop450!();
-        }
-    }
-
-    #[inline(always)]
-    pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop350!();
-        }
-    }
-}
-
-#[cfg(feature = "dshot600")]
-pub mod dshot_delays {
-    use cortex_m::interrupt::CriticalSection;
-
-    use crate::hal::mcu_utils::ICachePause;
-
-    #[inline(always)]
-    pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop225!();
-        }
-    }
-
-    #[inline(always)]
-    pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop225!();
-        }
-    }
-
-    #[inline(always)]
-    pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop175!();
-        }
     }
 }

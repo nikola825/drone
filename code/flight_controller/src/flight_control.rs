@@ -5,9 +5,8 @@ use static_cell::StaticCell;
 
 use crate::{
     battery_monitor::init_battery_monitor,
-    configurator::configurator_loop::configurator_loop,
     crsf::init_crsf_communication,
-    four_way::four_way_esc::FourWayParameters,
+    esc::EscMotorSet,
     generic_hardware_type,
     gps::init_gps_receiver,
     hal::Leds,
@@ -26,14 +25,25 @@ struct FlightContext {
     pid_context: PidContext,
 }
 
+pub struct FlightModeExitData {
+    pub motor_set: EscMotorSet,
+    pub shared_state: &'static SharedState,
+    pub leds: Leds,
+    pub phase: FcPhase,
+}
+
+pub enum FlightModeExit {
+    Configurator(FlightModeExitData),
+    FourWayEsc(FlightModeExitData),
+}
+
 pub async fn flight_main(
     spawner_low: SendSpawner,
-    spawner_high: SendSpawner,
     mut hardware: generic_hardware_type!(),
-) {
+) -> FlightModeExit {
     static SHARED_STATE: StaticCell<SharedState> = StaticCell::new();
 
-    let motors = hardware.motor_layout.get_motors();
+    let motor_set = hardware.motor_layout.get_motors();
 
     let shared_state = SHARED_STATE.init(SharedState::new(hardware.config_store));
 
@@ -47,9 +57,12 @@ pub async fn flight_main(
     let imu_result = imu.init().await;
 
     if imu_result.is_err() {
-        shared_state.init_fail(motors, leds, FcPhase::IMUInitFail);
-
-        return;
+        return FlightModeExit::Configurator(FlightModeExitData {
+            motor_set,
+            shared_state,
+            leds,
+            phase: FcPhase::IMUInitFail,
+        });
     }
 
     Timer::after_millis(10).await;
@@ -86,7 +99,7 @@ pub async fn flight_main(
     #[cfg(feature = "quad")]
     {
         use crate::mixer::QuadcopterMix;
-        motor_mix = QuadcopterMix::new(motors, &stored_config);
+        motor_mix = QuadcopterMix::new(motor_set, &stored_config);
     }
     #[cfg(feature = "wing")]
     {
@@ -104,16 +117,15 @@ pub async fn flight_main(
         pid_context: PidContext::new(&stored_config),
     };
 
-    spawner_high.must_spawn(flight_control_task(leds, imu, context, shared_state));
+    flight_loop(leds, imu, context, shared_state).await
 }
 
-#[embassy_executor::task]
-pub async fn flight_control_task(
+async fn flight_loop(
     mut leds: Leds,
     mut imu: ICM42688,
     mut context: FlightContext,
     shared_state: &'static SharedState,
-) {
+) -> FlightModeExit {
     const PID_PERIOD_US: u64 = 1005;
     let mut ticker = Ticker::every(Duration::from_micros(PID_PERIOD_US));
 
@@ -162,13 +174,14 @@ pub async fn flight_control_task(
             .await;
 
             let mix = context.motor_context.into_mix();
+            let motor_set = mix.into_motors();
 
-            shared_state.push_four_way_mode_parameters(FourWayParameters {
-                motors: mix.into_motors(),
+            return FlightModeExit::FourWayEsc(FlightModeExitData {
+                motor_set,
+                shared_state,
                 leds,
+                phase: FcPhase::Disarmed,
             });
-
-            return;
         }
 
         if shared_state.is_configurator_mode_requested() {
@@ -179,18 +192,23 @@ pub async fn flight_control_task(
             )
             .await;
 
-            let motors = context.motor_context.into_mix().into_motors();
+            let motor_set = context.motor_context.into_mix().into_motors();
 
-            configurator_loop(motors, shared_state, leds).await;
+            return FlightModeExit::Configurator(FlightModeExitData {
+                motor_set,
+                shared_state,
+                leds,
+                phase: FcPhase::Disarmed,
+            });
         }
 
-        let t2 = Instant::now();
         print_counter += 1;
         motor_inputs =
             do_pid_iteration(&mut imu, &mut context.pid_context, &command_state.commands).await;
 
+        let t2 = Instant::now();
         if armed {
-            drive_motors(&mut context.motor_context, &motor_inputs);
+            drive_motors(&mut context.motor_context, &motor_inputs).await;
         } else {
             disarm(
                 &mut context.motor_context,

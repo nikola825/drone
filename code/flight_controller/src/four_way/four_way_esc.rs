@@ -3,13 +3,13 @@ use core::mem::offset_of;
 use zerocopy::{big_endian, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
 
 use crate::{
+    esc::{EscMotor, FourWayMotorSet, serial::EscCommunicationError},
     four_way::esc_control::{device_init_flash, device_read, device_reset, device_write},
-    hal::{Disconnected, Leds, PacketHeaderType, UsbSerialWrapper, ESC_COUNT},
-    motor::{esc_serial::EscCommunicationError, Motor},
+    hal::{Disconnected, ESC_COUNT, Leds, PacketHeaderType, UsbSerialWrapper, mcu_utils::reset_fc},
 };
 
 pub struct FourWayParameters {
-    pub motors: [Motor; ESC_COUNT],
+    pub motors: FourWayMotorSet,
     pub leds: Leds,
 }
 
@@ -343,13 +343,13 @@ impl FourWayLoopContext {
     pub fn pick_esc<'a>(
         &self,
         params: &'a mut FourWayParameters,
-    ) -> Result<&'a mut Motor, FourWayExecutionError> {
+    ) -> Result<&'a mut EscMotor, FourWayExecutionError> {
         let selected_esc = self
             .selected_esc
             .ok_or(FourWayExecutionError::EscNotSelected)?;
 
         if selected_esc < ESC_COUNT {
-            Ok(&mut params.motors[selected_esc])
+            Ok(&mut params.motors.motors[selected_esc])
         } else {
             Err(FourWayExecutionError::BadEscSelected)
         }
@@ -365,10 +365,6 @@ pub async fn four_way_loop(
         peripherals.SCB.disable_icache();
     }
 
-    for esc in params.motors.iter_mut() {
-        esc.enter_serial_mode();
-    }
-
     let mut context = FourWayLoopContext {
         continue_loop: true,
         selected_esc: None,
@@ -380,7 +376,7 @@ pub async fn four_way_loop(
         handle_4way_passthrough_message(usb, params, header, &mut context).await?;
     }
 
-    Ok(())
+    reset_fc();
 }
 
 async fn handle_4way_passthrough_message(

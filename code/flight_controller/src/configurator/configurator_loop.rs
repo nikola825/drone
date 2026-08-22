@@ -4,20 +4,28 @@ use embassy_time::{Duration, Instant, Ticker};
 
 use crate::{
     configurator::motor_setting_state_machine::MotorSettingStateMachine,
+    esc::{motor_control::DshotCommand, EscMotorSet},
     hal::{Leds, ESC_COUNT},
-    motor::{esc_dshot::DshotCommand, Motor},
     shared_state::SharedState,
 };
 
 pub async fn configurator_loop(
-    motors: [Motor; ESC_COUNT],
+    mut motors: EscMotorSet,
     shared_state: &'static SharedState,
     mut leds: Leds,
+    fc_phase_at_exit: FcPhase,
 ) -> ! {
     const PID_PERIOD_US: u64 = 1005;
     let mut ticker = Ticker::every(Duration::from_micros(PID_PERIOD_US));
 
     let mut print_counter = 0;
+
+    // If previous phase was Disarmed, the config loop was entered via normal request
+    // Any other phase indicates an init failure and should be emitted to configurator
+    let phase_to_broadcast = match fc_phase_at_exit {
+        FcPhase::Disarmed => FcPhase::Config,
+        _ => fc_phase_at_exit,
+    };
 
     leds.green_off();
     leds.blue_off();
@@ -52,7 +60,7 @@ pub async fn configurator_loop(
                 .map(|direction_setting| direction_setting.into());
         }
 
-        Motor::multi_send_command(motors.each_ref(), motor_commands);
+        motors.multi_send_command(motor_commands).await;
 
         let t3 = Instant::now();
 
@@ -77,7 +85,7 @@ pub async fn configurator_loop(
                 total_duration: total_duration.into(),
                 min_measured_period: min_measured_period.into(),
                 max_measured_period: max_measured_period.into(),
-                fc_phase: FcPhase::Config,
+                fc_phase: phase_to_broadcast,
                 valid: true,
             });
             max_measured_period = 0;

@@ -3,7 +3,7 @@ use zerocopy::{big_endian, Immutable, IntoBytes, KnownLayout, Unaligned};
 
 use crate::{
     four_way::four_way_esc::FourWayResponsePayload,
-    motor::{esc_serial::EscCommunicationError, Motor},
+    esc::{serial::EscCommunicationError, EscMotor},
 };
 
 #[allow(non_camel_case_types)]
@@ -111,7 +111,7 @@ impl Default for EscProgFlashCommand {
 }
 
 pub async fn device_init_flash(
-    esc_serial: &mut Motor,
+    esc_serial: &mut EscMotor,
 ) -> Result<DeviceInitFlashResponse, EscCommunicationError> {
     const BOOT_MSG: [u8; 17] = [
         0, 0, 0, 0, 0, 0, 0, 0, 0x0D, b'B', b'L', b'H', b'e', b'l', b'i', 0xF4, 0x7D,
@@ -146,7 +146,7 @@ pub async fn device_init_flash(
 }
 
 pub fn device_read(
-    esc_serial: &mut Motor,
+    esc_serial: &mut EscMotor,
     address: u16,
     length: u8,
 ) -> Result<(u8, [u8; 256]), EscCommunicationError> {
@@ -173,7 +173,7 @@ pub fn device_read(
 }
 
 pub async fn device_write(
-    esc_serial: &mut Motor,
+    esc_serial: &mut EscMotor,
     address: u16,
     length: usize,
     payload: &[u8],
@@ -207,7 +207,7 @@ pub async fn device_write(
 }
 
 pub async fn device_reset(
-    esc_serial: &mut Motor,
+    esc_serial: &mut EscMotor,
 ) -> Result<DeviceResetResponse, EscCommunicationError> {
     let restart_message = [0u8, 0u8];
     esc_serial.send(&restart_message, true);

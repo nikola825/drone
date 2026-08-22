@@ -1,8 +1,8 @@
 use common::shared_objects::{MotorPosition, StoredConfig};
 
 use crate::{
-    hal::ServoDriver,
-    motor::{esc_dshot::BeepTone, Motor},
+    esc::{EscMotorSet, motor_control::BeepTone},
+    hal::{ESC_COUNT, ServoDriver},
     motors::MotorInputs,
 };
 
@@ -16,8 +16,9 @@ struct MixCoefficients {
     servo_pitch: i16,
 }
 
-struct EscMotor {
-    motor: Motor,
+#[derive(Default)]
+struct ThrustMotor {
+    motor_index: usize,
     coefficients: MixCoefficients,
 }
 
@@ -26,27 +27,26 @@ struct ServoMotor {
     coefficients: MixCoefficients,
 }
 
-pub struct GenericMotorMix<const ESC_COUNT: usize, const SERVO_COUNT: usize> {
-    esc_motors: [EscMotor; ESC_COUNT],
+pub struct GenericMotorMix<const SERVO_COUNT: usize> {
+    motor_set: EscMotorSet,
+    esc_motors: [ThrustMotor; ESC_COUNT],
     esc_coefficient_divider: i16,
     servos: [ServoMotor; SERVO_COUNT],
 }
 
 #[allow(dead_code)]
-pub type QuadcopterMix = GenericMotorMix<4, 0>;
+pub type QuadcopterMix = GenericMotorMix<0>;
 #[allow(dead_code)]
-pub type WingMix = GenericMotorMix<1, 2>;
+pub type WingMix = GenericMotorMix<2>;
 
+#[cfg(feature = "quad")]
 impl QuadcopterMix {
     #[allow(dead_code)]
-    pub fn new(motors: [Motor; 4], config: &StoredConfig) -> Self {
-        let mut esc_motors = motors.map(|motor| EscMotor {
-            motor,
-            coefficients: MixCoefficients::default(),
-        });
+    pub fn new(motor_set: EscMotorSet, config: &StoredConfig) -> Self {
+        let mut esc_motors: [ThrustMotor; 4] = Default::default();
 
-        for esc_motor in &mut esc_motors {
-            esc_motor.motor.enter_dshot_mode();
+        for index in 0..4 {
+            esc_motors[index].motor_index = index;
         }
 
         esc_motors[config.motor_positions[MotorPosition::FrontLeft] as usize].coefficients =
@@ -87,27 +87,36 @@ impl QuadcopterMix {
 
         Self {
             esc_motors,
+            motor_set,
             servos: [],
             esc_coefficient_divider: 4,
         }
     }
 
-    pub fn into_motors(self) -> [Motor; 4] {
-        self.esc_motors.map(|esc_motor| esc_motor.motor)
+    pub fn into_motors(self) -> EscMotorSet {
+        self.motor_set
     }
 }
 
+#[cfg(feature = "wing")]
 impl WingMix {
     #[allow(dead_code)]
-    pub fn new(left_servo: ServoDriver, right_servo: ServoDriver, thrust_motor: Motor) -> Self {
+    pub fn new(
+        left_servo: ServoDriver,
+        right_servo: ServoDriver,
+        mut thrust_motor: EscMotorSet<1>,
+    ) -> Self {
+        thrust_motor.enter_dshot_mode();
+
         Self {
-            esc_motors: [EscMotor {
-                motor: thrust_motor,
+            esc_motors: [ThrustMotor {
+                motor_index: 0,
                 coefficients: MixCoefficients {
                     thrust: 3,
                     ..Default::default()
                 },
             }],
+            motor_set: thrust_motor,
             esc_coefficient_divider: 10,
             servos: [
                 ServoMotor {
@@ -131,13 +140,13 @@ impl WingMix {
     }
 
     #[allow(dead_code)]
-    pub fn into_motors(self) -> [Motor; 1] {
-        self.esc_motors.map(|esc_motor| esc_motor.motor)
+    pub fn into_motors(self) -> EscMotorSet<1> {
+        self.motor_set
     }
 }
 
-impl<const ESC_COUNT: usize, const SERVO_COUNT: usize> GenericMotorMix<ESC_COUNT, SERVO_COUNT> {
-    pub fn drive_escs(&self, inputs: &MotorInputs) {
+impl<const SERVO_COUNT: usize> GenericMotorMix<SERVO_COUNT> {
+    pub async fn drive_escs(&mut self, inputs: &MotorInputs) {
         let thrust = inputs.motor_thrust as i16;
         let yaw_input = inputs.yaw_input;
         let pitch_input = inputs.pitch_input;
@@ -154,10 +163,7 @@ impl<const ESC_COUNT: usize, const SERVO_COUNT: usize> GenericMotorMix<ESC_COUNT
                 .clamp(0, 2047) as u16;
         }
 
-        Motor::multi_throttle(
-            self.esc_motors.each_ref().map(|motor| &motor.motor),
-            outputs,
-        );
+        self.motor_set.multi_throttle(outputs).await;
     }
 
     pub fn drive_servos(&mut self, inputs: &MotorInputs) {
@@ -176,24 +182,16 @@ impl<const ESC_COUNT: usize, const SERVO_COUNT: usize> GenericMotorMix<ESC_COUNT
         }
     }
 
-    pub fn zero_throttle(&self) {
-        Motor::multi_throttle(
-            self.esc_motors.each_ref().map(|motor| &motor.motor),
-            [0; ESC_COUNT],
-        );
+    pub async fn zero_throttle(&mut self) {
+        self.motor_set.multi_throttle([0; ESC_COUNT]).await;
     }
 
-    pub fn beep_escs(&self, tone: BeepTone) {
-        self.esc_motors.iter().for_each(|motor| {
-            motor.motor.beep(tone);
-        });
+    pub async fn beep_escs(&mut self, tone: BeepTone) {
+        self.motor_set.beep(tone).await
     }
 
-    pub fn same_throttle(&self, throttle: u16) {
-        Motor::multi_throttle(
-            self.esc_motors.each_ref().map(|motor| &motor.motor),
-            [throttle; ESC_COUNT],
-        );
+    pub async fn same_throttle(&mut self, throttle: u16) {
+        self.motor_set.multi_throttle([throttle; ESC_COUNT]).await;
     }
 
     pub fn esc_motor_couint(&self) -> u16 {

@@ -1,7 +1,7 @@
 use common::configurator_protocol::messages::MotorDirectionSetting;
 use embassy_time::{Duration, Instant};
 
-use crate::motor::esc_dshot::DshotCommand;
+use crate::esc::motor_control::DshotCommand;
 
 enum StateMachineState {
     Initial(u16),

@@ -1,6 +1,6 @@
 use embassy_time::{Duration, Instant};
 
-use crate::motor::Motor;
+use crate::esc::EscMotor;
 
 pub enum EscCommunicationError {
     #[allow(dead_code)]
@@ -25,7 +25,7 @@ fn delay_until(instant: Instant) {
     core::hint::black_box(while Instant::now() < instant {});
 }
 
-impl Motor {
+impl EscMotor {
     #[no_mangle]
     #[inline(never)]
     fn read_byte16(&mut self, timeout: Instant) -> Option<u16> {

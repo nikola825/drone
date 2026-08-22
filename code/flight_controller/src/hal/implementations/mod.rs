@@ -10,8 +10,8 @@ use stm32h723 as hal_implementation;
 use stm32h743 as hal_implementation;
 
 pub use hal_implementation::{
-    dshot_delays, get_spawners, make_hardware, BatteryMeter, Irqs, USB_DEVICE_PRODUCT, USB_DM,
-    USB_DP, USB_PERIPHERAL,
+    get_spawners, make_hardware, BatteryMeter, Irqs, USB_DEVICE_PRODUCT, USB_DM,
+    USB_DP, USB_PERIPHERAL, DSHOT_DMA, DSHOT_TIMER
 };
 
 #[cfg(feature = "servo-support")]

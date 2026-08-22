@@ -13,8 +13,8 @@ mod usb_port;
 mod voltage_reader;
 
 pub use implementations::{
-    dshot_delays, get_spawners, make_hardware, BatteryMeter, Irqs, SERVO_TIMER, USB_DEVICE_PRODUCT,
-    USB_DM, USB_DP, USB_PERIPHERAL,
+    get_spawners, make_hardware, BatteryMeter, Irqs, DSHOT_DMA, DSHOT_TIMER, SERVO_TIMER,
+    USB_DEVICE_PRODUCT, USB_DM, USB_DP, USB_PERIPHERAL,
 };
 
 pub use config_storage::{ConfigStorageError, ConfigStore, ConfigStoreType};

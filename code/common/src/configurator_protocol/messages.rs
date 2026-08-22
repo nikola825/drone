@@ -15,10 +15,10 @@ impl Paddable for BatteryResponse {}
 #[repr(u8)]
 pub enum FcPhase {
     #[default]
-    IMUInitFail,
     Disarmed,
     Armed,
-    Config
+    Config,
+    IMUInitFail,
 }
 
 #[derive(IntoBytes, Immutable, KnownLayout, Unaligned, TryFromBytes, Default, Clone, Copy)]
@@ -29,7 +29,7 @@ pub struct FcStatus {
     pub inner_duration: little_endian::F32,
     pub min_measured_period: little_endian::U64,
     pub max_measured_period: little_endian::U64,
-    pub fc_phase: FcPhase
+    pub fc_phase: FcPhase,
 }
 
 impl Paddable for FcStatus {}
@@ -38,9 +38,7 @@ impl Paddable for FcStatus {}
 #[repr(C)]
 pub struct MotorDirectionSetting {
     pub motor_index: u8,
-    pub direction: MotorDirection
+    pub direction: MotorDirection,
 }
 
-impl Paddable for MotorDirectionSetting {
-
-}
+impl Paddable for MotorDirectionSetting {}

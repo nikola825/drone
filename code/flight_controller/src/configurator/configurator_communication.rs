@@ -6,10 +6,9 @@ use common::{
     msp_protocol::protocol::{MSPMessage, ReceivedMspMessage},
     shared_objects::StoredConfig,
 };
-use cortex_m::peripheral::SCB;
 use zerocopy::TryFromBytes;
 
-use crate::msp::usb_communication::CommunicationContext;
+use crate::{hal::mcu_utils::reset_fc, msp::usb_communication::CommunicationContext};
 
 pub async fn handle_configurator_message(
     communication_context: &mut CommunicationContext,
@@ -33,7 +32,6 @@ pub async fn handle_configurator_message(
         ConfiguratorMessage::QueryFcStatus(_) => query_fc_status(communication_context),
         ConfiguratorMessage::ResetFc(_) => {
             reset_fc();
-            unreachable!("Reset happens before this");
         }
         ConfiguratorMessage::SetMotorDirection(direction_setting) => {
             set_motor_direction(communication_context, direction_setting.inner)
@@ -79,10 +77,6 @@ fn query_fc_status(
     let status = communication_context.shared_state.query_status();
 
     ConfiguratorMessage::QueryFcStatusResponse(status.into()).into()
-}
-
-fn reset_fc() {
-    SCB::sys_reset();
 }
 
 fn set_motor_direction(
