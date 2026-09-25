@@ -356,9 +356,14 @@ impl FourWayLoopContext {
     }
 }
 
-pub async fn four_way_loop(
+pub async fn four_way_loop(usb: &mut UsbSerialWrapper, params: FourWayParameters) -> ! {
+    let _ = four_way_loop_inner(usb, params).await;
+    reset_fc();
+}
+
+async fn four_way_loop_inner(
     usb: &mut UsbSerialWrapper,
-    params: &mut FourWayParameters,
+    mut params: FourWayParameters,
 ) -> Result<(), Disconnected> {
     unsafe {
         let mut peripherals = cortex_m::Peripherals::steal();
@@ -373,10 +378,10 @@ pub async fn four_way_loop(
     while context.continue_loop {
         let header: FourWayHeader = usb.advance_until_header().await?;
 
-        handle_4way_passthrough_message(usb, params, header, &mut context).await?;
+        handle_4way_passthrough_message(usb, &mut params, header, &mut context).await?;
     }
 
-    reset_fc();
+    Ok(())
 }
 
 async fn handle_4way_passthrough_message(

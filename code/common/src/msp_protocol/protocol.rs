@@ -112,10 +112,7 @@ impl ReceivedMspMessage {
             let payload_part = &buffer[size_of::<MSPHeader>()..];
             payload[0..payload_length].copy_from_slice(&payload_part[0..payload_length]);
 
-            Ok(ReceivedMspMessage {
-                header,
-                payload,
-            })
+            Ok(ReceivedMspMessage { header, payload })
         }
     }
 }

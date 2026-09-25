@@ -19,8 +19,8 @@ pub struct ArmingTracker {
     pre_arming_conditions_satisfied: bool,
 }
 
-impl Default for ArmingTracker {
-    fn default() -> Self {
+impl ArmingTracker {
+    pub const fn new() -> Self {
         Self {
             arming_conditions_satisfied: false,
             pre_arming_conditions_satisfied: false,

@@ -134,9 +134,7 @@ impl MSPMessagePayload for MotorConfigMessage {
     }
 }
 
-impl MSPReceivedPayload for MotorConfigMessage {
-
-}
+impl MSPReceivedPayload for MotorConfigMessage {}
 
 impl MotorConfigMessage {
     pub fn new(motor_count: u8) -> Self {

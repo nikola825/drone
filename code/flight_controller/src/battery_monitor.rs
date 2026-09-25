@@ -2,7 +2,7 @@ use embassy_executor::SendSpawner;
 use embassy_time::{Duration, Ticker};
 
 use crate::logging::info;
-use crate::{hal::BatteryMeter, shared_state::SharedState};
+use crate::{hal::BatteryMeter, shared_state::SHARED_STATE};
 
 const DEFAULT_CELL_COUNT: u8 = 4;
 
@@ -12,8 +12,8 @@ pub struct BatteryInformation {
     cell_count: Option<u8>,
 }
 
-impl Default for BatteryInformation {
-    fn default() -> Self {
+impl BatteryInformation {
+    pub const fn new() -> Self {
         Self {
             voltage: 0f32,
             cell_count: None,
@@ -54,23 +54,19 @@ impl BatteryInformation {
 }
 
 #[embassy_executor::task]
-async fn battery_monitor_task(mut battery_meter: BatteryMeter, shared_state: &'static SharedState) {
+async fn battery_monitor_task(mut battery_meter: BatteryMeter) {
     info!("Battery monitor start");
     let mut ticker = Ticker::every(Duration::from_millis(200));
 
     loop {
         let measured_battery_voltage = battery_meter.get_voltage();
 
-        shared_state.update_battery_voltage(measured_battery_voltage);
+        SHARED_STATE.update_battery_voltage(measured_battery_voltage);
 
         ticker.next().await;
     }
 }
 
-pub fn init_battery_monitor(
-    battery_meter: BatteryMeter,
-    state: &'static SharedState,
-    spawner: &SendSpawner,
-) {
-    spawner.must_spawn(battery_monitor_task(battery_meter, state));
+pub fn init_battery_monitor(battery_meter: BatteryMeter, spawner: &SendSpawner) {
+    spawner.must_spawn(battery_monitor_task(battery_meter));
 }

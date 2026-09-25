@@ -2,6 +2,7 @@ use crate::{
     logging::error,
     make_static_buffer,
     math_stuff::{DEG_TO_RAD_FACTOR, RAD_TO_DEG_FACTOR},
+    shared_state::SHARED_STATE,
 };
 use embassy_executor::SendSpawner;
 use embassy_stm32::{
@@ -15,7 +16,7 @@ use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned,
 };
 
-use crate::{hal::UartMaker, shared_state::SharedState};
+use crate::hal::UartMaker;
 
 const UBX_SYNC_1: u8 = 0xb5;
 const UBX_SYNC_2: u8 = 0x62;
@@ -213,12 +214,18 @@ impl Heading {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct GPSState {
     pub gps_packet: Option<UbxNavPVTPacket>,
 }
 
-pub fn init_gps_receiver(uart: impl UartMaker, spawner: &SendSpawner, store: &'static SharedState) {
+impl GPSState {
+    pub const fn new() -> Self {
+        Self { gps_packet: None }
+    }
+}
+
+pub fn init_gps_receiver(uart: impl UartMaker, spawner: &SendSpawner) {
     let (rx, _) = uart.make_uart(
         115200,
         embassy_stm32::usart::Parity::ParityNone,
@@ -226,17 +233,17 @@ pub fn init_gps_receiver(uart: impl UartMaker, spawner: &SendSpawner, store: &'s
         false,
     );
 
-    spawner.spawn(gps_receiver_task(rx, store)).unwrap();
+    spawner.spawn(gps_receiver_task(rx)).unwrap();
 }
 
 #[embassy_executor::task]
-async fn gps_receiver_task(rx: UartRx<'static, Async>, store: &'static SharedState) {
+async fn gps_receiver_task(rx: UartRx<'static, Async>) {
     let ring_buffer = make_static_buffer!(1024);
 
     let mut rx = rx.into_ring_buffered(ring_buffer);
 
     loop {
-        receive_ubx_packet(&mut rx, store)
+        receive_ubx_packet(&mut rx)
             .await
             .inspect_err(|err| {
                 if let GPSReceiveError::UartError(err) = err {
@@ -260,10 +267,7 @@ fn ubx_crc(buffer: &[u8]) -> (u8, u8) {
     (ck_a as u8, ck_b as u8)
 }
 
-async fn receive_ubx_packet(
-    uart: &mut RingBufferedUartRx<'_>,
-    store: &SharedState,
-) -> Result<(), GPSReceiveError> {
+async fn receive_ubx_packet(uart: &mut RingBufferedUartRx<'_>) -> Result<(), GPSReceiveError> {
     let mut buffer = [0u8; 264];
 
     uart.read_exact(&mut buffer[0..1])
@@ -309,7 +313,7 @@ async fn receive_ubx_packet(
 
     match class_and_type {
         PACKET_CLASS_TYPE_UBX_NAV_PVT => {
-            receive_nav_pvt_packet(&buffer[6..packet_len + 6], store).await?;
+            receive_nav_pvt_packet(&buffer[6..packet_len + 6]).await?;
         }
         _ => {
             return Err(GPSReceiveError::UnknownFrameType);
@@ -319,7 +323,7 @@ async fn receive_ubx_packet(
     Ok(())
 }
 
-async fn receive_nav_pvt_packet(buffer: &[u8], store: &SharedState) -> Result<(), GPSReceiveError> {
+async fn receive_nav_pvt_packet(buffer: &[u8]) -> Result<(), GPSReceiveError> {
     if buffer.len() != 92 {
         return Err(GPSReceiveError::DeserializationError);
     }
@@ -327,7 +331,7 @@ async fn receive_nav_pvt_packet(buffer: &[u8], store: &SharedState) -> Result<()
     let nav_packet = UbxNavPVTPacket::try_ref_from_bytes(buffer)
         .map_err(|_| GPSReceiveError::DeserializationError)?;
 
-    store.update_gps_state(GPSState {
+    SHARED_STATE.update_gps_state(GPSState {
         gps_packet: Some(nav_packet.clone()),
     });
 

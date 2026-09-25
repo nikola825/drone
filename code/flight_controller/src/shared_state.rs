@@ -1,5 +1,5 @@
-use core::ops::DerefMut;
-
+#[cfg(feature = "debug-logging")]
+use common::shared_objects::DebugLog;
 use common::{
     configurator_protocol::messages::{FcStatus, MotorDirectionSetting},
     shared_objects::StoredConfig,
@@ -8,6 +8,8 @@ use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex, signal::Signal, watch::Watch,
 };
 
+#[cfg(feature = "debug-logging")]
+use crate::debug_logging::LoggingState;
 use crate::{
     arming::ArmingTracker,
     battery_monitor::BatteryInformation,
@@ -18,13 +20,24 @@ use crate::{
     stored_config::read_stored_config,
 };
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct CommandState {
     pub arming_tracker: ArmingTracker,
     pub commands: CRSFChannels,
 }
 
-pub struct SharedState {
+impl CommandState {
+    pub const fn new() -> Self {
+        Self {
+            arming_tracker: ArmingTracker::new(),
+            commands: CRSFChannels::new(),
+        }
+    }
+}
+
+pub static SHARED_STATE: SharedStateImpl = SharedStateImpl::new();
+
+pub struct SharedStateImpl {
     channel_state: Watch<CriticalSectionRawMutex, CommandState, 0>,
     battery_state: Watch<CriticalSectionRawMutex, BatteryInformation, 0>,
     link_state: Watch<CriticalSectionRawMutex, CRSFFrameLinkStatistics, 0>,
@@ -32,27 +45,37 @@ pub struct SharedState {
     enter_four_way_mode_signal: Watch<CriticalSectionRawMutex, bool, 0>,
     enter_four_way_mode_response: Signal<CriticalSectionRawMutex, FourWayParameters>,
     fc_status: Signal<CriticalSectionRawMutex, FcStatus>,
-    config_store: Mutex<CriticalSectionRawMutex, ConfigStoreType>,
+    config_store: Mutex<CriticalSectionRawMutex, Option<ConfigStoreType>>,
     cached_config: Mutex<CriticalSectionRawMutex, Option<StoredConfig>>,
     enter_configurator_mode_signal: Signal<CriticalSectionRawMutex, ()>,
     motor_direction_signal: Signal<CriticalSectionRawMutex, MotorDirectionSetting>,
+
+    #[cfg(feature = "debug-logging")]
+    debug_logs: Mutex<CriticalSectionRawMutex, LoggingState>,
 }
 
-impl SharedState {
-    pub fn new(config_store: ConfigStoreType) -> Self {
-        SharedState {
-            channel_state: Watch::new_with(CommandState::default()),
-            battery_state: Watch::new_with(BatteryInformation::default()),
-            link_state: Watch::new_with(CRSFFrameLinkStatistics::default()),
-            gps_state: Watch::new_with(GPSState::default()),
+impl SharedStateImpl {
+    pub const fn new() -> Self {
+        SharedStateImpl {
+            channel_state: Watch::new_with(CommandState::new()),
+            battery_state: Watch::new_with(BatteryInformation::new()),
+            link_state: Watch::new_with(CRSFFrameLinkStatistics::new()),
+            gps_state: Watch::new_with(GPSState::new()),
             enter_four_way_mode_signal: Watch::new_with(false),
             enter_four_way_mode_response: Signal::new(),
             fc_status: Signal::new(),
-            config_store: Mutex::new(config_store),
+            config_store: Mutex::new(None),
             cached_config: Mutex::new(None),
             enter_configurator_mode_signal: Signal::new(),
             motor_direction_signal: Signal::new(),
+            #[cfg(feature = "debug-logging")]
+            debug_logs: Mutex::new(LoggingState::new()),
         }
+    }
+
+    pub async fn init(&self, config_store: ConfigStoreType) {
+        let mut store = self.config_store.lock().await;
+        *store = Some(config_store);
     }
 
     pub fn command_snapshot(&self) -> CommandState {
@@ -135,7 +158,7 @@ impl SharedState {
         } else {
             let mut config_store = self.config_store.lock().await;
 
-            let read_config = read_stored_config(config_store.deref_mut()).await;
+            let read_config = read_stored_config(config_store.as_mut().unwrap()).await;
 
             if let Ok(config) = read_config {
                 *cached_config = Some(config.clone());
@@ -151,7 +174,7 @@ impl SharedState {
         let mut cached_config = self.cached_config.lock().await;
 
         let mut config_store = self.config_store.lock().await;
-        crate::stored_config::store_config(config_store.deref_mut(), config.clone()).await;
+        crate::stored_config::store_config(config_store.as_mut().unwrap(), config.clone()).await;
 
         *cached_config = None;
     }
@@ -170,5 +193,21 @@ impl SharedState {
 
     pub fn query_motor_direction_setting(&self) -> Option<MotorDirectionSetting> {
         self.motor_direction_signal.try_take()
+    }
+
+    #[cfg(feature = "debug-logging")]
+    #[allow(dead_code)]
+    pub async fn write_log_fmt(&self, args: core::fmt::Arguments<'_>) {
+        use core::fmt::Write;
+        let mut logging_state = self.debug_logs.lock().await;
+
+        let _ = logging_state.write_fmt(args);
+    }
+
+    #[cfg(feature = "debug-logging")]
+    pub async fn get_log(&self) -> Option<DebugLog> {
+        let mut logging_state = self.debug_logs.lock().await;
+
+        logging_state.take_log()
     }
 }

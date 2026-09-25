@@ -1,6 +1,6 @@
 use common::{
     configurator_protocol::messages::{BatteryResponse, FcStatus},
-    shared_objects::{MotorDirection, StoredConfig},
+    shared_objects::{DebugLog, MotorDirection, StoredConfig},
 };
 
 mod mock;
@@ -34,6 +34,8 @@ pub trait DroneConnection {
     fn enter_configurator(&mut self) -> Result<(), DroneCommunicationError>;
 
     fn reset_fc(&mut self) -> Result<(), DroneCommunicationError>;
+
+    fn query_log(&mut self) -> Result<Vec<DebugLog>, DroneCommunicationError>;
 
     fn drive_motor(
         &mut self,

@@ -1,4 +1,8 @@
-use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned, little_endian};
+use core::fmt::Write;
+
+use zerocopy::{
+    FromZeros, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned, little_endian,
+};
 
 use crate::crc8::crc8_calculate;
 
@@ -186,5 +190,54 @@ impl core::fmt::Display for MotorPosition {
         let string_value = self.as_str();
 
         write!(f, "{string_value}")
+    }
+}
+
+pub const LOG_LINE_SIZE: usize = 64;
+
+#[allow(dead_code)]
+#[derive(
+    IntoBytes, Immutable, TryFromBytes, KnownLayout, Unaligned, Clone, Copy, Debug, PartialEq,
+)]
+#[repr(C)]
+pub struct DebugLog {
+    line: [u8; LOG_LINE_SIZE],
+}
+
+impl Default for DebugLog {
+    fn default() -> Self {
+        Self {
+            line: [0u8; LOG_LINE_SIZE],
+        }
+    }
+}
+
+impl DebugLog {
+    pub const fn new() -> Self {
+        Self {
+            line: [0u8; LOG_LINE_SIZE],
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.line[0] == 0
+    }
+}
+
+impl Write for DebugLog {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        let to_copy = s.len().min(LOG_LINE_SIZE);
+
+        self.line[0..to_copy].copy_from_slice(&s.as_bytes()[0..to_copy]);
+        self.line[to_copy..LOG_LINE_SIZE].zero();
+
+        Ok(())
+    }
+}
+
+impl core::fmt::Display for DebugLog {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let q = str::from_utf8(&self.line).unwrap();
+        write!(f, "{}", q)
     }
 }

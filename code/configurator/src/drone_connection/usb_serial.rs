@@ -258,4 +258,34 @@ impl DroneConnection for UsbDroneConnection {
 
         Ok(())
     }
+
+    fn query_log(
+        &mut self,
+    ) -> Result<Vec<common::shared_objects::DebugLog>, DroneCommunicationError> {
+        let mut logs = Vec::new();
+
+        loop {
+            let response =
+                self.send_configurator_request(ConfiguratorMessage::QueryLog(Dummy::default()))?;
+
+            match response {
+                ConfiguratorMessage::LogResponse(log) => {
+                    if log.is_empty() {
+                        break;
+                    }
+                    logs.push(log);
+                }
+                ConfiguratorMessage::LoggingDisabledResponse(_) => {
+                    break;
+                }
+                _ => {
+                    return Err(DroneCommunicationError::WrongMessage(
+                        "Drone sent wrong response type when querying for logs".into(),
+                    ));
+                }
+            }
+        }
+
+        Ok(logs)
+    }
 }

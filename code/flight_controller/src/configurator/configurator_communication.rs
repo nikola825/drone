@@ -8,10 +8,9 @@ use common::{
 };
 use zerocopy::TryFromBytes;
 
-use crate::{hal::mcu_utils::reset_fc, msp::usb_communication::CommunicationContext};
+use crate::{hal::mcu_utils::reset_fc, shared_state::SHARED_STATE};
 
 pub async fn handle_configurator_message(
-    communication_context: &mut CommunicationContext,
     received_msp_message: &ReceivedMspMessage,
 ) -> MSPMessage<ConfiguratorMessage> {
     let parsed_message = ConfiguratorMessage::try_read_from_prefix(&received_msp_message.payload);
@@ -23,43 +22,35 @@ pub async fn handle_configurator_message(
     };
 
     let response = match configurator_message {
-        ConfiguratorMessage::StartConfigurator(_) => {
-            start_configurator(communication_context).await
-        }
-        ConfiguratorMessage::QueryConfig(_) => query_config(communication_context).await,
-        ConfiguratorMessage::SetConfig(config) => set_config(communication_context, config).await,
-        ConfiguratorMessage::QueryBattery(_) => query_battery(communication_context),
-        ConfiguratorMessage::QueryFcStatus(_) => query_fc_status(communication_context),
+        ConfiguratorMessage::StartConfigurator(_) => start_configurator().await,
+        ConfiguratorMessage::QueryConfig(_) => query_config().await,
+        ConfiguratorMessage::SetConfig(config) => set_config(config).await,
+        ConfiguratorMessage::QueryBattery(_) => query_battery(),
+        ConfiguratorMessage::QueryFcStatus(_) => query_fc_status(),
         ConfiguratorMessage::ResetFc(_) => {
             reset_fc();
         }
         ConfiguratorMessage::SetMotorDirection(direction_setting) => {
-            set_motor_direction(communication_context, direction_setting.inner)
+            set_motor_direction(direction_setting.inner)
         }
+        ConfiguratorMessage::QueryLog(_) => query_log().await,
         _ => ConfiguratorMessage::InvalidCommandResponse(Dummy::default()).into(),
     };
 
     response
 }
 
-async fn start_configurator(
-    communication_context: &CommunicationContext,
-) -> MSPMessage<ConfiguratorMessage> {
-    communication_context
-        .shared_state
-        .request_configurator_mode();
+async fn start_configurator() -> MSPMessage<ConfiguratorMessage> {
+    SHARED_STATE.request_configurator_mode();
     ConfiguratorMessage::EmptyOkResponse(Dummy::default()).into()
 }
 
-async fn query_config(
-    communication_context: &CommunicationContext,
-) -> MSPMessage<ConfiguratorMessage> {
-    ConfiguratorMessage::QueryConfigResponse(communication_context.shared_state.read_config().await)
-        .into()
+async fn query_config() -> MSPMessage<ConfiguratorMessage> {
+    ConfiguratorMessage::QueryConfigResponse(SHARED_STATE.read_config().await).into()
 }
 
-fn query_battery(communication_context: &CommunicationContext) -> MSPMessage<ConfiguratorMessage> {
-    let battery_info = communication_context.shared_state.get_battery_information();
+fn query_battery() -> MSPMessage<ConfiguratorMessage> {
+    let battery_info = SHARED_STATE.get_battery_information();
 
     ConfiguratorMessage::QueryBatteryResponse(
         BatteryResponse {
@@ -71,33 +62,37 @@ fn query_battery(communication_context: &CommunicationContext) -> MSPMessage<Con
     .into()
 }
 
-fn query_fc_status(
-    communication_context: &CommunicationContext,
-) -> MSPMessage<ConfiguratorMessage> {
-    let status = communication_context.shared_state.query_status();
+fn query_fc_status() -> MSPMessage<ConfiguratorMessage> {
+    let status = SHARED_STATE.query_status();
 
     ConfiguratorMessage::QueryFcStatusResponse(status.into()).into()
 }
 
 fn set_motor_direction(
-    communication_context: &CommunicationContext,
     direction_setting: MotorDirectionSetting,
 ) -> MSPMessage<ConfiguratorMessage> {
-    communication_context
-        .shared_state
-        .push_motor_direction_setting(direction_setting);
+    SHARED_STATE.push_motor_direction_setting(direction_setting);
 
     ConfiguratorMessage::EmptyOkResponse(Dummy::default()).into()
 }
 
-async fn set_config(
-    communication_context: &CommunicationContext,
-    config: StoredConfig,
-) -> MSPMessage<ConfiguratorMessage> {
-    communication_context
-        .shared_state
-        .store_config(config)
-        .await;
+async fn set_config(config: StoredConfig) -> MSPMessage<ConfiguratorMessage> {
+    SHARED_STATE.store_config(config).await;
 
     ConfiguratorMessage::EmptyOkResponse(Dummy::default()).into()
+}
+
+#[cfg(feature = "debug-logging")]
+async fn query_log() -> MSPMessage<ConfiguratorMessage> {
+    use common::shared_objects::DebugLog;
+
+    let log = SHARED_STATE.get_log().await;
+
+    let log = log.unwrap_or(DebugLog::new());
+    ConfiguratorMessage::LogResponse(log).into()
+}
+
+#[cfg(not(feature = "debug-logging"))]
+async fn query_log() -> MSPMessage<ConfiguratorMessage> {
+    ConfiguratorMessage::LoggingDisabledResponse(Dummy::default()).into()
 }

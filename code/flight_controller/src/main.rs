@@ -3,7 +3,7 @@
 
 use crate::{
     configurator::configurator_loop::configurator_loop, four_way::four_way_esc::FourWayParameters,
-    hal::make_hardware,
+    hal::make_hardware, shared_state::SHARED_STATE,
 };
 use cortex_m_rt::entry;
 use embassy_executor::SendSpawner;
@@ -13,13 +13,13 @@ mod ahrs_wrapper;
 mod arming;
 mod battery_monitor;
 mod channel_mapping;
+mod configurator;
 mod crsf;
+mod debug_logging;
 mod dshot;
+mod esc;
 mod expo_rates;
 mod flight_control;
-
-mod configurator;
-mod esc;
 mod four_way;
 mod gps;
 mod hal;
@@ -31,11 +31,11 @@ mod model;
 mod motors;
 mod msp;
 mod navigation_utils;
-mod osd;
 mod pid;
 mod shared_state;
 mod static_buffer;
 mod stored_config;
+mod video;
 
 #[entry]
 fn main() -> ! {
@@ -59,19 +59,16 @@ async fn async_main(spawner_low: SendSpawner) {
         flight_control::FlightModeExit::Configurator(flight_mode_exit_data) => {
             configurator_loop(
                 flight_mode_exit_data.motor_set,
-                flight_mode_exit_data.shared_state,
                 flight_mode_exit_data.leds,
                 flight_mode_exit_data.phase,
             )
             .await;
         }
         flight_control::FlightModeExit::FourWayEsc(flight_mode_exit_data) => {
-            flight_mode_exit_data
-                .shared_state
-                .push_four_way_mode_parameters(FourWayParameters {
-                    leds: flight_mode_exit_data.leds,
-                    motors: flight_mode_exit_data.motor_set.into_four_way(),
-                });
+            SHARED_STATE.push_four_way_mode_parameters(FourWayParameters {
+                leds: flight_mode_exit_data.leds,
+                motors: flight_mode_exit_data.motor_set.into_four_way(),
+            });
         }
     }
 }

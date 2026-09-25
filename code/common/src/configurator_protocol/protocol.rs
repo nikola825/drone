@@ -3,7 +3,7 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unali
 use crate::{
     configurator_protocol::messages::{BatteryResponse, FcStatus, MotorDirectionSetting},
     msp_protocol::protocol::{MSPMessagePayload, MSPReceivedPayload},
-    shared_objects::StoredConfig,
+    shared_objects::{DebugLog, StoredConfig},
 };
 
 #[derive(IntoBytes, TryFromBytes, Immutable, KnownLayout, Unaligned)]
@@ -21,7 +21,10 @@ pub enum ConfiguratorMessage {
     QueryFcStatus(Dummy),
     QueryFcStatusResponse(PaddedStruct<FcStatus, 38>),
     ResetFc(Dummy),
-    SetMotorDirection(PaddedStruct<MotorDirectionSetting, 62>)
+    SetMotorDirection(PaddedStruct<MotorDirectionSetting, 62>),
+    QueryLog(Dummy),
+    LogResponse(DebugLog),
+    LoggingDisabledResponse(Dummy),
 }
 
 #[derive(IntoBytes, Immutable, KnownLayout, Unaligned, FromBytes)]

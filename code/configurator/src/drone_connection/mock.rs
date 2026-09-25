@@ -98,4 +98,10 @@ impl DroneConnection for MockDroneConnection {
 
         Ok(())
     }
+
+    fn query_log(
+        &mut self,
+    ) -> Result<Vec<common::shared_objects::DebugLog>, super::DroneCommunicationError> {
+        Ok(Vec::new())
+    }
 }

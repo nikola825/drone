@@ -9,30 +9,14 @@ use embassy_executor::SendSpawner;
 use embassy_futures::join::join;
 use zerocopy::TryFromBytes;
 
-use crate::four_way::four_way_esc::FourWayParameters;
 use crate::{
     configurator::configurator_communication::handle_configurator_message,
     four_way::four_way_esc::four_way_loop,
     hal::{Disconnected, PacketHeaderType, UsbPeripheral, UsbSerialWrapper, ESC_COUNT},
-    shared_state::SharedState,
+    shared_state::SHARED_STATE,
 };
 
 const FC_VARIANT_BETAFLIGHT: &[u8; 4] = b"BTFL";
-
-pub struct CommunicationContext {
-    four_way_parameters: Option<FourWayParameters>,
-    pub shared_state: &'static SharedState,
-}
-
-impl CommunicationContext {
-    pub async fn get_four_way_parameters(&mut self) -> &mut FourWayParameters {
-        if self.four_way_parameters.is_none() {
-            self.four_way_parameters = Some(self.shared_state.request_four_way_mode().await);
-        }
-
-        self.four_way_parameters.as_mut().unwrap()
-    }
-}
 
 impl PacketHeaderType for MSPHeader {
     fn try_extract_header(buffer: &[u8]) -> Option<Self> {
@@ -48,35 +32,23 @@ impl PacketHeaderType for MSPHeader {
     }
 }
 
-pub async fn start_usb_communication(
-    spawner: &SendSpawner,
-    usb_peripheral: UsbPeripheral,
-    shared_state: &'static SharedState,
-) {
-    spawner.must_spawn(msp_message_processor_task(usb_peripheral, shared_state));
+pub async fn start_usb_communication(spawner: &SendSpawner, usb_peripheral: UsbPeripheral) {
+    spawner.must_spawn(msp_message_processor_task(usb_peripheral));
 }
 
 #[embassy_executor::task]
-pub async fn msp_message_processor_task(
-    usb_peripheral: UsbPeripheral,
-    shared_state: &'static SharedState,
-) {
+pub async fn msp_message_processor_task(usb_peripheral: UsbPeripheral) {
     let mut usb_port = usb_peripheral.into_usb_port(true);
 
     let usb_serial = UsbSerialWrapper::new(usb_port.cdc_acm);
 
     let usb_fut = usb_port.usb_device.run();
-    let msp_fut = msp_listener_loop(usb_serial, shared_state);
+    let msp_fut = msp_listener_loop(usb_serial);
 
     join(usb_fut, msp_fut).await;
 }
 
-async fn msp_listener_loop(mut usb_serial: UsbSerialWrapper, shared_state: &'static SharedState) {
-    let mut communication_context = CommunicationContext {
-        four_way_parameters: None,
-        shared_state,
-    };
-
+async fn msp_listener_loop(mut usb_serial: UsbSerialWrapper) {
     loop {
         //leds.all_off();
 
@@ -84,25 +56,21 @@ async fn msp_listener_loop(mut usb_serial: UsbSerialWrapper, shared_state: &'sta
 
         //leds.blue_on();
 
-        let _ = msp_processor_loop(&mut usb_serial, &mut communication_context).await;
+        let _ = msp_processor_loop(&mut usb_serial).await;
     }
 }
 
-async fn msp_processor_loop(
-    usb_serial: &mut UsbSerialWrapper,
-    communication_context: &mut CommunicationContext,
-) -> Result<(), Disconnected> {
+async fn msp_processor_loop(usb_serial: &mut UsbSerialWrapper) -> Result<(), Disconnected> {
     loop {
         let header: MSPHeader = usb_serial.advance_until_header().await?;
 
-        handle_msp_message::<ESC_COUNT>(usb_serial, header, communication_context).await?;
+        handle_msp_message::<ESC_COUNT>(usb_serial, header).await?;
     }
 }
 
 async fn handle_msp_message<const ESC_COUNT: usize>(
     usb: &mut UsbSerialWrapper,
     header: MSPHeader,
-    communication_context: &mut CommunicationContext,
 ) -> Result<(), Disconnected> {
     let mut buffer: [u8; 280] = [0u8; 280];
     usb.read_exact(&mut buffer[0..size_of::<MSPHeader>()])
@@ -135,17 +103,16 @@ async fn handle_msp_message<const ESC_COUNT: usize>(
                         .await?;
                 }
                 MSPMessageType::MSP_CUSTOM_CONFIGURATOR => {
-                    let response =
-                        handle_configurator_message(communication_context, &result).await;
+                    let response = handle_configurator_message(&result).await;
                     transmit_msp_message(usb, response).await?;
                 }
                 MSPMessageType::MSP_SET_PASSTHROUGH => {
                     transmit_msp_message(usb, SetPassthroughResponse::new(ESC_COUNT as u8).into())
                         .await?;
 
-                    let params = communication_context.get_four_way_parameters().await;
+                    let four_way_parameters = SHARED_STATE.request_four_way_mode().await;
 
-                    four_way_loop(usb, params).await?;
+                    four_way_loop(usb, four_way_parameters).await;
                 }
                 _ => {}
             };

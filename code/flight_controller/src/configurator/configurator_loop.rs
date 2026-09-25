@@ -6,12 +6,11 @@ use crate::{
     configurator::motor_setting_state_machine::MotorSettingStateMachine,
     esc::{motor_control::DshotCommand, EscMotorSet},
     hal::{Leds, ESC_COUNT},
-    shared_state::SharedState,
+    shared_state::SHARED_STATE,
 };
 
 pub async fn configurator_loop(
     mut motors: EscMotorSet,
-    shared_state: &'static SharedState,
     mut leds: Leds,
     fc_phase_at_exit: FcPhase,
 ) -> ! {
@@ -55,7 +54,7 @@ pub async fn configurator_loop(
                 motor_setting = None;
             }
         } else {
-            motor_setting = shared_state
+            motor_setting = SHARED_STATE
                 .query_motor_direction_setting()
                 .map(|direction_setting| direction_setting.into());
         }
@@ -80,7 +79,7 @@ pub async fn configurator_loop(
                 "TICK {} {} {} {}",
                 total_duration, inner_duration, min_measured_period, max_measured_period,
             );
-            shared_state.publish_status(FcStatus {
+            SHARED_STATE.publish_status(FcStatus {
                 inner_duration: inner_duration.into(),
                 total_duration: total_duration.into(),
                 min_measured_period: min_measured_period.into(),

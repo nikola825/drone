@@ -158,6 +158,12 @@ impl Gui {
             } else {
                 self.state.last_fc_status
             };
+
+            let logs = connection.query_log().unwrap();
+
+            for log in logs {
+                println!("Logs {}", log);
+            }
         } else {
             self.state.connected = false;
             self.state.last_fc_status.valid = false;

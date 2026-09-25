@@ -17,7 +17,7 @@ use embedded_io::ReadExactError;
 use embedded_io_async::{Read, Write};
 use zerocopy::{big_endian, FromBytes, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned};
 
-use crate::shared_state::SharedState;
+use crate::shared_state::SHARED_STATE;
 
 const CRSF_COMMUNICATION_TIMEOUT: Duration = Duration::from_millis(100);
 
@@ -177,7 +177,7 @@ struct CRSFFramePackedChannels {
     packed: [u8; 22],
 }
 
-#[derive(FromBytes, IntoBytes, Default, Clone, Immutable, KnownLayout, Unaligned)]
+#[derive(FromBytes, IntoBytes, Clone, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 pub struct CRSFFrameLinkStatistics {
     pub rssi1: u8,
@@ -193,6 +193,20 @@ pub struct CRSFFrameLinkStatistics {
 }
 
 impl CRSFFrameLinkStatistics {
+    pub const fn new() -> Self {
+        Self {
+            rssi1: 0,
+            rssi2: 0,
+            link_quality: 0,
+            snr: 0,
+            active_antenna: 0,
+            rf_mode: 0,
+            tx_power: 0,
+            telemetry_rssi: 0,
+            telemetry_lq: 0,
+            telemetry_snr: 0,
+        }
+    }
     pub fn best_rssi(&self) -> u8 {
         if self.rssi2 != 0 && self.rssi2 < self.rssi1 {
             self.rssi2
@@ -255,6 +269,16 @@ impl Default for CRSFChannels {
 }
 
 impl CRSFChannels {
+    pub const fn new() -> Self {
+        Self {
+            unpacked_channels: [0; 16],
+            populated: false,
+            timestamp: Instant::MIN,
+        }
+    }
+}
+
+impl CRSFChannels {
     pub fn is_fresh(&self) -> bool {
         let now = Instant::now();
         let age = now - self.timestamp;
@@ -270,7 +294,7 @@ fn make_uart_pair(uart_maker: impl UartMaker) -> (UartRx<'static, Async>, UartTx
 }
 
 #[embassy_executor::task]
-async fn crsf_receiver_task(rx: UartRx<'static, Async>, shared_state: &'static SharedState) {
+async fn crsf_receiver_task(rx: UartRx<'static, Async>) {
     let ring_buffer = make_static_buffer!(1024);
 
     let mut rx = rx.into_ring_buffered(ring_buffer);
@@ -278,7 +302,7 @@ async fn crsf_receiver_task(rx: UartRx<'static, Async>, shared_state: &'static S
 
     loop {
         {
-            process_crsf_packet(&mut rx, shared_state)
+            process_crsf_packet(&mut rx)
                 .await
                 .inspect_err(|err| {
                     if let CRSFReceiveError::UartError(err) = err {
@@ -292,10 +316,7 @@ async fn crsf_receiver_task(rx: UartRx<'static, Async>, shared_state: &'static S
     }
 }
 
-async fn process_crsf_packet(
-    rx: &mut RingBufferedUartRx<'_>,
-    shared_state: &SharedState,
-) -> Result<(), CRSFReceiveError> {
+async fn process_crsf_packet(rx: &mut RingBufferedUartRx<'_>) -> Result<(), CRSFReceiveError> {
     let mut command_buffer: [u8; CRSF_FRAME_MAX_SIZE] = [0u8; CRSF_FRAME_MAX_SIZE];
     rx.read_exact(&mut command_buffer[0..1])
         .await
@@ -324,10 +345,10 @@ async fn process_crsf_packet(
 
     match frame_type {
         CRSFFrameType::CRSF_FRAMETYPE_LINK_STATISTICS => {
-            process_link_statistics(CRSFPacket::deserialize(&command_buffer)?, shared_state);
+            process_link_statistics(CRSFPacket::deserialize(&command_buffer)?);
         }
         CRSFFrameType::CRSF_FRAME_TYPE_RC_CHANNELS_PACKED => {
-            process_received_channels(CRSFPacket::deserialize(&command_buffer)?, shared_state);
+            process_received_channels(CRSFPacket::deserialize(&command_buffer)?);
         }
         _ => {}
     }
@@ -335,28 +356,28 @@ async fn process_crsf_packet(
     Ok(())
 }
 
-fn process_received_channels(packed: CRSFFramePackedChannels, shared_state: &SharedState) {
+fn process_received_channels(packed: CRSFFramePackedChannels) {
     let unpacked = packed.unpack();
-    shared_state.update_channels(unpacked);
+    SHARED_STATE.update_channels(unpacked);
 }
 
-fn process_link_statistics(stats: CRSFFrameLinkStatistics, shared_state: &SharedState) {
-    shared_state.update_link_state(stats);
+fn process_link_statistics(stats: CRSFFrameLinkStatistics) {
+    SHARED_STATE.update_link_state(stats);
 }
 
 #[embassy_executor::task]
-async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, shared_state: &'static SharedState) {
+async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>) {
     info!("CRSF telemetry start");
-    let mut ticker = Ticker::every(Duration::from_millis(200));
 
+    let mut ticker = Ticker::every(Duration::from_millis(200));
     loop {
-        let measured_battery_voltage = shared_state.get_battery_voltage();
+        let measured_battery_voltage = SHARED_STATE.get_battery_voltage();
 
         let packet = BatteryInfo::new(measured_battery_voltage);
 
         let _ = tx.write_all(packet.as_bytes()).await;
 
-        let gps_state = shared_state.get_gps_state();
+        let gps_state = SHARED_STATE.get_gps_state();
 
         if let Some(gps_packet) = gps_state.gps_packet {
             let gps_info_packet = GPSInfo::new(&gps_packet);
@@ -367,13 +388,9 @@ async fn crsf_telemetry_task(mut tx: UartTx<'static, Async>, shared_state: &'sta
     }
 }
 
-pub fn init_crsf_communication(
-    uart: impl UartMaker,
-    spawner: &SendSpawner,
-    shared_state: &'static SharedState,
-) {
+pub fn init_crsf_communication(uart: impl UartMaker, spawner: &SendSpawner) {
     let (crsf_rx, crsf_tx) = make_uart_pair(uart);
 
-    spawner.must_spawn(crsf_receiver_task(crsf_rx, shared_state));
-    spawner.must_spawn(crsf_telemetry_task(crsf_tx, shared_state));
+    spawner.must_spawn(crsf_receiver_task(crsf_rx));
+    spawner.must_spawn(crsf_telemetry_task(crsf_tx));
 }
