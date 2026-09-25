@@ -1,8 +1,4 @@
-use core::fmt::Write;
-
-use zerocopy::{
-    FromZeros, Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned, little_endian,
-};
+use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes, Unaligned, little_endian};
 
 use crate::crc8::crc8_calculate;
 
@@ -201,7 +197,7 @@ pub const LOG_LINE_SIZE: usize = 64;
 )]
 #[repr(C)]
 pub struct DebugLog {
-    line: [u8; LOG_LINE_SIZE],
+    pub line: [u8; LOG_LINE_SIZE],
 }
 
 impl Default for DebugLog {
@@ -224,20 +220,14 @@ impl DebugLog {
     }
 }
 
-impl Write for DebugLog {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let to_copy = s.len().min(LOG_LINE_SIZE);
-
-        self.line[0..to_copy].copy_from_slice(&s.as_bytes()[0..to_copy]);
-        self.line[to_copy..LOG_LINE_SIZE].zero();
-
-        Ok(())
-    }
-}
-
 impl core::fmt::Display for DebugLog {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let q = str::from_utf8(&self.line).unwrap();
-        write!(f, "{}", q)
+        let end_index = self
+            .line
+            .iter()
+            .position(|&x| x == 0)
+            .unwrap_or(LOG_LINE_SIZE);
+        let string_value = str::from_utf8(&self.line[0..end_index]).unwrap();
+        write!(f, "{}", string_value)
     }
 }

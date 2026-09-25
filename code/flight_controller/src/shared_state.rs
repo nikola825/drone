@@ -198,10 +198,9 @@ impl SharedStateImpl {
     #[cfg(feature = "debug-logging")]
     #[allow(dead_code)]
     pub async fn write_log_fmt(&self, args: core::fmt::Arguments<'_>) {
-        use core::fmt::Write;
         let mut logging_state = self.debug_logs.lock().await;
 
-        let _ = logging_state.write_fmt(args);
+        logging_state.write_log_fmt(args);
     }
 
     #[cfg(feature = "debug-logging")]

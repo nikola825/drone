@@ -161,8 +161,16 @@ impl Gui {
 
             let logs = connection.query_log().unwrap();
 
+            let mut log_dump: String = String::new();
             for log in logs {
-                println!("Logs {}", log);
+                let log_chunk = format!("{}", log);
+                log_dump += &log_chunk;
+            }
+
+            for line in log_dump.split("\n") {
+                if !line.trim().is_empty() {
+                    println!("[FC LOG] '{}'", line.trim());
+                }
             }
         } else {
             self.state.connected = false;
