@@ -45,8 +45,8 @@
         },
         "silk_line_width": 0.15,
         "silk_text_italic": false,
-        "silk_text_size_h": 1.0,
-        "silk_text_size_v": 1.0,
+        "silk_text_size_h": 0.8,
+        "silk_text_size_v": 0.8,
         "silk_text_thickness": 0.15,
         "silk_text_upright": false,
         "zones": {
@@ -765,7 +765,7 @@
         "uuid": "04179b3e-2b25-41d4-a9af-8911a5c82cad"
       }
     ],
-    "used_designators": "U3,R15-16,C30-37,L2",
+    "used_designators": "#PWR1,J3,U3,R15-16,C30-37,L2",
     "variants": []
   },
   "sheets": [
