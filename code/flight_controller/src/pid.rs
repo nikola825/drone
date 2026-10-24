@@ -6,19 +6,20 @@ use embassy_time::Instant;
 use crate::{
     ahrs_wrapper::AhrsWrapper,
     crsf::CRSFChannels,
+    filtering::{GyroFilter, SVFilter},
+    flight_control::LOOP_PERIOD_SECS,
     icm42688::ICM42688,
     math_stuff::angle_sub,
     model::{PITCH_KD, PITCH_KI, PITCH_KP, ROLL_KD, ROLL_KI, ROLL_KP, YAW_KD, YAW_KI, YAW_KP},
     motors::MotorInputs,
 };
 
-// At our PID rate of 1000Hz, this gives a 3dB dropoff at around 100Hz
-const D_TERM_LPF_FACTOR: f32 = 0.457f32;
+const FILTER_CUTOFF_FREQ: f32 = 100f32;
 
 struct Pid {
     i: f32,
     last_error: f32,
-    d_term_lpf: f32,
+    d_term_lpf: SVFilter,
 }
 
 impl Pid {
@@ -26,7 +27,7 @@ impl Pid {
         Pid {
             i: 0f32,
             last_error: 0f32,
-            d_term_lpf: 0f32,
+            d_term_lpf: SVFilter::new(FILTER_CUTOFF_FREQ, LOOP_PERIOD_SECS),
         }
     }
 
@@ -37,9 +38,9 @@ impl Pid {
 
         // Do basic exponential low-pass on the D term
         let d_term = (error - self.last_error) * kd / dt;
-        self.d_term_lpf = self.d_term_lpf * (1f32 - D_TERM_LPF_FACTOR) + d_term * D_TERM_LPF_FACTOR;
+        let d_term = self.d_term_lpf.apply(d_term);
 
-        let result = kp * error + self.i + self.d_term_lpf;
+        let result = kp * error + self.i + d_term;
         self.last_error = error;
 
         result
@@ -48,7 +49,7 @@ impl Pid {
     fn reset(&mut self) {
         self.last_error = 0f32;
         self.i = 0f32;
-        self.d_term_lpf = 0f32;
+        self.d_term_lpf.reset();
     }
 }
 
@@ -66,6 +67,8 @@ pub struct PidContext {
     pub orient: AhrsWrapper,
 
     current_yaw_angle: f32,
+
+    input_filter: GyroFilter,
 }
 
 impl PidContext {
@@ -80,6 +83,7 @@ impl PidContext {
             last_pid_time: Instant::now(),
             orient: AhrsWrapper::new(),
             current_yaw_angle: 0f32,
+            input_filter: GyroFilter::new(FILTER_CUTOFF_FREQ, LOOP_PERIOD_SECS),
         }
     }
 
@@ -89,6 +93,7 @@ impl PidContext {
         self.roll_pid.reset();
         self.last_pid_time = Instant::now();
         self.current_yaw_angle = current_yaw_angle;
+        self.input_filter.reset();
     }
 }
 
@@ -116,6 +121,8 @@ pub async fn do_pid_iteration(
         context.pitch_offset,
         context.roll_offset,
     );
+
+    let motion_data = context.input_filter.apply(motion_data);
 
     context.orient.update(&motion_data);
 

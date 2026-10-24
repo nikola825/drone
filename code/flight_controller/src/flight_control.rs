@@ -3,6 +3,11 @@ use embassy_executor::SendSpawner;
 use embassy_time::{Duration, Instant, Ticker, Timer};
 use static_cell::StaticCell;
 
+const LOOP_FREQUENCY: f32 = 1000f32;
+pub const LOOP_PERIOD_SECS: f32 = 1f32 / LOOP_FREQUENCY;
+const LOOP_PERIOD_MICROS: u64 = (LOOP_PERIOD_SECS * 1e6) as u64;
+const LOOP_PERIOD_DURATION: Duration = Duration::from_micros(LOOP_PERIOD_MICROS);
+
 use crate::{
     battery_monitor::init_battery_monitor,
     crsf::init_crsf_communication,
@@ -126,10 +131,8 @@ async fn flight_loop(
     mut context: FlightContext,
     shared_state: &'static SharedState,
 ) -> FlightModeExit {
-    const PID_PERIOD_US: u64 = 1005;
-    let mut ticker = Ticker::every(Duration::from_micros(PID_PERIOD_US));
-
-    let mut print_counter = 0;
+    let mut ticker = Ticker::every(LOOP_PERIOD_DURATION + Duration::from_micros(5));
+    let mut last_print = Instant::now();
 
     leds.green_off();
     leds.blue_off();
@@ -202,7 +205,6 @@ async fn flight_loop(
             });
         }
 
-        print_counter += 1;
         motor_inputs =
             do_pid_iteration(&mut imu, &mut context.pid_context, &command_state.commands).await;
 
@@ -230,8 +232,8 @@ async fn flight_loop(
             min_measured_period = measured_period;
         }
 
-        if print_counter > 1000 * (2000 / PID_PERIOD_US) {
-            print_counter = 0;
+        if t1 - last_print > Duration::from_secs(2) {
+            last_print = t1;
             info!(
                 "TICK {} {} {} {}",
                 total_duration, inner_duration, min_measured_period, max_measured_period,

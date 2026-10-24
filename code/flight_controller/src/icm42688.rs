@@ -43,6 +43,8 @@ enum ACCEL_FS_SEL {
 #[allow(non_camel_case_types, dead_code, clippy::enum_variant_names)]
 #[derive(Clone, Copy)]
 enum GYRO_ODR {
+    ODR_8KHz = 0b0011,
+    ODR_4KHz = 0b0100,
     ODR_2KHz = 0b0101,
     ODR_1KHz = 0b0110,
     ODR_100Hz = 0b1000,
@@ -187,7 +189,7 @@ impl ICM42688 {
         ICM42688 {
             spi,
             cs_pin,
-            gyro_output_rate: GYRO_ODR::ODR_1KHz,
+            gyro_output_rate: GYRO_ODR::ODR_8KHz,
             gyro_fs_range: GYRO_FS_SEL::DPS_2000,
             accel_fs_range: ACCEL_FS_SEL::G_16,
             accel_output_rate: ACCEL_ODR::ODR_1KHz,
@@ -246,7 +248,7 @@ impl ICM42688 {
             icm_constants::ACCEL_UI_FILT_ORD1 | icm_constants::ACCEL_DEC2_M2_ORD;
         self.write_register(ICM42688Register::ACCEL_CONFIG1, accel_filter_config);
 
-        self.write_register(ICM42688Register::GYRO_ACCEL_CONFIG0, 0x44);
+        self.write_register(ICM42688Register::GYRO_ACCEL_CONFIG0, 0xee);
     }
 
     #[allow(dead_code)]

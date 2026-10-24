@@ -20,8 +20,11 @@ mod flight_control;
 
 mod configurator;
 mod esc;
+mod filtering;
 mod four_way;
 mod gps;
+#[cfg(feature = "gyro-dumping")]
+mod gyro_dumper;
 mod hal;
 mod icm42688;
 mod logging;
@@ -50,9 +53,11 @@ fn main() -> ! {
     }
 }
 
+#[cfg(not(feature = "gyro-dumping"))]
 #[embassy_executor::task]
 async fn async_main(spawner_low: SendSpawner) {
     let hardware = make_hardware();
+
     let flight_exit = flight_control::flight_main(spawner_low, hardware).await;
 
     match flight_exit {
@@ -74,4 +79,13 @@ async fn async_main(spawner_low: SendSpawner) {
                 });
         }
     }
+}
+
+#[cfg(feature = "gyro-dumping")]
+#[embassy_executor::task]
+async fn async_main(spawner_low: SendSpawner) {
+    use gyro_dumper;
+    let hardware = make_hardware();
+
+    gyro_dumper::gyro_dumper_main(hardware).await;
 }
