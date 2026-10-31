@@ -551,7 +551,7 @@
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "priority": 2,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.45,
+        "track_width": 0.4,
         "tuning_profile": "",
         "via_diameter": 0.5,
         "via_drill": 0.2
@@ -713,7 +713,7 @@
           "show": false
         }
       ],
-      "filter_string": "",
+      "filter_string": "r1",
       "group_symbols": true,
       "include_excluded_from_bom": false,
       "name": "",
@@ -769,7 +769,7 @@
         "uuid": "04179b3e-2b25-41d4-a9af-8911a5c82cad"
       }
     ],
-    "used_designators": "#PWR1,C30-37,J3,L2,R12,R15-16,U3",
+    "used_designators": "#PWR1,C30-45,J3,J6,L2,R12,R15-19,U3,U7,Y1",
     "variants": []
   },
   "sheets": [
