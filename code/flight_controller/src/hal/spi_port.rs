@@ -1,6 +1,6 @@
 use embassy_stm32::gpio::AnyPin;
-use embassy_stm32::Peri;
 use embassy_stm32::mode::Blocking;
+use embassy_stm32::Peri;
 use embassy_stm32::{
     gpio::Output,
     spi::{self, BitOrder, Mode, Spi},

@@ -330,7 +330,7 @@ async fn osd_refresh_task(
 
         let flight_duration = flight_start
             .as_ref()
-            .and_then(|flight_start| Some(flight_end - *flight_start));
+            .map(|flight_start| flight_end - *flight_start);
 
         let gps_state = shared_state.get_gps_state();
 
