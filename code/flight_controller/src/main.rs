@@ -20,6 +20,7 @@ mod flight_control;
 
 mod configurator;
 mod esc;
+mod filtering;
 mod four_way;
 mod gps;
 mod hal;
@@ -53,6 +54,7 @@ fn main() -> ! {
 #[embassy_executor::task]
 async fn async_main(spawner_low: SendSpawner) {
     let hardware = make_hardware();
+
     let flight_exit = flight_control::flight_main(spawner_low, hardware).await;
 
     match flight_exit {

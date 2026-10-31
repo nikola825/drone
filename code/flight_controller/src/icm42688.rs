@@ -1,7 +1,7 @@
 use common::shared_objects::StoredConfig;
 use embassy_stm32::{
     gpio::Output,
-    mode::Async,
+    mode::Blocking,
     spi::{BitOrder, Spi, MODE_3},
     time::Hertz,
 };
@@ -43,6 +43,8 @@ enum ACCEL_FS_SEL {
 #[allow(non_camel_case_types, dead_code, clippy::enum_variant_names)]
 #[derive(Clone, Copy)]
 enum GYRO_ODR {
+    ODR_8KHz = 0b0011,
+    ODR_4KHz = 0b0100,
     ODR_2KHz = 0b0101,
     ODR_1KHz = 0b0110,
     ODR_100Hz = 0b1000,
@@ -57,7 +59,7 @@ enum ACCEL_ODR {
 }
 
 pub struct ICM42688 {
-    spi: Spi<'static, Async>,
+    spi: Spi<'static, Blocking>,
     cs_pin: Output<'static>,
     gyro_fs_range: GYRO_FS_SEL,
     gyro_output_rate: GYRO_ODR,
@@ -184,10 +186,16 @@ impl ICM42688 {
     pub fn new(spi_maker: impl SpiMaker) -> ICM42688 {
         let (cs_pin, spi) = spi_maker.make_spi(Hertz(20_000_000), MODE_3, BitOrder::MsbFirst);
 
+        #[cfg(feature = "software-filtering")]
+        let gyro_output_rate = GYRO_ODR::ODR_8KHz;
+
+        #[cfg(not(feature = "software-filtering"))]
+        let gyro_output_rate = GYRO_ODR::ODR_1KHz;
+
         ICM42688 {
             spi,
             cs_pin,
-            gyro_output_rate: GYRO_ODR::ODR_1KHz,
+            gyro_output_rate,
             gyro_fs_range: GYRO_FS_SEL::DPS_2000,
             accel_fs_range: ACCEL_FS_SEL::G_16,
             accel_output_rate: ACCEL_ODR::ODR_1KHz,
@@ -246,7 +254,13 @@ impl ICM42688 {
             icm_constants::ACCEL_UI_FILT_ORD1 | icm_constants::ACCEL_DEC2_M2_ORD;
         self.write_register(ICM42688Register::ACCEL_CONFIG1, accel_filter_config);
 
-        self.write_register(ICM42688Register::GYRO_ACCEL_CONFIG0, 0x44);
+        #[cfg(feature = "software-filtering")]
+        let ui_filter_config = 0xee;
+
+        #[cfg(not(feature = "software-filtering"))]
+        let ui_filter_config = 0x44;
+
+        self.write_register(ICM42688Register::GYRO_ACCEL_CONFIG0, ui_filter_config);
     }
 
     #[allow(dead_code)]

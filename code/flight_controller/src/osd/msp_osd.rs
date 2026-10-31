@@ -22,7 +22,7 @@ use embassy_stm32::{
     mode::Async,
     usart::{Parity, StopBits, UartRx, UartTx},
 };
-use embassy_time::Timer;
+use embassy_time::{Duration, Instant, Timer};
 
 pub trait IntegerStringPrinting {
     fn print_integer_value(&mut self, value: impl Into<u16>);
@@ -166,12 +166,25 @@ fn heading_offset_to_string(offset: HeadingOffset, symbol_character: OSDSymbol) 
     returned_string
 }
 
+fn duration_to_string(duration: &Duration) -> [u8; 5] {
+    let mut duration_string: [u8; 5] = [b'0', b'0', b':', b'0', b'0'];
+
+    let minutes = duration.as_secs() / 60;
+    let seconds = duration.as_secs() % 60;
+
+    duration_string[3..5].print_integer_value_keep_leading_zeros(seconds as u16);
+    duration_string[0..2].print_integer_value_keep_leading_zeros(minutes as u16);
+
+    duration_string
+}
+
 async fn draw_status_osd(
     tx: &mut UartTx<'static, Async>,
     shared_state: &SharedState,
     command_state: &CommandState,
     gps_state: &GPSState,
     home_position: &Option<SpherePosition>,
+    flight_duration: Option<Duration>,
 ) -> Result<(), embassy_stm32::usart::Error> {
     const LEFT_COLUMN: u8 = 0;
     const RIGHT_COLUMN: u8 = 44;
@@ -258,6 +271,11 @@ async fn draw_status_osd(
 
     add_string_to_column(tx, &mut right_column, *arming_message).await?;
 
+    if let Some(flight_duration) = flight_duration {
+        let duration_string = duration_to_string(&flight_duration);
+        add_string_to_column(tx, &mut right_column, duration_string).await?;
+    }
+
     draw_display(tx).await
 }
 
@@ -291,12 +309,29 @@ async fn osd_refresh_task(
 ) {
     info!("OSD task start");
     let mut home: Option<SpherePosition> = None;
+    let mut flight_start: Option<Instant> = None;
+    let mut flight_end = Instant::now();
+    let mut was_armed = false;
 
     loop {
         Timer::after_millis(200).await;
 
         let command_state = shared_state.command_snapshot();
         let armed = command_state.arming_tracker.is_armed();
+
+        if armed {
+            flight_end = Instant::now();
+            if !was_armed {
+                flight_start = Some(flight_end);
+            }
+        }
+
+        was_armed = armed;
+
+        let flight_duration = flight_start
+            .as_ref()
+            .and_then(|flight_start| Some(flight_end - *flight_start));
+
         let gps_state = shared_state.get_gps_state();
 
         if let Some(packet) = &gps_state.gps_packet {
@@ -317,7 +352,15 @@ async fn osd_refresh_task(
         let _ = transmit_fc_variant_inav(&mut tx).await; // Pretend to be INAV - I like the character map
         let _ = transmit_sticks(&mut tx, &command_state).await;
         let _ = transmit_status(&mut tx, armed).await;
-        let _ = draw_status_osd(&mut tx, shared_state, &command_state, &gps_state, &home).await;
+        let _ = draw_status_osd(
+            &mut tx,
+            shared_state,
+            &command_state,
+            &gps_state,
+            &home,
+            flight_duration,
+        )
+        .await;
     }
 }
 

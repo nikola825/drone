@@ -127,9 +127,6 @@ pub fn make_hardware() -> generic_hardware_type!() {
             sck_pin: peripherals.PB3,
             miso_pin: peripherals.PB4,
             mosi_pin: peripherals.PB5,
-
-            rx_dma: peripherals.DMA1_CH0,
-            tx_dma: peripherals.DMA1_CH5,
             cs_pin: peripherals.PB9.into(),
         },
 

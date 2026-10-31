@@ -21,7 +21,7 @@ const STORED_CONFIG_START: u32 = FLASH_SIZE - STORED_CONFIG_STRUCT_SIZE;
 const FLASH_ERASE_SIZE: u32 = embassy_stm32::flash::BANK2_REGION.erase_size;
 const FLASH_ERASE_START: u32 = FLASH_SIZE - FLASH_ERASE_SIZE;
 pub const USB_DEVICE_PRODUCT: &str = "STM32H743 flight controller";
-pub use embassy_stm32::peripherals::DMA2_CH0 as DSHOT_DMA;
+pub use embassy_stm32::peripherals::DMA1_CH6 as DSHOT_DMA;
 pub use embassy_stm32::peripherals::TIM1 as SERVO_TIMER;
 pub use embassy_stm32::peripherals::TIM1 as DSHOT_TIMER;
 
@@ -149,8 +149,8 @@ pub fn make_hardware() -> generic_hardware_type!() {
         peripheral: peripherals.UART4,
         tx_pin: peripherals.PA0,
         rx_pin: peripherals.PA1,
-        rx_dma: peripherals.DMA1_CH4,
-        tx_dma: peripherals.DMA1_CH5,
+        rx_dma: peripherals.DMA1_CH0,
+        tx_dma: peripherals.DMA1_CH1,
         irqs: Irqs,
     };
 
@@ -158,8 +158,8 @@ pub fn make_hardware() -> generic_hardware_type!() {
         peripheral: peripherals.UART7,
         tx_pin: peripherals.PE8,
         rx_pin: peripherals.PE7,
-        rx_dma: peripherals.DMA1_CH6,
-        tx_dma: peripherals.DMA1_CH7,
+        rx_dma: peripherals.DMA1_CH2,
+        tx_dma: peripherals.DMA1_CH3,
         irqs: Irqs,
     };
 
@@ -167,8 +167,8 @@ pub fn make_hardware() -> generic_hardware_type!() {
         peripheral: peripherals.USART2,
         rx_pin: peripherals.PA3,
         tx_pin: peripherals.PA2,
-        tx_dma: peripherals.DMA1_CH2,
-        rx_dma: peripherals.DMA1_CH3,
+        tx_dma: peripherals.DMA1_CH4,
+        rx_dma: peripherals.DMA1_CH5,
         irqs: Irqs,
     };
 
@@ -214,9 +214,6 @@ pub fn make_hardware() -> generic_hardware_type!() {
             sck_pin: peripherals.PB3,
             miso_pin: peripherals.PB4,
             mosi_pin: peripherals.PB5,
-
-            rx_dma: peripherals.DMA1_CH0,
-            tx_dma: peripherals.DMA1_CH1,
             cs_pin: peripherals.PB7.into(),
         },
 
@@ -241,7 +238,7 @@ pub fn make_hardware() -> generic_hardware_type!() {
             motor1: motor_pins.1.into(),
             motor2: motor_pins.2.into(),
             motor3: motor_pins.3.into(),
-            dshot_dma: peripherals.DMA2_CH0,
+            dshot_dma: peripherals.DMA1_CH6,
             dshot_timer: peripherals.TIM1,
             dshot_gpio: GPIOE,
         },
