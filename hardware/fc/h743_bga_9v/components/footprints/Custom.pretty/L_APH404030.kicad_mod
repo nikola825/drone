@@ -1,0 +1,199 @@
+(footprint "L_APH404030"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "L_Coilcraft_XxL4030 https://www.coilcraft.com/pdfs/xfl4030.pdf")
+	(tags "L Coilcraft XxL4030")
+	(property "Reference" "L1"
+		(at -0.10683 2.75 0)
+		(layer "F.SilkS")
+		(uuid "8ae31e41-67a1-47c4-87b3-4bdac48b9914")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "XEL4030-472MEC"
+		(at 0 3 180)
+		(layer "F.Fab")
+		(uuid "e7f1b9bd-14d5-492d-a2c9-ae8688594d3a")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "d4ba629e-28b2-4616-87c3-cc99f55b09cd")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Inductor"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "2ff16163-bfa3-49bb-9f3a-00f58ada5f34")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property ki_fp_filters "Choke_* *Coil* Inductor_* L_*")
+	(sheetname "/")
+	(sheetfile "droneboard.kicad_sch")
+	(attr smd)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start -2.154 2.154)
+		(end 2.154 2.154)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "6af44a74-4bb8-4eb0-b950-81f121ca16d8")
+	)
+	(fp_line
+		(start 2.154 -2.154)
+		(end -2.154 -2.154)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "a46e29d8-2914-4d1b-8ecd-9e8f430f17cc")
+	)
+	(fp_line
+		(start -2.26 -2.26)
+		(end -2.26 2.26)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "d4f646cc-c932-4e8a-bb20-6302ca4ba2e5")
+	)
+	(fp_line
+		(start -2.26 2.26)
+		(end 2.26 2.26)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "bd577cb2-10d8-4ed9-b51a-de36e2519792")
+	)
+	(fp_line
+		(start 2.26 -2.26)
+		(end -2.26 -2.26)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "4594b67c-e12f-4028-b128-e1d6d7331ace")
+	)
+	(fp_line
+		(start 2.26 2.26)
+		(end 2.26 -2.26)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "6e684009-822d-4b4e-8c00-9010c5b15be7")
+	)
+	(fp_line
+		(start -2 -2)
+		(end -2 2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "ffa719ed-8b2b-4088-a0cc-4624d22783f5")
+	)
+	(fp_line
+		(start -2 2)
+		(end 2 2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "d24d6c51-4e14-4a90-acd4-cd9eb016aa7d")
+	)
+	(fp_line
+		(start 2 -2)
+		(end -2 -2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "6f77210b-3768-4f04-ab0a-33ed0fbc3546")
+	)
+	(fp_line
+		(start 2 2)
+		(end 2 -2)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "d4e646e8-b6d9-4e1e-a3e7-7556c8ca3f30")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "28830ed2-f53e-4da7-8a86-f05de2e6f290")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "1" smd rect
+		(at -1.35 0)
+		(size 1.4 4.1)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(zone_connect 2)
+		(uuid "2f345457-899f-4c73-8a02-b5c8c05b47cc")
+	)
+	(pad "2" smd rect
+		(at 1.35 0)
+		(size 1.4 4.1)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(clearance 0.4)
+		(zone_connect 2)
+		(uuid "2f15bc10-7144-4c6f-a8e4-dbf2993e9a47")
+	)
+	(embedded_fonts no)
+	(model "${KICAD8_3DMODEL_DIR}/Inductor_SMD.3dshapes/L_Coilcraft_XAL4030-XXX.step"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)
