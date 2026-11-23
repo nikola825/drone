@@ -1,0 +1,10 @@
+{
+  "name": "nikola825 Drone configurator",
+  "short_name": "nikola825-drone-configurator",
+  "lang": "en-US",
+  "id": "/index.html",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "white",
+  "theme_color": "white"
+}

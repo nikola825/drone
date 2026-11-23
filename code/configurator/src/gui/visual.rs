@@ -1,54 +1,92 @@
-use std::time::Instant;
+use std::{sync::mpsc::Sender, time::Duration};
 
 use common::shared_objects::{MotorDirection, MotorPosition};
-use iced::{
-    Alignment::Center,
-    Background, Color, Element, Font,
-    Length::{self, Fill, Shrink},
-    color,
-    widget::{Column, Row, button, container, pick_list, radio, rule, text, text_input},
+use eframe::App;
+use egui::{Color32, Id, Layout, Modal, RichText, Spinner};
+
+use crate::{
+    gui::{Gui, Message, MotorSettings, SerialPortPicker, SharedState},
+    time_wrapper::now,
 };
 
-use crate::gui::{AvailablePort, Gui, Message, MotorSettings, SerialPortPicker, SharedState};
+impl App for Gui {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if let Some(message) = &self.message_box_message.as_ref() {
+            let modal = Modal::new(Id::new("MessageBox")).show(ui.ctx(), |ui| {
+                ui.set_width(300f32);
+                ui.set_height(100f32);
+                ui.vertical(|ui| {
+                    ui.horizontal_centered(|ui| {
+                        ui.centered_and_justified(|ui| {
+                            ui.label(*message);
+                        });
+                    });
+                    ui.vertical_centered_justified(|ui| {
+                        if ui.button("OK").clicked() {
+                            self.sender.send(Message::DismissMessageBox).unwrap();
+                        }
+                    })
+                });
+            });
+            if modal.should_close() {
+                self.sender.send(Message::DismissMessageBox).unwrap();
+            }
+        } else if let Some(taken_time) = self.connection.lock().unwrap().taken_time() {
+            let age = web_time::Instant::now() - taken_time;
+            if age.as_millis() > 100 {
+                Modal::new(Id::new("BusyModal")).show(ui.ctx(), |ui| {
+                    ui.set_width(300f32);
+                    ui.set_height(100f32);
+                    ui.vertical(|ui| {
+                        ui.horizontal_centered(|ui| {
+                            ui.centered_and_justified(|ui| {
+                                ui.label("Busy");
+                            });
+                        });
+                        ui.vertical_centered_justified(|ui| {
+                            ui.add(Spinner::new());
+                        });
+                    });
+                });
+            }
+        }
+        egui::Panel::top("top")
+            .resizable(false)
+            .show(ui, |ui| self.status_bar(ui));
+        egui::Panel::left("left")
+            .resizable(true)
+            .show(ui, |ui| self.side_bar(ui));
+        egui::CentralPanel::default_margins().show(ui, |ui| self.main_view(ui));
+        ui.ctx().request_repaint_after_secs(1f32);
+    }
 
-use iced::widget::{column, row};
-
-impl Gui {
-    pub(super) fn view(&self) -> Element<'_, Message> {
-        if let Some(message) = self.message_box_message.as_ref() {
-            MessageBox::show_message(message, true)
-        } else {
-            column![
-                self.status_bar().height(Shrink).padding(5),
-                rule::horizontal(1),
-                row![
-                    self.side_bar().padding(5),
-                    rule::vertical(1),
-                    self.main_view().padding(5).width(Fill)
-                ]
-                .height(Fill)
-                .width(Fill)
-            ]
-            .into()
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if (now() - self.last_tick) > Duration::from_secs(1) {
+            self.sender.send(Message::Tick).unwrap();
+        }
+        while let Ok(message) = self.receiver.try_recv() {
+            self.update(message, ctx);
         }
     }
-
-    fn side_bar(&self) -> Column<'_, Message> {
-        column![
-            button("Start CFG")
-                .on_press(Message::EnterConfigurator)
-                .width(Fill),
-            button("Reset FC").on_press(Message::ResetFc).width(Fill),
-        ]
-        .width(150)
-        .spacing(10)
+}
+impl Gui {
+    fn side_bar(&mut self, ui: &mut egui::Ui) {
+        ui.vertical_centered_justified(|ui| {
+            ui.add_space(10f32);
+            if ui.button("Start CFG").clicked() {
+                self.sender.send(Message::EnterConfigurator).unwrap();
+            }
+            if ui.button("Reset FC").clicked() {
+                self.sender.send(Message::ResetFc).unwrap();
+            }
+        });
     }
 
-    fn main_view(&self) -> Column<'_, Message> {
-        self.motor_settings.view(&self.state)
+    fn main_view(&mut self, ui: &mut egui::Ui) {
+        self.motor_settings.view(ui, &self.state, &self.sender)
     }
 
-    fn status_bar(&self) -> Row<'_, Message> {
+    fn status_bar(&mut self, ui: &mut egui::Ui) {
         let status: String = if !self.state.connected {
             "Disconnected".into()
         } else if !self.state.last_fc_status.valid {
@@ -64,7 +102,7 @@ impl Gui {
                 common::configurator_protocol::messages::FcPhase::Config => "CFG",
             };
 
-            let status_age = Instant::now() - self.state.last_fc_status_update;
+            let status_age = now() - self.state.last_fc_status_update;
             let status_age = status_age.as_secs();
 
             format!(
@@ -81,169 +119,159 @@ impl Gui {
             )
         };
 
-        row![
-            self.port_picker.view().width(Shrink),
-            text(status).width(Fill).center()
-        ]
-        .align_y(Center)
-        .spacing(10)
-    }
-}
-
-struct MessageBox {}
-
-impl<'a> MessageBox {
-    fn show_message(message_text: &'a str, show_dismiss_button: bool) -> Element<'a, Message> {
-        let mut inner_content = column![text(message_text).center().width(Fill),].align_x(Center);
-
-        if show_dismiss_button {
-            inner_content =
-                inner_content.push(button("Dismiss").on_press(Message::DismissMessageBox));
-        }
-
-        container(
-            container(inner_content)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .center_x(Length::Fill)
-                .center_y(Length::Fill),
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .style(move |_theme: &iced::Theme| container::Style {
-            background: Some(Background::Color(Color::BLACK)),
-            ..Default::default()
-        })
-        .into()
+        ui.horizontal_top(|ui| {
+            self.port_picker.view(ui, &self.sender);
+            ui.separator();
+            ui.with_layout(Layout::right_to_left(egui::Align::Max), |ui| {
+                ui.label(status);
+            });
+        });
     }
 }
 
 impl SerialPortPicker {
-    fn view(&self) -> Row<'_, Message> {
-        row![
-            button("Refresh").on_press(Message::RefreshPorts),
-            pick_list(
-                self.available_ports.clone(),
-                self.selected.clone(),
-                Message::ChosePort
-            )
-            .placeholder("Chose FC serial port"),
-            button("Connect").on_press(Message::ConnectToPort),
-        ]
-        .spacing(10)
-    }
+    fn view(&mut self, ui: &mut egui::Ui, sender: &Sender<Message>) {
+        ui.horizontal_top(|ui| {
+            if ui.button("Refresh").clicked() {
+                sender.send(Message::RefreshPorts).unwrap();
+            }
 
-    pub(super) fn chose_port(&mut self, port: AvailablePort) {
-        self.selected = Some(port);
+            let selected_text = if let Some(selected) = self.selected.as_ref() {
+                &selected.to_string()
+            } else {
+                "Select port"
+            };
+            egui::ComboBox::from_id_salt("Select port")
+                .selected_text(selected_text)
+                .show_ui(ui, |ui| {
+                    for port in self.available_ports.iter().as_ref() {
+                        ui.selectable_value(
+                            &mut self.selected,
+                            Some(port.clone()),
+                            port.to_string(),
+                        );
+                    }
+                });
+            if ui.button("Connect").clicked() {
+                sender.send(Message::ConnectToPort).unwrap();
+            }
+        });
     }
 }
 
 impl MotorSettings {
-    fn view(&self, state: &SharedState) -> Column<'_, Message> {
+    fn view(&self, ui: &mut egui::Ui, state: &SharedState, sender: &Sender<Message>) {
         match state.last_fc_status.fc_phase {
-            common::configurator_protocol::messages::FcPhase::Config => self.view_actual(state),
-            _ => column![MessageBox::show_message(
-                "Flight controller not in config mode",
-                false
-            )],
+            common::configurator_protocol::messages::FcPhase::Config => {
+                self.view_actual(ui, state, sender)
+            }
+            _ => {
+                ui.horizontal_centered(|ui| {
+                    ui.centered_and_justified(|ui| {
+                        ui.label("Flight controller not in config mode");
+                    })
+                });
+            }
         }
     }
 
-    fn view_actual(&self, state: &SharedState) -> Column<'_, Message> {
-        let (mut column, dirty_text) = state
-            .config
-            .read_if_loaded(|config, dirty| {
-                let mut column = column![].spacing(10).width(Fill).height(Fill);
+    fn view_actual(&self, ui: &mut egui::Ui, state: &SharedState, sender: &Sender<Message>) {
+        ui.vertical(|ui| {
+            let dirty_text = state
+                .config
+                .read_if_loaded(|config, dirty| {
+                    for motor_index in 0..state.motor_count {
+                        let position = config.motor_positions.get_position_of(motor_index).unwrap();
+                        let mut new_position = position;
+                        let direction = config.get_direction_of(motor_index);
+                        let mut new_direction = direction;
 
-                for motor_index in 0..state.motor_count {
-                    let position = config.motor_positions.get_position_of(motor_index).unwrap();
-                    let direction = config.get_direction_of(motor_index);
+                        ui.horizontal(|ui| {
+                            egui::ComboBox::from_id_salt(format!("MotorPosition{}", motor_index))
+                                .selected_text(position.to_string())
+                                .width(200f32)
+                                .show_ui(ui, |ui| {
+                                    for possible_position in MotorPosition::all_values() {
+                                        ui.selectable_value(
+                                            &mut new_position,
+                                            possible_position,
+                                            possible_position.to_string(),
+                                        );
+                                    }
+                                });
+                            if new_position != position {
+                                sender
+                                    .send(Message::MotorPositionChosen(motor_index, new_position))
+                                    .unwrap();
+                            }
 
-                    column = column.push(
-                        row![
-                            pick_list(
-                                MotorPosition::all_values(),
-                                Some(position),
-                                move |position: MotorPosition| {
-                                    Message::MotorPositionChosen(motor_index, position)
-                                }
-                            )
-                            .width(Fill),
-                            radio(
-                                "Forward",
-                                MotorDirection::Forward,
-                                Some(direction),
-                                |direction| {
-                                    Message::MotorDirectionChosen(motor_index, direction)
-                                }
-                            ),
-                            radio(
-                                "Backward",
+                            ui.radio_value(&mut new_direction, MotorDirection::Forward, "Forward");
+                            ui.radio_value(
+                                &mut new_direction,
                                 MotorDirection::Backward,
-                                Some(direction),
-                                |direction| {
-                                    Message::MotorDirectionChosen(motor_index, direction)
-                                }
-                            )
-                        ]
-                        .spacing(10)
-                        .align_y(Center)
-                        .width(Fill),
-                    );
+                                "Backward",
+                            );
+
+                            if new_direction != direction {
+                                sender
+                                    .send(Message::MotorDirectionChosen(motor_index, new_direction))
+                                    .unwrap();
+                            }
+                        });
+                    }
+                    egui::Grid::new("YPRConfig").num_columns(2).show(ui, |ui| {
+                        let mut yaw_offset_string = self.yaw_offset_string.clone();
+                        ui.label("Yaw offset:");
+                        ui.text_edit_singleline(&mut yaw_offset_string);
+
+                        if yaw_offset_string != self.yaw_offset_string {
+                            sender
+                                .send(Message::YawOffsetchanged(yaw_offset_string))
+                                .unwrap();
+                        }
+
+                        ui.end_row();
+
+                        let mut pitch_offset_string = self.pitch_offset_string.clone();
+                        ui.label("Pitch offset:");
+                        ui.text_edit_singleline(&mut pitch_offset_string);
+
+                        if pitch_offset_string != self.pitch_offset_string {
+                            sender
+                                .send(Message::PitchOffsetChanged(pitch_offset_string))
+                                .unwrap();
+                        }
+
+                        ui.end_row();
+
+                        let mut roll_offset_string = self.roll_offset_string.clone();
+                        ui.label("Roll offset:");
+                        ui.text_edit_singleline(&mut roll_offset_string);
+
+                        if roll_offset_string != self.roll_offset_string {
+                            sender
+                                .send(Message::RollOffsetChanged(roll_offset_string))
+                                .unwrap();
+                        }
+
+                        ui.end_row();
+                    });
+                    if dirty {
+                        RichText::new("DIRTY").color(Color32::RED).strong()
+                    } else {
+                        RichText::new("STORED").color(Color32::GREEN).strong()
+                    }
+                })
+                .unwrap_or(RichText::new(""));
+            ui.horizontal(|ui| {
+                if ui.button("Read config").clicked() {
+                    sender.send(Message::ReadConfig).unwrap();
                 }
-
-                column = column.extend([
-                    row![
-                        text("Yaw offset:").width(150),
-                        text_input("Yaw offset", &self.yaw_offset_string)
-                            .on_input(Message::YawOffsetchanged)
-                    ]
-                    .spacing(10)
-                    .align_y(Center)
-                    .into(),
-                    row![
-                        text("Pitch offset:").width(150),
-                        text_input("Pitch offset", &self.pitch_offset_string)
-                            .on_input(Message::PitchOffsetChanged)
-                    ]
-                    .spacing(10)
-                    .align_y(Center)
-                    .into(),
-                    row![
-                        text("Roll offset:").width(150),
-                        text_input("Roll offset", &self.roll_offset_string)
-                            .on_input(Message::RollOffsetChanged)
-                    ]
-                    .spacing(10)
-                    .align_y(Center)
-                    .into(),
-                ]);
-
-                let mut dirty_font = Font::MONOSPACE;
-                dirty_font.weight = iced::font::Weight::Bold;
-
-                let dirty_text = if dirty {
-                    text("DIRTY").color(color!(0xff0000))
-                } else {
-                    text("STORED").color(color!(0x00ff00))
-                };
-
-                let dirty_text = dirty_text.size(16).font(dirty_font);
-
-                (column, dirty_text)
+                if ui.button("Store config").clicked() {
+                    sender.send(Message::SaveConfig).unwrap();
+                }
+                ui.label(dirty_text);
             })
-            .unwrap_or((column![], text("")));
-
-        column = column.push(
-            row![
-                button("Read config").on_press(Message::ReadConfig),
-                button("Store config").on_press(Message::SaveConfig),
-                dirty_text.width(Fill),
-            ]
-            .spacing(10)
-            .align_y(Center),
-        );
-
-        column
+        });
     }
 }

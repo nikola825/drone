@@ -8,7 +8,10 @@
           "./configurator/Cargo.toml",
         ],
         "cargo": {
-          "allTargets": false
+          "allTargets": false,
+          "target": "wasm32-unknown-unknown"
+          //"target": "x86_64-unknown-linux-gnu"
+          //"target": "thumbv7em-none-eabihf"
         },
       }
     }
