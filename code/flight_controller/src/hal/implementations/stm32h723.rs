@@ -1,5 +1,7 @@
 #![cfg(feature = "stm32h723")]
 use embassy_executor::InterruptExecutor;
+#[cfg(feature = "quad")]
+use embassy_stm32::pac::GPIOE;
 use embassy_stm32::{
     adc::AdcChannel,
     bind_interrupts,
@@ -23,7 +25,9 @@ use embassy_stm32::interrupt;
 
 pub use embassy_stm32::peripherals::PA11 as USB_DM;
 pub use embassy_stm32::peripherals::PA12 as USB_DP;
+pub use embassy_stm32::peripherals::DMA2_CH1 as DSHOT_DMA;
 pub use embassy_stm32::peripherals::TIM1 as SERVO_TIMER;
+pub use embassy_stm32::peripherals::TIM1 as DSHOT_TIMER;
 pub use embassy_stm32::peripherals::USB_OTG_HS as USB_PERIPHERAL;
 
 #[cfg(feature = "wing")]
@@ -139,6 +143,7 @@ pub fn make_peripherals() -> Peripherals {
     peripherals
 }
 
+
 pub fn make_hardware() -> generic_hardware_type!() {
     let peripherals = make_peripherals();
 
@@ -150,6 +155,7 @@ pub fn make_hardware() -> generic_hardware_type!() {
         tx_dma: peripherals.DMA1_CH7,
         irqs: Irqs,
     };
+
     let uart4 = UartPort {
         peripheral: peripherals.UART4,
         tx_pin: peripherals.PA0,
@@ -204,6 +210,8 @@ pub fn make_hardware() -> generic_hardware_type!() {
             peripheral: peripherals.USB_OTG_HS,
         },
 
+        battery_meter: BatteryMeter::new(peripherals.PA4.degrade_adc(), peripherals.ADC1),
+
         imu_spi: SpiPort {
             peripheral: peripherals.SPI1,
             sck_pin: peripherals.PB3,
@@ -211,8 +219,6 @@ pub fn make_hardware() -> generic_hardware_type!() {
             mosi_pin: peripherals.PB5,
             cs_pin: peripherals.PB7.into(),
         },
-
-        battery_meter: BatteryMeter::new(peripherals.PA4.degrade_adc(), peripherals.ADC1),
 
         #[cfg(feature = "wing")]
         motor_layout: WingLayout {
@@ -235,6 +241,9 @@ pub fn make_hardware() -> generic_hardware_type!() {
             motor1: motor_pins.1.into(),
             motor2: motor_pins.2.into(),
             motor3: motor_pins.3.into(),
+            dshot_dma: peripherals.DMA2_CH1,
+            dshot_timer: peripherals.TIM1,
+            dshot_gpio: GPIOE,
         },
 
         radio_uart: uart7,
@@ -263,67 +272,5 @@ pub fn get_spawners() -> Spawners {
     Spawners {
         spawner_high,
         spawner_low,
-    }
-}
-
-#[cfg(feature = "dshot300")]
-pub mod dshot_delays {
-    use cortex_m::interrupt::CriticalSection;
-
-    use crate::hal::mcu_utils::ICachePause;
-
-    #[inline(always)]
-    pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop450!();
-        }
-    }
-
-    #[inline(always)]
-    pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop450!();
-        }
-    }
-
-    #[inline(always)]
-    pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop350!();
-        }
-    }
-}
-
-#[cfg(feature = "dshot600")]
-pub mod dshot_delays {
-    use cortex_m::interrupt::CriticalSection;
-
-    use crate::hal::mcu_utils::ICachePause;
-
-    #[inline(always)]
-    pub fn dshot_delay_0(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop225!();
-        }
-    }
-
-    #[inline(always)]
-    pub fn dshot_delay_0_to_1(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop225!();
-        }
-    }
-
-    #[inline(always)]
-    pub fn dshot_delay_remainder(_: &CriticalSection, _: &ICachePause) {
-        use crate::nopdelays::*;
-        unsafe {
-            nop175!();
-        }
     }
 }
